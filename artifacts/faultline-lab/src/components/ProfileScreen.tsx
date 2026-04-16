@@ -14,6 +14,7 @@ import {
   LogOut,
   Cloud,
   CloudOff,
+  Pencil,
 } from 'lucide-react';
 
 export default function ProfileScreen() {
@@ -78,12 +79,13 @@ export default function ProfileScreen() {
                   autoFocus
                 />
               ) : (
-                <h1
-                  className="text-lg sm:text-xl font-bold text-zinc-100 cursor-pointer hover:text-cyan-300 transition-colors truncate"
+                <button
+                  className="flex items-center gap-2 text-lg sm:text-xl font-bold text-zinc-100 hover:text-cyan-300 transition-colors group"
                   onClick={() => setEditingName(true)}
                 >
-                  {profile.name}
-                </h1>
+                  <span className="truncate">{profile.name}</span>
+                  <Pencil size={14} className="text-zinc-600 group-hover:text-cyan-400 shrink-0 transition-colors" />
+                </button>
               )}
               <p className="text-xs sm:text-sm text-zinc-500">
                 Active since {new Date(profile.createdAt).toLocaleDateString()}

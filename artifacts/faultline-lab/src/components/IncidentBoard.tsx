@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { allCases, categoryLabels, difficultyColors } from '@/data/cases';
+import { isCaseAccessible, getRequiredProductForCase } from '@/lib/entitlements';
 import type { CaseDefinition } from '@/types';
 import {
   Monitor,
@@ -17,7 +18,7 @@ import {
   AlertTriangle,
   ShoppingBag,
   LogIn,
-  LogOut,
+  Lock,
 } from 'lucide-react';
 
 const categoryIconMap: Record<string, React.ReactNode> = {
@@ -33,10 +34,17 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
   const startCase = useAppStore(s => s.startCase);
   const resumeCase = useAppStore(s => s.resumeCase);
   const restartCase = useAppStore(s => s.restartCase);
+  const setView = useAppStore(s => s.setView);
   const isSolved = useAppStore(s => s.isCaseSolved(caseDef.id));
   const bestScore = useAppStore(s => s.getCaseScore(caseDef.id));
+  const accessible = isCaseAccessible(caseDef.id);
+  const requiredProduct = !accessible ? getRequiredProductForCase(caseDef.id) : null;
 
   const handleClick = () => {
+    if (!accessible) {
+      setView('store');
+      return;
+    }
     if (isSolved) {
       resumeCase(caseDef.id);
     } else {
@@ -54,23 +62,36 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
       onClick={handleClick}
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
-      className="w-full text-left bg-[#111822] border border-zinc-800/60 rounded-lg p-5 hover:border-cyan-500/30 transition-all duration-300 group relative overflow-hidden"
+      className={`w-full text-left bg-[#111822] border rounded-lg p-5 transition-all duration-300 group relative overflow-hidden
+        ${accessible
+          ? 'border-zinc-800/60 hover:border-cyan-500/30'
+          : 'border-zinc-800/30 opacity-70 hover:opacity-90 hover:border-amber-500/30'
+        }`}
     >
-      {isSolved && (
+      {isSolved && accessible && (
         <div className="absolute top-3 right-3">
           <CheckCircle size={18} className="text-emerald-400" />
         </div>
       )}
+      {!accessible && (
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 text-xs text-amber-400/80">
+          <Lock size={14} />
+        </div>
+      )}
 
       <div className="flex items-center gap-3 mb-3">
-        <div className="p-2 rounded bg-zinc-800/60 text-cyan-400">
+        <div className={`p-2 rounded shrink-0 ${accessible ? 'bg-zinc-800/60 text-cyan-400' : 'bg-zinc-800/40 text-zinc-500'}`}>
           {categoryIconMap[caseDef.category]}
         </div>
         <div>
           <div className="text-xs text-zinc-500 uppercase tracking-wider">
             {categoryLabels[caseDef.category]}
           </div>
-          <h3 className="text-base font-semibold text-zinc-100 group-hover:text-cyan-300 transition-colors">
+          <h3 className={`text-base font-semibold transition-colors ${
+            accessible
+              ? 'text-zinc-100 group-hover:text-cyan-300'
+              : 'text-zinc-400 group-hover:text-amber-300'
+          }`}>
             {caseDef.title}
           </h3>
         </div>
@@ -83,7 +104,7 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span
-            className={`text-xs font-medium uppercase tracking-wider ${difficultyColors[caseDef.difficulty]}`}
+            className={`text-xs font-medium uppercase tracking-wider ${accessible ? difficultyColors[caseDef.difficulty] : 'text-zinc-600'}`}
           >
             {caseDef.difficulty}
           </span>
@@ -95,10 +116,15 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
         </div>
 
         <div className="flex items-center gap-3">
-          {isSolved && (
+          {!accessible && requiredProduct && (
+            <span className="text-[11px] text-amber-400/70 font-mono">
+              {requiredProduct.pricingType === 'free' ? 'Requires upgrade' : `${requiredProduct.name}`}
+            </span>
+          )}
+          {accessible && isSolved && (
             <span
               onClick={handleReplay}
-              className="text-xs text-zinc-600 hover:text-cyan-400 transition-colors cursor-pointer z-10"
+              className="text-xs text-zinc-600 hover:text-cyan-400 transition-colors cursor-pointer z-10 px-2 py-1 -my-1"
             >
               Replay
             </span>
@@ -112,7 +138,9 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/0 group-hover:via-cyan-500/40 to-transparent transition-all duration-500" />
+      <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent to-transparent transition-all duration-500 ${
+        accessible ? 'via-cyan-500/0 group-hover:via-cyan-500/40' : 'via-amber-500/0 group-hover:via-amber-500/30'
+      }`} />
     </motion.button>
   );
 }
@@ -205,7 +233,7 @@ export default function IncidentBoard() {
               transition={{ delay: 0.3 }}
               className="mt-8 p-4 bg-[#111822] border border-zinc-800/40 rounded-lg"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-6">
                   <div>
                     <div className="text-xs text-zinc-500 uppercase tracking-wider">

@@ -1,4 +1,6 @@
 import { CATALOG, FREE_CASE_IDS, type CatalogProduct } from '@/data/catalog';
+import { allCases } from '@/data/cases';
+import { toast } from 'sonner';
 
 export interface EntitlementState {
   ownedProductIds: string[];
@@ -26,6 +28,20 @@ export function resetEntitlements(): void {
   currentEntitlements = { ...DEFAULT_ENTITLEMENTS };
 }
 
+export function addOwnedProduct(productId: string): void {
+  if (!currentEntitlements.ownedProductIds.includes(productId)) {
+    currentEntitlements = {
+      ...currentEntitlements,
+      ownedProductIds: [...currentEntitlements.ownedProductIds, productId],
+    };
+    const product = CATALOG.find(p => p.id === productId);
+    if (product?.entitlementType === 'subscription') {
+      currentEntitlements.isProUser = true;
+      currentEntitlements.activeSubscription = productId;
+    }
+  }
+}
+
 export function hasEntitlement(productId: string): boolean {
   if (productId === 'base-free') return true;
 
@@ -50,11 +66,20 @@ function isIncludedInPro(product: CatalogProduct): boolean {
   return false;
 }
 
+function getAllCurrentCaseIds(): string[] {
+  return allCases.map(c => c.id);
+}
+
 export function isCaseAccessible(caseId: string): boolean {
   if (FREE_CASE_IDS.includes(caseId)) return true;
 
-  const allFreeCaseIds = ['windows-ad-kerberos', 'networking-vpn-phase2', 'automotive-alternator', 'electronics-mesh-firmware'];
-  if (allFreeCaseIds.includes(caseId)) return true;
+  const currentCaseIds = getAllCurrentCaseIds();
+  if (currentCaseIds.includes(caseId)) {
+    const hasCatalogPack = CATALOG.some(
+      p => p.status === 'available' && p.includedCaseIds?.includes(caseId) && !FREE_CASE_IDS.includes(caseId)
+    );
+    if (!hasCatalogPack) return true;
+  }
 
   if (currentEntitlements.isProUser) return true;
 
@@ -105,7 +130,7 @@ export function getProductOwnershipStatus(productId: string): 'owned' | 'availab
 }
 
 export function getRequiredProductForCase(caseId: string): CatalogProduct | null {
-  if (FREE_CASE_IDS.includes(caseId)) return null;
+  if (isCaseAccessible(caseId)) return null;
 
   const pack = CATALOG.find(p =>
     p.entitlementType === 'content-pack' && p.includedCaseIds?.includes(caseId)

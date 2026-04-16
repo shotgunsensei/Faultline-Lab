@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { fetchProfile, saveProfileToCloud, fetchEntitlements } from '@/lib/api';
 import { setEntitlements } from '@/lib/entitlements';
-import { loadCaseStates } from '@/lib/persistence';
+import { loadCaseStates, saveCaseStates } from '@/lib/persistence';
 
 export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   const isSignedIn = useAppStore(s => s.isSignedIn);
@@ -28,6 +28,18 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
       }
       if (profileData?.settings) {
         useAppStore.getState().updateSettings(profileData.settings);
+      }
+      if (profileData?.caseStates && typeof profileData.caseStates === 'object') {
+        const localStates = loadCaseStates();
+        const merged = { ...profileData.caseStates };
+        for (const [caseId, localState] of Object.entries(localStates)) {
+          const cloudState = merged[caseId] as any;
+          const local = localState as any;
+          if (!cloudState || (local?.lastActiveAt && (!cloudState.lastActiveAt || local.lastActiveAt > cloudState.lastActiveAt))) {
+            merged[caseId] = localState;
+          }
+        }
+        saveCaseStates(merged as Record<string, any>);
       }
 
       syncedRef.current = true;

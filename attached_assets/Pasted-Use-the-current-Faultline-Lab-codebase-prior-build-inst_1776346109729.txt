@@ -1,0 +1,596 @@
+Use the current Faultline Lab codebase, prior build instructions, existing MVP logic, store architecture, entitlement model, case engine, catalog system, product copy, case mappings, and commercial productization plan as the source of truth. Do NOT restart from scratch. Do NOT replace working systems with shallow polished placeholders. Finish Faultline Lab into a cohesive, commercially presentable, mobile-friendly product platform.
+
+MISSION
+Deliver a polished Faultline Lab v1 that is:
+- genuinely playable
+- responsive and mobile-friendly
+- account-based with cloud sync
+- entitlement-driven
+- monetized through subscriptions, packs, upgrades, and bundles
+- backed by a real case/content spine
+- equipped with a reusable case-authoring framework so future packs can be created faster and more safely
+
+This is not a mockup pass. This is the convergence pass where all major systems must work together.
+
+CORE PRODUCT IDENTITY
+Faultline Lab is a premium troubleshooting simulator for technical minds. Users investigate incidents across IT infrastructure, networking, Windows/Active Directory, servers, automotive diagnostics, electronics/IoT, and specialty domains. The app should feel like a serious diagnostic workbench with cinematic polish, not like a toy quiz app.
+
+PRIMARY DIRECTIVE
+Preserve what already works.
+Refactor what is weak.
+Unify what is duplicated.
+Finish what is incomplete.
+Remove cardboard.
+
+DO NOT:
+- restart the project
+- replace working logic with static UI
+- create duplicate catalog or entitlement systems
+- create duplicate case registries
+- hardcode product or case content inside UI components
+- leave fake store items, fake included case lists, or fake upgrade prompts
+- leave paid content pointing to non-launchable cases
+- leave mobile as a broken afterthought
+- leave admin, billing, catalog, packs, and case files disconnected from each other
+- respond with a plan only
+- stop at partial scaffolding
+
+DO:
+- implement the missing pieces
+- wire existing systems together
+- make data-driven registries the source of truth
+- ensure products unlock real cases and real features
+- ensure the investigation flow remains strong
+- ensure store, packs, bundles, and entitlements are real
+- ensure mobile usability is genuinely good
+- ensure future pack creation becomes faster through templates and authoring tools
+
+================================================================================
+PHASE 1: CODEBASE AUDIT AND STRUCTURAL CLEANUP
+================================================================================
+
+Audit the current codebase first.
+
+Identify and resolve:
+- duplicate registries
+- duplicate product definitions
+- duplicate case metadata
+- disconnected entitlement checks
+- hardcoded UI text that should come from the catalog layer
+- pack pages not using real case mappings
+- tools or features rendered without real access control
+- mobile layout breakage
+- dead buttons
+- dead routes
+- placeholder content
+- inconsistent product IDs, slugs, case IDs, and references
+
+Keep current stable IDs and slugs that were already defined in the existing build unless something is broken beyond repair. If previous prompts created stable product IDs, product slugs, pack IDs, upgrade IDs, bundle IDs, and case IDs, preserve them and update references cleanly.
+
+Outcome of Phase 1:
+- one catalog system
+- one case catalog system
+- one entitlement spine
+- one source of truth for store products
+- one source of truth for case metadata
+- no duplicated competing systems
+
+================================================================================
+PHASE 2: FOUNDATION, AUTH, AND PERSISTENCE
+================================================================================
+
+Finish the productization foundation.
+
+Implement or complete:
+- user authentication
+- guest mode
+- account session persistence
+- cloud sync for signed-in users
+- localStorage fallback for guests
+- migration path from local guest progress to signed-in account
+- saved progress restoration
+- solved case history restoration
+- owned product restoration
+- settings persistence
+- daily challenge persistence
+
+Preferred stack:
+- Supabase Auth + database
+or an equivalent lightweight auth/data stack that works well in Replit
+
+Requirements:
+- sign up
+- sign in
+- sign out
+- session restore
+- password reset or magic link if practical
+- clean error states
+- no client-only trust for owned products in production mode
+
+Persist at minimum:
+- investigator profile
+- cases solved
+- best scores
+- archive history
+- achievements
+- owned products
+- entitlements
+- daily challenge state
+- current subscription status
+- current in-progress investigation where practical
+- settings and UI preferences
+
+================================================================================
+PHASE 3: COMPLETE THE CATALOG AND ENTITLEMENT SPINE
+================================================================================
+
+Use the existing product catalog registry and seeded copy as the source of truth. Refine it into a production-quality system.
+
+Support these product classes:
+- free tier
+- subscription
+- one-time content pack
+- one-time feature upgrade
+- bundle
+- promotional unlock
+- admin grant
+
+Required commercial structure:
+- Faultline Lab Free
+- Faultline Lab Pro monthly
+- Faultline Lab Pro annual
+- Network Ops Pack
+- Server Graveyard Pack
+- Garage Diagnostics Pack
+- Sensor Mesh Pack
+- Mixed Cascades Pack
+- Healthcare Imaging Pack
+- Advanced Tool Suite
+- Deep Telemetry Pack
+- Sandbox Pro
+- Chaos Mode
+- Pro Investigator Analytics
+- Master Investigator Bundle
+- Clinical Systems Bundle
+
+Requirements:
+- all catalog items must be typed and registry-driven
+- all pack counts must derive from real case mappings
+- all bundles must resolve included products dynamically
+- all lock prompts must come from the catalog copy layer
+- all CTA labels must come from product data where practical
+- all ownership states must come from entitlement resolution, not UI booleans
+
+Centralize entitlement resolution.
+It must support:
+- active subscription entitlements
+- one-time pack ownership
+- one-time upgrade ownership
+- bundle-derived ownership
+- admin grants
+- promo grants
+- expired subscription behavior without removing permanent purchases
+
+Make entitlement checks reusable across:
+- store UI
+- case files
+- investigation tools
+- analytics
+- archive
+- sandbox
+- challenge modes
+- settings
+- profile
+
+================================================================================
+PHASE 4: COMPLETE THE REAL CASE SPINE
+================================================================================
+
+Use the existing case catalog and pack mapping layer as the source of truth. Finish it so the commercial catalog and playable content are fully connected.
+
+Requirements:
+- each starter case is real and launchable
+- each content pack resolves to real included case IDs
+- each case knows its owning product or access model
+- locked/unlocked case state derives from entitlements
+- pack detail pages show real included cases
+- case counts derive from actual mappings
+- bundle ownership unlocks pack cases correctly
+- free users get starter cases and only what free access allows
+- Pro subscription unlocks subscription features but not all one-time packs unless explicitly bundled
+
+No fake inventory.
+No paid pack should advertise a case that does not actually launch.
+
+If any mapped pack case is still missing implementation, implement it now using the existing simulation engine and shared tools.
+
+All playable cases must support:
+- hidden root cause
+- symptoms
+- evidence collection
+- action log
+- hints
+- diagnosis submission
+- scoring
+- debrief
+
+================================================================================
+PHASE 5: BUILD THE CASE AUTHORING FRAMEWORK
+================================================================================
+
+This is the factory floor. Build a reusable authoring system so future packs do not require handcrafted chaos every time.
+
+Create a case-authoring framework that includes:
+
+1. Authoring schema
+Use strong TypeScript types for:
+- case metadata
+- root cause model
+- symptoms
+- tool outputs
+- evidence unlock rules
+- hint tiers
+- diagnosis validation
+- scoring modifiers
+- debrief structure
+- related products / access model
+- daily challenge eligibility
+- sandbox eligibility
+
+2. Reusable case templates
+Create domain-oriented templates or blueprints for:
+- Windows/AD cases
+- networking/VPN/firewall cases
+- server/storage/service cases
+- automotive cases
+- electronics/IoT cases
+- mixed cascade cases
+- specialty healthcare imaging cases
+
+Each template should make it easier to define:
+- initial symptoms
+- relevant tools
+- possible red herrings
+- evidence triggers
+- recommended remediation
+- preventative measures
+
+3. Case composition helpers
+Create utilities that reduce boilerplate for:
+- command output registration
+- event log generation
+- evidence unlock conditions
+- hint ladder creation
+- debrief generation
+- telemetry dataset generation
+- tool panel visibility based on case type
+- product ownership mapping
+
+4. Admin or internal authoring UI
+Create a lightweight internal case composer for admins or developers that can:
+- create a new case draft from a template
+- edit metadata
+- assign category and difficulty
+- choose source product/pack
+- define symptom previews
+- define evidence unlock rules
+- define hints
+- define diagnosis validation criteria
+- define scoring modifiers
+- preview how the case card appears in Case Files and the store
+- validate the case definition before publishing
+
+This can be protected behind admin access and can be visually simple, but it must work.
+
+5. Validation
+Add validation that catches:
+- missing titles
+- missing summaries
+- missing owning product for premium content
+- invalid difficulty/category
+- missing tool references
+- missing evidence unlocks
+- diagnosis fields not aligned with the root cause
+- playable case marked active without implementation
+- product mapping mismatches
+
+Goal:
+Future add-on packs should be buildable through a disciplined authoring workflow instead of ad hoc code surgery.
+
+================================================================================
+PHASE 6: MOBILE-FRIENDLY POLISH AND RESPONSIVE UX
+================================================================================
+
+Refactor the app for strong responsiveness across desktop, tablet, and mobile.
+
+Desktop:
+- multi-panel investigation workspace
+- sidebars where useful
+- store with rich cards and detail drawers
+
+Tablet:
+- adaptive split layout
+- collapsible panels
+- usable tool switching
+- comfortable touch targets
+
+Mobile:
+- stacked investigation layout
+- bottom navigation or segmented tabs for tools
+- slide-over or bottom-sheet drawers for evidence, hints, action log, and case details
+- readable graphs and logs
+- sticky case header
+- mobile-friendly diagnosis form
+- easy path from locked case to owning pack
+- no tiny controls
+- no broken overflow
+- no inaccessible critical actions
+
+Apply a premium visual pass:
+- stronger spacing
+- stronger typography hierarchy
+- more coherent card design
+- polished states for hover/focus/active/loading/empty/error
+- tasteful motion with Framer Motion
+- premium dark surfaces
+- better category, difficulty, and ownership badges
+- stronger store and pack page presentation
+
+Accessibility and input quality:
+- keyboard support on desktop
+- clear focus states
+- solid contrast
+- tap target improvements
+- clear validation messages
+- stable loading feedback
+
+================================================================================
+PHASE 7: STORE, PURCHASE FLOW, AND BILLING
+================================================================================
+
+Complete the commercial flow with real functionality.
+
+Build or refine:
+- storefront
+- product detail pages/drawers
+- in-context upgrade prompts
+- subscription comparison
+- content pack pages
+- feature upgrade pages
+- bundle pages
+- owned products view
+- recommended products section
+- restore purchases flow
+- plan management entry point
+
+Billing requirements:
+- support Stripe Checkout for production mode if the app is already moving that direction
+- support Stripe Customer Portal for plan management if practical
+- support one-time purchases and recurring subscriptions
+- support mock billing mode for development
+- support verified fulfillment
+- support entitlement refresh/restoration
+- support bundle fulfillment
+- no client-only ownership trust in production mode
+
+Store UX requirements:
+- locked content explains what is included
+- prices display cleanly
+- owned state is obvious
+- “included in bundle” and “included in Pro” logic is clear
+- specialty pack content is clearly marked
+- upgrade prompts are polished, not spammy
+- mobile store is genuinely usable
+
+================================================================================
+PHASE 8: COMPLETE FEATURE GATING AND PRODUCT VALUE
+================================================================================
+
+Ensure the monetization model maps to real product behavior.
+
+Free tier:
+- useful starter experience
+- not crippled
+- clearly limited in intentional ways
+
+Pro:
+- cloud sync
+- daily challenge
+- full archive
+- advanced stats and analytics where specified
+- cross-device restore
+- premium platform convenience
+
+Content packs:
+- permanently unlock their case libraries
+
+Feature upgrades:
+- unlock real additional capabilities, not just labels
+
+Examples that must be real:
+- Advanced Tool Suite unlocks deeper tool views or additional tool capabilities
+- Deep Telemetry Pack unlocks richer telemetry/history/graphing
+- Sandbox Pro unlocks full sandbox features and slots
+- Chaos Mode unlocks incident mutation mode
+- Pro Investigator Analytics unlocks expanded trend views and deeper breakdowns
+
+Bundles:
+- grant the exact products they include
+- reflect ownership correctly across the UI
+
+================================================================================
+PHASE 9: PWA, PERFORMANCE, AND APP-LIKE FEEL
+================================================================================
+
+Make the app feel installable and fast.
+
+Implement:
+- PWA manifest
+- icons
+- theme colors
+- install prompt support where practical
+- lightweight offline shell messaging
+- graceful handling of offline or partially offline states
+- code splitting for heavy views
+- lazy loading of advanced panels where sensible
+- reduced animation weight on low-power devices
+- performance-minded rendering for graphs and tool panels
+
+The goal is an app-like experience on mobile web without breaking desktop richness.
+
+================================================================================
+PHASE 10: ADMIN TOOLS
+================================================================================
+
+Create a lightweight but functional admin area.
+
+Admin capabilities:
+- view catalog products
+- enable/disable products
+- mark featured products
+- inspect entitlements for a user
+- grant or revoke entitlements
+- inspect pack-to-case mappings
+- use the case authoring framework to create/edit case drafts
+- validate and publish case entries
+- inspect subscription / billing mapping state if practical
+- inspect purchase fulfillment logs or webhook outcomes if practical
+
+Keep this secure and access-controlled.
+
+================================================================================
+PHASE 11: REGRESSION PASS ON THE CORE INVESTIGATION EXPERIENCE
+================================================================================
+
+Do not let productization break the heart of the app.
+
+Audit and fix:
+- case selection
+- tool interactions
+- evidence collection
+- action log
+- hints
+- diagnosis submission
+- scoring
+- debrief
+- saved progress
+- archive writes
+- mobile investigation flow
+- ownership gating during launch
+
+The investigation loop must remain satisfying and stable.
+
+================================================================================
+PHASE 12: QUALITY BAR AND ACCEPTANCE TESTS
+================================================================================
+
+The build is not complete unless all of the following are true:
+
+GENERAL
+- app runs without broken screens
+- no dead buttons in main flows
+- no obvious placeholder text in user-facing flows
+- no duplicate competing registries remain
+
+INVESTIGATION CORE
+- starter cases launch and play correctly
+- premium cases launch when owned
+- locked premium cases route to the correct owning product
+- evidence, hints, diagnosis, scoring, and debrief all work
+- saved progress is reliable
+
+STORE / MONETIZATION
+- all catalog products render correctly
+- prices and plans are displayed correctly
+- content packs show real included case lists
+- bundles resolve their included products cleanly
+- purchase flows work in dev and production modes where configured
+- ownership state updates correctly
+- restore purchases works
+
+ENTITLEMENTS
+- free, Pro, one-time pack, upgrade, bundle, admin, and promo states resolve correctly
+- expired subscriptions do not remove permanent one-time ownership
+- feature gating matches entitlements everywhere
+
+MOBILE / RESPONSIVE
+- dashboard works on phone
+- case files work on phone
+- pack pages work on phone
+- store works on phone
+- diagnosis flow works on phone
+- tool switching works on phone
+- no catastrophic layout breakage
+
+AUTHORING FRAMEWORK
+- new case drafts can be created from templates
+- case validation catches bad definitions
+- authoring flow meaningfully reduces pack creation friction
+
+ADMIN
+- admin screens are functional enough to manage products, entitlements, and cases
+
+README / DEV NOTES
+- updated architecture documentation
+- product catalog docs
+- entitlement docs
+- case catalog docs
+- case authoring docs
+- billing/dev mode docs
+- mobile/PWA notes
+- how to add a new content pack
+- how to add a new case template
+- how to add a new feature upgrade
+- how to map Stripe IDs or mock billing IDs
+
+================================================================================
+IMPLEMENTATION ORDER
+================================================================================
+
+Follow this order strictly:
+1. Audit and clean duplication
+2. Stabilize auth and persistence
+3. Stabilize catalog and entitlement spine
+4. Stabilize case spine and pack mappings
+5. Build case authoring framework
+6. Fix and polish responsive/mobile layout
+7. Complete store and billing integration
+8. Complete feature gating and ownership behavior
+9. Add PWA and performance polish
+10. Add admin tooling
+11. Run full regression on investigation flow
+12. Run self-audit and remove remaining cardboard
+
+================================================================================
+SELF-AUDIT DIRECTIVE
+================================================================================
+
+Before finalizing, audit and fix anything that is:
+- shallow
+- duplicated
+- visually present without logic
+- mobile-broken
+- billing-broken
+- entitlement-broken
+- pack-to-case mismatched
+- launchable only on desktop but broken on mobile
+- authoring-hostile
+- placeholder-heavy
+- commercially misleading
+- disconnected from the source-of-truth registries
+
+Specifically check for:
+- product cards using stale text
+- lock modals not tied to real products
+- pack counts not derived from actual case mappings
+- bundle ownership not unlocking child products correctly
+- sandbox or daily challenge using ineligible content
+- feature upgrades sold but not actually doing anything meaningful
+- missing validation in authoring or catalog layers
+- mobile drawers and forms clipping or hiding critical actions
+
+================================================================================
+FINAL INSTRUCTION
+================================================================================
+
+Finish Faultline Lab into a polished product platform with real investigative depth, real mobile usability, real commercial structure, and a real content factory behind it. Preserve the soul of the simulator. Make the store honest. Make the packs real. Make the upgrades matter. Make future pack creation faster. No ghost shelves. No fake inventory. No cardboard polish.

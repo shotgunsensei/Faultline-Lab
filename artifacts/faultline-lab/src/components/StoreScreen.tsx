@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { CATALOG, getProductsByCategory, type CatalogProduct } from '@/data/catalog';
-import { getProductOwnershipStatus, hasEntitlement } from '@/lib/entitlements';
+import { getProductOwnershipStatus, hasEntitlement, addOwnedProduct, getEntitlements, setEntitlements } from '@/lib/entitlements';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Crown,
@@ -11,9 +12,9 @@ import {
   Lock,
   Check,
   Star,
-  ChevronRight,
   ShoppingCart,
   Sparkles,
+  LogIn,
 } from 'lucide-react';
 
 function formatPrice(cents: number): string {
@@ -80,7 +81,7 @@ function ProductCard({ product, onSelect }: { product: CatalogProduct; onSelect:
                 Owned
               </span>
             ) : isComingSoon ? (
-              <span className="text-zinc-500 text-xs font-mono">Soon</span>
+              <span className="text-zinc-500 text-xs font-mono">Coming Soon</span>
             ) : (
               <span className="text-cyan-400 font-mono font-bold text-sm">
                 {product.pricingType === 'free' ? 'Free' : formatPrice(product.priceAmountCents)}
@@ -98,19 +99,41 @@ function ProductCard({ product, onSelect }: { product: CatalogProduct; onSelect:
   );
 }
 
-function ProductDetail({ product, onClose }: { product: CatalogProduct; onClose: () => void }) {
+function ProductDetail({ product, onClose, onPurchased }: { product: CatalogProduct; onClose: () => void; onPurchased: () => void }) {
   const status = getProductOwnershipStatus(product.id);
   const isOwned = status === 'owned';
   const isComingSoon = status === 'coming-soon';
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const setView = useAppStore(s => s.setView);
+  const [purchasing, setPurchasing] = useState(false);
 
-  const handlePurchase = () => {
-    if (!isSignedIn) {
+  const handlePurchase = async () => {
+    if (!isSignedIn && import.meta.env.VITE_CLERK_PUBLISHABLE_KEY) {
+      onClose();
       setView('auth');
       return;
     }
-    alert('Purchase flow coming soon. Mock billing mode will be added with Stripe integration.');
+
+    setPurchasing(true);
+
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    addOwnedProduct(product.id);
+
+    if (product.bundledProductIds) {
+      for (const bundledId of product.bundledProductIds) {
+        addOwnedProduct(bundledId);
+      }
+    }
+
+    setPurchasing(false);
+    toast.success(`${product.name} unlocked`, {
+      description: product.pricingType === 'free'
+        ? 'You now have access to the included content.'
+        : 'Thank you for your purchase.',
+    });
+    onPurchased();
+    onClose();
   };
 
   return (
@@ -128,7 +151,7 @@ function ProductDetail({ product, onClose }: { product: CatalogProduct; onClose:
               </div>
               <p className="text-sm text-zinc-400 capitalize">{product.category.replace('-', ' ')}</p>
             </div>
-            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none p-1">
+            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 text-xl leading-none p-2 -m-2">
               &times;
             </button>
           </div>
@@ -185,15 +208,31 @@ function ProductDetail({ product, onClose }: { product: CatalogProduct; onClose:
                 <p className="text-zinc-600 text-xs mt-1">This content is in development</p>
               </div>
             ) : (
-              <button
-                onClick={handlePurchase}
-                className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                {product.pricingType === 'free' ? 'Get Started Free' :
-                 product.pricingType.startsWith('subscription') ? `Subscribe - ${formatPrice(product.priceAmountCents)}/mo` :
-                 `Purchase - ${formatPrice(product.priceAmountCents)}`}
-              </button>
+              <>
+                {!isSignedIn && import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && (
+                  <p className="text-xs text-zinc-500 text-center mb-3">
+                    Sign in to purchase
+                  </p>
+                )}
+                <button
+                  onClick={handlePurchase}
+                  disabled={purchasing}
+                  className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 disabled:cursor-wait text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                >
+                  {purchasing ? (
+                    <span className="animate-pulse">Processing...</span>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4" />
+                      {!isSignedIn && import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+                        ? 'Sign in to purchase'
+                        : product.pricingType === 'free' ? 'Get Started Free' :
+                          product.pricingType.startsWith('subscription') ? `Subscribe - ${formatPrice(product.priceAmountCents)}/mo` :
+                          `Purchase - ${formatPrice(product.priceAmountCents)}`}
+                    </>
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -205,6 +244,7 @@ function ProductDetail({ product, onClose }: { product: CatalogProduct; onClose:
 export default function StoreScreen() {
   const setView = useAppStore(s => s.setView);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const [, forceUpdate] = useState(0);
 
   const tiers = getProductsByCategory('tier');
   const packs = getProductsByCategory('content-pack');
@@ -217,7 +257,7 @@ export default function StoreScreen() {
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
           <button
             onClick={() => setView('incident-board')}
-            className="text-zinc-400 hover:text-cyan-400 transition-colors"
+            className="text-zinc-400 hover:text-cyan-400 transition-colors p-1"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -297,7 +337,11 @@ export default function StoreScreen() {
       </main>
 
       {selectedProduct && (
-        <ProductDetail product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+        <ProductDetail
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onPurchased={() => forceUpdate(n => n + 1)}
+        />
       )}
     </div>
   );

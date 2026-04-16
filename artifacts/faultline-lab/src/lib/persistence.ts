@@ -54,6 +54,10 @@ export function saveCaseState(caseId: string, state: CaseState): void {
   safeSet(KEYS.CASE_STATES, states);
 }
 
+export function saveCaseStates(states: Record<string, CaseState>): void {
+  safeSet(KEYS.CASE_STATES, states);
+}
+
 export function loadCurrentCaseId(): string | null {
   return safeGet<string | null>(KEYS.CURRENT_CASE, null);
 }
@@ -66,7 +70,7 @@ export function loadSettings(): AppSettings {
   return safeGet<AppSettings>(KEYS.SETTINGS, {
     soundEnabled: false,
     animationsEnabled: true,
-    terminalFontSize: 14,
+    terminalFontSize: 16,
   });
 }
 

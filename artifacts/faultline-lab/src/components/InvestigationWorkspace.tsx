@@ -181,21 +181,21 @@ export default function InvestigationWorkspace() {
 
             <div className="flex-1" />
 
-            <div className="flex lg:hidden items-center gap-0.5">
+            <div className="flex lg:hidden items-center gap-1">
               {sidebarTabs.map(tab => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setMobileDrawer(mobileDrawer === tab.id ? null : tab.id)}
-                    className={`p-1.5 rounded transition-colors ${
+                    className={`min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg transition-colors ${
                       mobileDrawer === tab.id
                         ? 'bg-cyan-500/10 text-cyan-400'
                         : 'text-zinc-600 hover:text-zinc-400'
                     }`}
                     title={tab.label}
                   >
-                    <Icon size={14} />
+                    <Icon size={18} />
                   </button>
                 );
               })}

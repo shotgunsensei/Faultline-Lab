@@ -10,6 +10,7 @@ import SettingsScreen from '@/components/SettingsScreen';
 import StoreScreen from '@/components/StoreScreen';
 import AuthScreen from '@/components/AuthScreen';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
+import { resetEntitlements } from '@/lib/entitlements';
 import { Toaster } from 'sonner';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -73,27 +74,12 @@ function AppContent() {
   );
 }
 
-function App() {
-  if (!clerkPubKey) {
-    return (
-      <div className="dark">
-        <AppContentWithoutClerk />
-      </div>
-    );
-  }
-
-  return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
-    >
-      <AppContent />
-    </ClerkProvider>
-  );
-}
-
 function AppContentWithoutClerk() {
   const view = useAppStore(s => s.view);
+
+  useEffect(() => {
+    resetEntitlements();
+  }, []);
 
   const renderView = () => {
     switch (view) {
@@ -104,6 +90,7 @@ function AppContentWithoutClerk() {
       case 'profile': return <ProfileScreen />;
       case 'settings': return <SettingsScreen />;
       case 'store': return <StoreScreen />;
+      case 'auth': return <IncidentBoard />;
       default: return <BootScreen />;
     }
   };
@@ -122,6 +109,25 @@ function AppContentWithoutClerk() {
         }}
       />
     </>
+  );
+}
+
+function App() {
+  if (!clerkPubKey) {
+    return (
+      <div className="dark">
+        <AppContentWithoutClerk />
+      </div>
+    );
+  }
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+    >
+      <AppContent />
+    </ClerkProvider>
   );
 }
 
