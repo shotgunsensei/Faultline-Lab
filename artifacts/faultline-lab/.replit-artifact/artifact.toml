@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Faultline Lab"
+version = "1.0.0"
+id = "artifacts/faultline-lab"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25283
+
+[services.development]
+run = "pnpm --filter @workspace/faultline-lab run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/faultline-lab", "run", "build" ]
+publicDir = "artifacts/faultline-lab/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25283"
+BASE_PATH = "/"

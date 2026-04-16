@@ -1,0 +1,486 @@
+PROJECT: Faultline Lab
+ROLE: Build engineer and product implementer
+DELIVERABLE: A genuinely playable MVP of Faultline Lab, not a mockup
+
+PROJECT SUMMARY
+Build "Faultline Lab", a cinematic browser-based troubleshooting simulator for technical minds. Users investigate broken systems across IT infrastructure, networking, Windows/Active Directory, servers, automotive diagnostics, and smart electronics. The experience must be an interactive simulation driven by evidence, tool use, state changes, and diagnosis logic. It must not behave like a quiz or static dashboard.
+
+PRIMARY OBJECTIVE
+Deliver a working MVP with a complete end-to-end investigation loop:
+1. Launch app
+2. Enter Incident Board
+3. Select a case
+4. Investigate with working tools
+5. Unlock evidence through actual interactions
+6. Submit diagnosis
+7. Receive score and debrief
+8. Persist progress in browser storage
+
+NON-NEGOTIABLE RULES
+- Do not build a mostly static concept UI
+- Do not create dead buttons, fake panels, or placeholder-only screens
+- Do not hardcode case logic directly inside UI components
+- Do not prioritize animation over function
+- Do not reduce the app to trivia or multiple choice
+- Every major interaction must be backed by real state and real logic
+- Evidence must unlock through actual tool usage or investigation milestones
+- Diagnosis must be evaluated against the actual hidden case data
+- State must persist on refresh via localStorage
+- Build the playable core first, then expand and polish
+
+TECH STACK
+Use:
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Zustand
+- Framer Motion
+- Recharts
+- localStorage for persistence
+
+OUT OF SCOPE
+- Real backend or database
+- Multiplayer or collaboration
+- Audio assets beyond a settings toggle placeholder
+- Deep mobile optimization
+- External APIs unless absolutely required
+
+DESIGN DIRECTION
+Desktop-first. Premium dark cyber-diagnostic-lab interface.
+Target feel:
+- high contrast dark surfaces
+- glowing status accents
+- structured modular panels
+- clean typography and spacing
+- terminal-style outputs
+- restrained animation
+- looks like a real high-end diagnostic console, not a game jam prototype
+
+CORE PRODUCT MODES
+Target end state includes:
+- Case Files
+- Random Incident Generator
+- Sandbox Builder
+- Daily Challenge
+- Free Investigation
+
+IMPORTANT:
+For MVP, implement only what is required for a complete playable loop first.
+Do not build all modes in parallel.
+
+================================================================================
+PHASE 1: FOUNDATION
+================================================================================
+
+TASKS
+1. Scaffold the app
+- Create the React + TypeScript + Vite application
+- Configure Tailwind
+- Add Zustand, Framer Motion, and Recharts
+- Verify the app runs cleanly
+
+2. Create the folder structure
+Use a clean, modular architecture similar to:
+- src/app
+- src/components
+- src/types
+- src/data/cases
+- src/data/templates
+- src/features/investigation
+- src/features/tools
+- src/features/profile
+- src/features/achievements
+- src/features/generator
+- src/features/sandbox
+- src/lib/simulation
+- src/lib/scoring
+- src/lib/persistence
+
+3. Build the app shell
+- Global theme
+- Layout shell
+- Animated boot/loading screen
+- Incident Board landing screen
+- Navigation structure for future modes
+
+4. Define the domain model
+Create strong TypeScript types/interfaces for:
+- CaseDefinition
+- CaseCategory
+- Difficulty
+- Symptom
+- RootCause
+- ToolType
+- ToolAction
+- ToolOutput
+- EvidenceItem
+- HintTier
+- DiagnosisSubmission
+- DiagnosisEvaluation
+- ScoreResult
+- Debrief
+- InvestigatorProfile
+- Achievement
+- DailyChallengeState
+- SandboxTemplate
+- GeneratedCaseTemplate
+
+5. Build the simulation kernel
+Create a reusable engine that:
+- loads case definitions from config/data files
+- tracks current case state
+- routes tool actions
+- unlocks evidence
+- records action history
+- manages hints
+- evaluates diagnosis submissions
+- computes scores
+- generates debrief data
+
+6. Build persistence
+- Persist profile, solved cases, scores, settings, and current progress in localStorage
+- Restore state on refresh
+
+PHASE 1 ACCEPTANCE CRITERIA
+- App boots and runs
+- Boot screen works
+- Incident Board renders
+- Folder structure is clean
+- Types exist
+- Simulation engine exists
+- Persistence layer exists
+- No broken routes or dead shell UI
+
+================================================================================
+PHASE 2: MVP PLAYABLE LOOP
+================================================================================
+
+GOAL
+Build one complete investigation workflow before expanding the product.
+
+REQUIRED MVP MODES
+- Incident Board
+- Case Files only
+
+REQUIRED MVP CASES
+Build 4 fully playable handcrafted cases first:
+
+1. Windows / Active Directory
+Scenario:
+A domain-joined PC cannot authenticate after a password reset.
+Potential clue areas:
+- cached credentials
+- domain controller reachability
+- DNS resolution
+- time skew
+- policy or trust confusion
+Root cause must be logical and discoverable.
+
+2. Networking / VPN
+Scenario:
+A site-to-site VPN shows green/up but traffic between subnets is failing.
+Potential clue areas:
+- routing
+- firewall policy
+- NAT
+- phase/policy mismatch
+- asymmetric path behavior
+The visible tunnel health should function as a believable red herring.
+
+3. Automotive Diagnostics
+Scenario:
+A vehicle has unstable idle, intermittent misfire counts, and voltage fluctuation behavior.
+Potential clue areas:
+- OBD live data
+- RPM fluctuation
+- voltage behavior
+- trims
+- misfire counts
+- sensor or component observations
+Root cause must be logically solvable through data.
+
+4. Electronics / Sensor Mesh
+Scenario:
+A smart sensor network has one unstable node causing mesh poisoning or false telemetry.
+Potential clue areas:
+- voltage irregularity
+- signal quality
+- node logs
+- firmware mismatch
+- topology behavior
+Root cause must be discoverable and fair.
+
+REQUIRED MVP WORKSPACE
+Build the investigation workspace with:
+- header showing case title, category, difficulty, and status
+- tool navigation
+- main active tool panel
+- sidebar or secondary panels for:
+  - symptoms summary
+  - action log
+  - evidence locker
+  - hint controls
+- diagnosis submission entry point
+- save/exit support
+
+REQUIRED MVP TOOLS
+Implement these first and make them functional:
+
+1. Terminal Panel
+Commands should be case-aware and return outputs that reflect real case state.
+Support at minimum:
+- ping
+- tracert
+- nslookup
+- ipconfig
+- dcdiag
+- route print or equivalent
+- basic service or adapter status checks
+
+2. Event Log Reader
+- Show case-relevant logs
+- Include clue-bearing warnings/errors/events
+- Different cases should surface different log streams or event sets
+
+3. Ticket History / User Statement Panel
+- Original issue description
+- user observations
+- prior technician notes
+- believable red herrings where appropriate
+
+4. Evidence Locker
+- Evidence appears only when unlocked through actual interactions
+- Collected evidence must persist in case state
+
+5. Diagnosis Submission Form
+Require:
+- suspected root cause
+- supporting evidence
+- proposed remediation
+
+REQUIRED MVP SUPPORT SYSTEMS
+- Action log
+- 4-tier hint system
+- Scoring
+- Debrief screen
+- localStorage persistence
+
+HINT SYSTEM
+Implement four hint levels:
+1. subtle nudge
+2. directional clue
+3. stronger clue
+4. reveal path
+
+Hints must be case-specific and should reduce maximum score.
+
+SCORING SYSTEM
+Score based on:
+- diagnosis accuracy
+- evidence quality
+- remediation quality
+- efficiency
+- unnecessary risky actions
+- excessive random probing if applicable
+- hint penalties
+
+Suggested result tiers:
+- Surgical
+- Solid
+- Sloppy but Correct
+- Misdiagnosed
+
+DEBRIEF REQUIREMENTS
+Show:
+- actual root cause
+- clues that mattered
+- misleading clues
+- recommended remediation
+- preventative measures
+- score breakdown
+- achievements unlocked if any
+
+PHASE 2 ACCEPTANCE CRITERIA
+- User can open the app, select a case, investigate, collect evidence, submit a diagnosis, receive a score, and review a debrief
+- All 4 MVP cases are playable end to end
+- Tool outputs are case-aware
+- Evidence unlock logic works
+- Hints work
+- Scoring works
+- Debrief works
+- State persists on refresh
+- No placeholder-only panels in the MVP loop
+
+================================================================================
+PHASE 3: CONTENT EXPANSION
+================================================================================
+
+GOAL
+Expand the app once the MVP loop is stable.
+
+TASKS
+1. Expand handcrafted case library to 12+ total cases across:
+- Windows / AD
+- Networking / Firewall / VPN
+- Servers / Services / Storage
+- Automotive
+- Consumer electronics / sensors / low-voltage
+- Mixed-system cascading failures
+
+2. Add additional tool panels
+Implement these after MVP stability:
+- Network Map Viewer
+- Service / Process Inspector
+- Registry / Config Viewer
+- Sensor Graph Panel using Recharts
+- OBD Live Data Panel
+- Firewall Rule Table / Interface Monitor
+
+3. Add profile and progression
+Create an Investigator Profile with:
+- cases solved
+- best scores
+- streaks
+- achievements unlocked
+- daily challenge stats
+- solved case archive
+
+4. Add achievements
+Implement extendable achievement tracking including examples like:
+- No Guesswork
+- Packet Whisperer
+- Ghost in DNS
+- Voltage Hunter
+- Red Herring Survivor
+- Clean Hands
+- First Responder
+- Debrief Diver
+
+PHASE 3 ACCEPTANCE CRITERIA
+- At least 12 handcrafted cases exist
+- Additional tools are functional, not decorative
+- Profile data persists
+- Archive works
+- Achievement unlocks work
+
+================================================================================
+PHASE 4: ADVANCED MODES
+================================================================================
+
+GOAL
+Add replayability and content systems after the handcrafted core is proven.
+
+TASKS
+1. Random Incident Generator
+Build a logically consistent case generator that combines:
+- category
+- system type
+- symptoms
+- root cause
+- evidence templates
+- hint sets
+- difficulty
+Generated cases must remain solvable and internally coherent.
+
+2. Daily Challenge
+- Generate one deterministic daily case based on date
+- Persist completion state and score
+
+3. Sandbox Builder
+Allow user to assemble a case from:
+- category
+- symptoms
+- hidden root cause
+- difficulty
+- available evidence
+Then launch that case in investigation mode
+
+4. Free Investigation Mode
+- exploratory mode
+- no score pressure
+- useful for tool familiarization
+
+PHASE 4 ACCEPTANCE CRITERIA
+- Generated cases are coherent
+- Daily challenge persists and changes by day
+- Sandbox-generated cases launch and function
+- Free mode works without score pressure
+
+================================================================================
+PHASE 5: POLISH, QA, AND CLEANUP
+================================================================================
+
+TASKS
+1. Refine visual polish
+- improve motion, spacing, feedback, transitions
+- keep polish restrained and premium
+
+2. Run a self-audit and fix problems
+Identify and correct:
+- dead UI
+- fake tool behavior
+- weak state wiring
+- inconsistent case logic
+- broken persistence
+- placeholder text or screens
+- incomplete diagnosis handling
+
+3. README
+Create a high-quality README including:
+- project overview
+- architecture summary
+- feature list
+- case structure explanation
+- simulation engine overview
+- setup instructions
+- persistence notes
+- extension points
+- milestone changelog
+
+FINAL ACCEPTANCE CRITERIA
+The project is complete only if:
+- the app runs without broken screens
+- the MVP loop works end to end
+- 4 MVP cases are fully playable
+- 12+ total handcrafted cases exist by final pass
+- tool panels are backed by real case logic
+- evidence collection works
+- diagnosis evaluation works
+- scoring works
+- debrief works
+- persistence works
+- profile/archive/achievements work
+- advanced modes function if built in this pass
+- code structure is modular and extensible
+- README is complete
+
+DEVELOPER EXECUTION ORDER
+Follow this order strictly:
+1. Scaffold and verify app
+2. Build shell and theme
+3. Define types
+4. Build simulation engine
+5. Build stores and persistence
+6. Build 4 MVP cases
+7. Build investigation workspace
+8. Build MVP tools
+9. Wire evidence, hints, scoring, debrief
+10. Verify full playable MVP loop
+11. Expand to 12+ cases
+12. Add profile/archive/achievements
+13. Add advanced tools
+14. Add generator, daily challenge, sandbox, free mode
+15. Polish and audit
+
+SELF-AUDIT DIRECTIVE
+Before finalizing, review the whole project and fix anything that is:
+- shallow
+- static
+- disconnected
+- non-functional
+- placeholder-based
+- visually present without logic behind it
+
+FINAL INSTRUCTION
+Build a real product prototype for disciplined troubleshooters. It should feel tactile, intelligent, immersive, and worth reopening. Function first. Atmosphere second. No cardboard.

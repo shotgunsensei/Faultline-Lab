@@ -1,0 +1,452 @@
+Use the current Faultline Lab implementation, productization plan, store architecture, entitlement system, and mobile-friendly commercial build direction as the source of truth. Do NOT restart from scratch. Extend the existing product into a well-designed monetization and catalog system with clear pricing tiers, content packs, feature upgrades, bundles, entitlement logic, upgrade prompts, and scalable catalog management.
+
+MISSION
+Design and implement the full commercial catalog structure for Faultline Lab so it feels like a polished, scalable platform rather than a random assortment of locked screens.
+
+The result must include:
+- a clean product catalog architecture
+- exact seed products with pricing and descriptions
+- clear free vs paid boundaries
+- subscription tier logic
+- one-time content pack logic
+- one-time feature upgrade logic
+- bundle logic
+- entitlement-aware UI throughout the app
+- in-context upgrade prompts that feel premium rather than annoying
+- admin-manageable catalog metadata
+- maintainable code and data structure
+
+DO NOT:
+- hardcode catalog products directly into UI components
+- use fake monetization cards that are not backed by entitlements
+- create confusing overlap between subscription, packs, and upgrades
+- lock too much of the core app so the free tier feels useless
+- make the pricing structure chaotic or arbitrary
+- create dead-end upgrade prompts
+
+DO:
+- centralize all catalog products in a structured product registry
+- make ownership and unlock logic consistent
+- seed the app with a believable commercial catalog
+- keep the free tier fun enough to hook users
+- make premium upgrades feel meaningful
+- keep the system easy to expand later
+
+================================================================================
+PHASE 1: CATALOG DATA MODEL
+================================================================================
+
+Create a robust product catalog model.
+
+Define data structures for at minimum:
+- CatalogProduct
+- ProductType
+- PricingModel
+- SubscriptionTier
+- ContentPack
+- FeatureUpgrade
+- BundleProduct
+- EntitlementRule
+- UnlockRequirement
+- OwnedProduct
+- ProductBadge
+- UpgradePrompt
+- PriceDisplay
+- CatalogCategory
+- ProductStatus
+
+Support product types:
+- subscription
+- one_time_content_pack
+- one_time_feature_upgrade
+- bundle
+- promotional_unlock
+- admin_grant
+
+Support pricing models:
+- free
+- recurring_monthly
+- recurring_yearly
+- one_time
+
+Support entitlement scopes:
+- case access
+- case pack access
+- feature access
+- archive depth
+- analytics access
+- challenge access
+- cloud sync access
+- sandbox capacity
+- cosmetic/theme access
+- bundle access
+
+All products must be data-driven from a catalog configuration layer or database seed, not embedded in UI.
+
+================================================================================
+PHASE 2: PRODUCT STRATEGY AND SEEDED CATALOG
+================================================================================
+
+Implement the following initial product catalog exactly unless the existing codebase already has a better compatible structure.
+
+A. FREE TIER
+Product name:
+Faultline Lab Free
+
+Price:
+Free
+
+Includes:
+- guest mode access
+- 4 starter handcrafted cases
+- basic case files mode
+- limited archive history (last 5 solved cases)
+- standard scoring and debrief
+- local-only persistence when not signed in
+- store browsing
+- locked preview access for premium content
+- basic profile stats
+
+Limitations:
+- no cloud sync unless user upgrades
+- no daily challenge
+- no premium case packs
+- no advanced analytics
+- no advanced tool suite
+- sandbox limited or disabled
+- no chaos mode
+- limited archive depth
+
+B. PRO SUBSCRIPTION
+Product name:
+Faultline Lab Pro
+
+Suggested pricing:
+- $8.99/month
+- $79.00/year
+
+Includes:
+- cloud sync
+- full solved case archive
+- daily challenge
+- premium rotating featured cases
+- advanced investigator analytics
+- expanded profile stats
+- early access flag for new content
+- priority access badge in store UI
+- cross-device progress restore
+- bundle discounts where appropriate
+
+C. CONTENT PACKS
+Create these one-time purchasable packs:
+
+1. Network Ops Pack
+Price:
+$9.99
+Includes:
+- 8 networking / firewall / VPN cases
+- advanced routing and policy scenarios
+- extra network map variants
+Tags:
+network, operations, popular
+
+2. Server Graveyard Pack
+Price:
+$9.99
+Includes:
+- 8 server / services / storage cases
+- cert failures, crash loops, storage weirdness, service dependencies
+Tags:
+servers, storage, ops
+
+3. Garage Diagnostics Pack
+Price:
+$12.99
+Includes:
+- 10 automotive cases
+- richer OBD scenarios
+- voltage, trims, misfires, sensor drift, CAN weirdness
+Tags:
+automotive, diagnostics, premium
+
+4. Sensor Mesh Pack
+Price:
+$8.99
+Includes:
+- 8 electronics / sensor / low-voltage cases
+- mesh poisoning, firmware drift, signal instability, bad power behavior
+Tags:
+electronics, iot, sensors
+
+5. Mixed Cascades Pack
+Price:
+$10.99
+Includes:
+- 8 hybrid cross-domain cascading failure cases
+- tricky multi-symptom investigations
+Tags:
+advanced, mixed, challenge
+
+6. Healthcare Imaging Pack
+Price:
+$14.99
+Includes:
+- 10 cases themed around imaging workflows, display issues, synchronization faults, network transport delays, reading workstation weirdness
+Tags:
+healthcare, imaging, specialty
+
+D. FEATURE UPGRADES
+Create these one-time purchasable upgrades:
+
+1. Advanced Tool Suite
+Price:
+$7.99
+Unlocks:
+- expanded tool panels
+- deeper inspection data
+- premium diagnostic views
+- extra terminal commands where appropriate
+
+2. Deep Telemetry Pack
+Price:
+$6.99
+Unlocks:
+- richer sensor graphing
+- expanded historical telemetry views
+- enhanced OBD and signal analysis panes
+
+3. Sandbox Pro
+Price:
+$9.99
+Unlocks:
+- full sandbox builder
+- more custom case slots
+- export/import custom case definitions if practical
+- advanced case composition controls
+
+4. Chaos Mode
+Price:
+$4.99
+Unlocks:
+- incident mutation mode
+- unstable scenario modifiers
+- challenge-oriented variation
+
+5. Pro Investigator Analytics
+Price:
+$5.99
+Unlocks:
+- deeper score breakdowns
+- trend charts
+- mistake patterns
+- hint dependency trends
+- category performance metrics
+
+E. BUNDLE
+Create:
+Master Investigator Bundle
+
+Price:
+$49.99
+
+Includes:
+- Faultline Lab Pro annual
+- Network Ops Pack
+- Server Graveyard Pack
+- Garage Diagnostics Pack
+- Sensor Mesh Pack
+- Mixed Cascades Pack
+- Advanced Tool Suite
+- Deep Telemetry Pack
+- Sandbox Pro
+- Chaos Mode
+- Pro Investigator Analytics
+
+Do not include Healthcare Imaging Pack in this bundle by default.
+Keep it as a premium specialty add-on.
+
+F. SPECIALTY BUNDLE
+Create:
+Clinical Systems Bundle
+
+Price:
+$19.99
+
+Includes:
+- Healthcare Imaging Pack
+- Advanced Tool Suite
+- Deep Telemetry Pack
+
+================================================================================
+PHASE 3: ENTITLEMENT AND UNLOCK LOGIC
+================================================================================
+
+Implement centralized entitlement logic.
+
+Required behaviors:
+- free users see only starter content unlocked
+- Pro unlocks subscription-based features, not automatically all one-time packs unless bundled
+- one-time packs permanently unlock their content
+- feature upgrades unlock specific product capabilities
+- bundles grant all included entitlements
+- ownership state must be reflected across app screens immediately
+- if a subscription lapses, recurring subscription entitlements deactivate but one-time owned products remain
+- if a bundle includes a subscription and one-time products, handle each entitlement type correctly
+- admin-granted entitlements must behave the same as purchased entitlements
+
+Entitlement checks must be centralized in a service, store, or domain layer.
+
+================================================================================
+PHASE 4: STORE UX AND PAYWALL STRATEGY
+================================================================================
+
+Build or improve the store experience around the seeded catalog.
+
+Required sections:
+- Featured
+- Subscription Plans
+- Content Packs
+- Feature Upgrades
+- Bundles
+- Specialty Packs
+- Owned Products
+- Recommended For You
+
+Each product card should show:
+- name
+- artwork slot
+- short description
+- product type
+- price
+- badge tags
+- owned state
+- included items summary
+- CTA appropriate to state:
+  - Buy
+  - Upgrade
+  - Manage
+  - Owned
+  - Included in Pro
+  - Included in Bundle
+
+Create product detail drawers or pages with:
+- what is included
+- value proposition
+- screenshots/art slots if available
+- entitlement explanation
+- related products
+- if already owned, show owned state clearly
+
+Build in-context upgrade prompts for:
+- trying to access premium case packs
+- trying to use advanced tools
+- trying to access deeper analytics
+- trying to use sandbox features
+- trying to use chaos mode
+- trying to access cloud sync while on free
+
+Upgrade prompts must:
+- explain what the user gets
+- show price
+- show whether a broader bundle may be better
+- avoid spammy behavior
+- be easy to dismiss
+
+================================================================================
+PHASE 5: SMART MERCHANDISING LOGIC
+================================================================================
+
+Add light product recommendation logic.
+
+Examples:
+- if user solves many networking cases, recommend Network Ops Pack
+- if user spends time in automotive cases, recommend Garage Diagnostics Pack
+- if user uses telemetry panels often, recommend Deep Telemetry Pack
+- if user repeatedly opens locked sandbox tools, recommend Sandbox Pro
+- if user is highly engaged overall, recommend Pro annual and the Master Investigator Bundle
+
+This can be simple rules-based logic, not AI.
+
+================================================================================
+PHASE 6: ADMIN CATALOG MANAGEMENT
+================================================================================
+
+Extend the admin experience so catalog items are manageable.
+
+Admin capabilities:
+- view all catalog products
+- enable/disable products
+- mark featured products
+- edit descriptions, tags, and badge states
+- inspect user entitlements
+- manually grant or revoke entitlements
+- mark promotional unlocks
+- adjust recommendation flags if practical
+
+Admin tools should be functional, even if visually simple.
+
+================================================================================
+PHASE 7: BILLING ALIGNMENT
+================================================================================
+
+Align the seeded catalog with the billing system.
+
+Requirements:
+- each seeded product maps to Stripe product/price IDs or mock billing IDs
+- support recurring monthly and annual subscription products
+- support one-time content packs and upgrades
+- support bundles
+- support restore purchase / refresh entitlements
+- support dev mode with mock purchases
+- support production mode with verified fulfillment
+- never trust client-only unlocks in production
+
+================================================================================
+PHASE 8: APP-WIDE INTEGRATION
+================================================================================
+
+Integrate ownership and lock state across the whole app.
+
+Required behaviors:
+- Case Files should clearly show locked vs unlocked packs
+- premium cases should display source pack labels
+- advanced tools should display lock states and upgrade paths
+- profile should show owned products
+- settings can show current plan
+- archive/analytics should respect entitlements
+- mobile and desktop views must both show ownership state clearly
+- do not let users reach broken states when content is locked
+
+================================================================================
+PHASE 9: QUALITY BAR
+================================================================================
+
+The monetization and catalog system is complete only if:
+- seeded catalog products exist and render properly
+- prices and included items display correctly
+- ownership persists and reflects accurately
+- pack purchases unlock the right cases
+- feature purchases unlock the right capabilities
+- subscription features activate and deactivate correctly
+- bundles grant correct included entitlements
+- locked content prompts are polished and useful
+- store works well on mobile and desktop
+- no dead product cards or fake purchase buttons exist
+
+================================================================================
+README / DEV NOTES
+================================================================================
+
+Update the README and developer notes to include:
+- product catalog architecture
+- pricing model definitions
+- entitlement model
+- how to add a new content pack
+- how to add a new feature upgrade
+- how to add a new bundle
+- how to map products to Stripe IDs
+- how to test in mock billing mode
+- how ownership state is resolved in the app
+
+FINAL INSTRUCTION
+Turn Faultline Lab into a polished platform with a clean, scalable commercial catalog. Make the free tier useful, the premium tier attractive, the packs meaningful, the upgrades logical, and the store feel like a real product experience. No random monetization clutter. No fake store logic. No dead unlock states.

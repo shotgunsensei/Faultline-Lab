@@ -1,0 +1,436 @@
+Use the current Faultline Lab codebase and spec as the source of truth. Do NOT restart from scratch. Upgrade and finish the existing implementation into a polished, mobile-friendly, productized version with purchasable add-on packs, upgrade tiers, account-based entitlements, and a premium marketplace/store experience.
+
+CORE DIRECTIVE
+Take the current playable Faultline Lab app and transform it into a polished v1 product that feels commercially shippable.
+
+The upgraded product must:
+- keep the existing case engine, investigation loop, and handcrafted cases
+- improve visual polish and UX significantly
+- become mobile-friendly and touch-friendly
+- support user accounts and cloud-synced progress
+- support purchasable add-on packs and feature upgrades
+- gate content and features through a clean entitlement system
+- remain modular and extensible
+
+DO NOT:
+- throw away the existing architecture unless something is irreparably broken
+- replace working systems with fake polished placeholders
+- make mobile a reduced broken afterthought
+- hardcode ownership logic in UI components
+- build a static “store page” without real entitlement logic behind it
+
+DO:
+- refactor where needed
+- preserve working functionality
+- upgrade the app from prototype to product
+- build real purchase and unlock flows
+- make ownership persist across devices for signed-in users
+- keep local development easy with fallback mock billing mode
+
+PRODUCT POSITIONING
+Faultline Lab is a premium troubleshooting simulator for technical minds. It should feel like a cross between a field-diagnostic console, SOC workbench, and interactive systems puzzle platform.
+
+This phase upgrades it into:
+- a polished app
+- a responsive installable web experience
+- a platform with purchasable scenario packs and upgrades
+
+================================================================================
+PHASE 1: PRODUCTIZATION FOUNDATION
+================================================================================
+
+Upgrade the project architecture to support real product behavior.
+
+1. Preserve and refactor existing systems
+- keep the current simulation engine, case model, scoring, hints, debriefs, and investigation workspace where they are functional
+- refactor weak or tangled sections into cleaner modules
+- maintain compatibility with existing handcrafted cases
+
+2. Add authentication and cloud data
+Implement account support using a practical stack such as:
+- Supabase Auth + Supabase database
+or equivalent lightweight auth/database stack that works well in Replit
+
+Requirements:
+- sign up
+- sign in
+- sign out
+- session persistence
+- password reset or magic link if practical
+- guest mode still available
+- when signed in, progress syncs to cloud
+- when signed out, fallback to localStorage
+- if a guest later signs in, provide a migration path to merge or import local progress
+
+3. Add a real persistence model
+Persist:
+- profile
+- cases solved
+- best scores
+- hint usage
+- unlocked achievements
+- purchased packs
+- entitlement state
+- settings
+- daily challenge completion
+- saved investigation progress where practical
+
+4. Build an entitlement system
+Create a proper entitlement layer that gates both content and features.
+
+Support:
+- base app access
+- subscription tier entitlements
+- one-time content pack entitlements
+- one-time feature upgrade entitlements
+- bundle entitlements
+- promotional unlocks or admin-granted unlocks
+
+Do not scatter entitlement checks randomly in components. Centralize them.
+
+================================================================================
+PHASE 2: POLISHED UX + MOBILE FRIENDLY REFACTOR
+================================================================================
+
+Upgrade the UI/UX to feel premium and usable on phones, tablets, and desktop.
+
+1. Responsive layout overhaul
+Make the entire app responsive with high quality breakpoints.
+
+Desktop:
+- multi-panel investigation layout
+- rich sidebars
+- wider tool workspace
+
+Tablet:
+- adaptive split view
+- collapsible side panels
+- comfortable touch targets
+
+Mobile:
+- stacked panel layout
+- bottom navigation or tabbed tool switcher
+- slide-over drawers for evidence, action log, and hints
+- sticky case header
+- touch-friendly controls
+- readable graphs and tables
+- no unusable overflow or tiny text
+
+2. Investigation workspace mobile redesign
+The case investigation experience must work well on mobile.
+
+Mobile requirements:
+- tools accessible via bottom nav, segmented tabs, or drawer
+- evidence locker available in a slide-up panel or side drawer
+- action log collapsible
+- diagnosis form fully usable on mobile
+- graphs/tables scroll correctly
+- no hidden critical actions
+
+3. Premium visual pass
+Refine the existing visual system:
+- stronger typography hierarchy
+- more consistent spacing
+- better card hierarchy
+- premium dark surfaces
+- tasteful glow and motion
+- improved hover/focus/active states
+- better loading states and empty states
+- polished transitions with Framer Motion
+- stronger marketplace/store visuals
+- consistent iconography
+- coherent color language for categories and pack types
+
+4. Accessibility and input quality
+Improve:
+- keyboard navigation
+- focus states
+- contrast
+- tap target sizing
+- screen scaling
+- form clarity
+- error messages
+- loading feedback
+
+================================================================================
+PHASE 3: STORE, PACKS, AND UPGRADES
+================================================================================
+
+Turn Faultline Lab into a platform with a real in-app store and purchasable add-ons.
+
+1. Build a Store / Marketplace section
+Create a polished store experience with:
+- featured banner
+- add-on pack cards
+- feature upgrade cards
+- subscription tier comparison
+- owned/unowned state
+- locked/unlocked status across app
+- product detail pages or drawers
+- bundle offers
+- upgrade prompts in-context when user hits locked content
+
+2. Content pack architecture
+Support add-on content packs as data-driven catalog items.
+
+Each pack should include metadata like:
+- id
+- name
+- slug
+- short description
+- long description
+- category
+- cover art / artwork slot
+- pricing type
+- included cases
+- included tools or modifiers if any
+- entitlement type
+- release status
+- badge tags such as “new”, “advanced”, “popular”
+
+3. Feature upgrade architecture
+Support purchasable feature upgrades such as:
+- Advanced Tool Suite
+- Chaos Mode
+- Deep Telemetry Pack
+- Pro Investigator Analytics
+- Expanded Archive / Reporting
+- Custom Sandbox Slots
+- Theme / UI cosmetic pack if desired
+
+Feature upgrades must be gated by entitlements, not by static UI.
+
+4. Suggested initial catalog
+Create a product catalog with at least these example offerings:
+
+Base Free Tier:
+- limited starter cases
+- limited archive depth
+- standard tools only
+- guest mode allowed
+
+Pro Subscription:
+- cloud sync
+- daily challenge
+- full archive
+- advanced stats
+- premium case rotations
+- priority access to new content packs
+
+Content Packs:
+- Network Ops Pack
+- Server Graveyard Pack
+- Garage Diagnostics Pack
+- Sensor Mesh Pack
+- Mixed Cascades Pack
+- Healthcare Imaging Pack
+
+Feature Upgrades:
+- Advanced Tool Suite
+- Chaos Mode
+- Deep Telemetry Pack
+- Sandbox Pro
+
+Bundle:
+- Master Investigator Bundle
+
+Make all of these data-driven so they can be edited easily later.
+
+5. Locked content UX
+When the user tries to open locked content:
+- show a polished upgrade modal or drawer
+- explain what is included
+- show price
+- show owned state if already unlocked
+- provide purchase path
+- never crash or dead-end
+
+================================================================================
+PHASE 4: BILLING + PURCHASE FLOW
+================================================================================
+
+Implement a real billing flow with a clean dev fallback.
+
+1. Billing integration
+Preferred approach:
+- Stripe Checkout for purchases
+- Stripe Customer Portal for subscription management
+- webhook-driven entitlement updates
+- backend route or serverless function layer to verify purchases and write entitlements
+
+Use the stack that fits Replit best while remaining maintainable.
+
+2. Billing modes
+Support two modes:
+A. Production mode
+- real Stripe products/prices
+- real checkout
+- real webhook fulfillment
+- real entitlement updates
+
+B. Development/demo mode
+- mock checkout
+- simulated purchases for testing
+- clearly separated from production logic
+- easy toggle via environment variable
+
+3. Purchase flow requirements
+Support:
+- subscription checkout
+- one-time purchase checkout
+- upgrade from free to pro
+- bundle purchase
+- restore purchases / entitlement refresh
+- ownership sync after payment
+- proper success/cancel handling
+- purchase history or entitlement history where practical
+
+4. Billing safety requirements
+- never trust the client alone for entitlements in production mode
+- verify purchases server-side
+- do not expose secret keys client-side
+- handle idempotency for fulfillment
+- gracefully handle webhook retries
+- log billing failures clearly
+
+================================================================================
+PHASE 5: PWA + MOBILE APP-LIKE BEHAVIOR
+================================================================================
+
+Make it feel great on mobile web and installable as an app.
+
+1. PWA support
+Add:
+- manifest
+- installability
+- icons
+- splash/theme color setup
+- offline shell for basic non-auth UI if practical
+- graceful offline behavior messaging
+
+2. Mobile-first enhancements
+- app-like navigation feel
+- reduced layout jank
+- sticky action areas
+- fast initial load
+- lazy loading where sensible
+- optimized images/assets
+- compact but readable marketplace/store experience
+
+3. Performance polish
+- split heavy views
+- lazy-load advanced tools
+- avoid over-rendering graphs
+- optimize animations for low-power mobile devices
+- reduce unnecessary state churn
+
+================================================================================
+PHASE 6: ADMIN / CATALOG MANAGEMENT
+================================================================================
+
+Create a minimal internal admin experience for managing monetized content.
+
+Admin requirements:
+- view catalog items
+- enable/disable products
+- mark featured items
+- adjust pack metadata
+- inspect entitlements for a user
+- manually grant/revoke entitlements if needed
+- view purchase webhook logs or billing status if practical
+
+This can be lightweight but functional.
+
+================================================================================
+PHASE 7: FINAL QUALITY BAR
+================================================================================
+
+The upgraded app is only considered complete if:
+
+GENERAL
+- existing playable cases still work
+- no major regressions in investigation flow
+- the app feels polished and coherent
+- responsive layout works across desktop, tablet, and mobile
+
+MOBILE
+- investigation workflow is usable on a phone
+- store is usable on a phone
+- diagnosis submission is usable on a phone
+- tables, logs, graphs, and forms do not break layout
+- touch targets are comfortable
+
+STORE / MONETIZATION
+- packs and upgrades display correctly
+- locked content is clearly identified
+- purchase flow works in either dev mode or production mode
+- ownership updates correctly after purchase
+- entitlements persist across sessions
+- purchased content unlocks immediately after successful fulfillment
+
+ACCOUNTS / PERSISTENCE
+- guest mode works
+- sign-in works
+- cloud sync works
+- local fallback works
+- progress and purchases restore correctly
+
+ENGINE / CONTENT
+- case engine still drives logic
+- entitlement gating does not break case flow
+- no fake buttons or decorative-only store features
+
+================================================================================
+IMPLEMENTATION ORDER
+================================================================================
+
+Follow this order strictly:
+1. Audit current codebase and preserve working systems
+2. Refactor architecture where needed without breaking the app
+3. Implement auth and cloud persistence
+4. Implement entitlement model and central gating logic
+5. Build store/marketplace UI and product catalog
+6. Add Stripe + mock billing modes
+7. Wire purchase fulfillment and unlock flows
+8. Refactor the entire app for responsive mobile usability
+9. Add PWA support
+10. Add admin/catalog management
+11. Run a full regression pass on investigation flow
+12. Polish visuals, transitions, and feedback states
+13. Final QA and cleanup
+
+================================================================================
+SELF-AUDIT DIRECTIVE
+================================================================================
+
+Before finalizing, audit and fix anything that is:
+- visually polished but logically fake
+- mobile-broken
+- entitlement-broken
+- billing-broken
+- auth-broken
+- sync-broken
+- purchaseable in UI but not actually unlockable
+- unlocked in data but not reflected in UI
+- duplicated or hardcoded in ways that block maintainability
+
+================================================================================
+README + DEVELOPER NOTES
+================================================================================
+
+Update the README to include:
+- product overview
+- responsive/mobile strategy
+- auth architecture
+- persistence architecture
+- entitlement system overview
+- billing architecture
+- how to add new content packs
+- how to add new feature upgrades
+- how to run mock billing mode
+- how to configure Stripe production mode
+- admin notes
+- migration notes from localStorage prototype to cloud product
+
+FINAL INSTRUCTION
+Finish Faultline Lab into a commercially presentable product prototype that feels premium on desktop and mobile, supports real purchasable add-on packs and upgrades, and keeps the soul of the troubleshooting simulator intact. Preserve what already works. Upgrade what does not. No cardboard polish. No fake store. No broken mobile experience.
