@@ -32,14 +32,16 @@ Faultline Lab is entirely client-side. No backend API calls are needed. All case
 
 ### Case Structure
 Each case has:
-- Terminal commands with realistic outputs
-- Event logs with expandable details
-- Ticket history with user statements and technician notes
-- Evidence items unlocked through tool interactions
-- 4-tier hint system with score penalties
+- Terminal commands with realistic outputs that unlock evidence
+- Event logs with expandable details that unlock evidence on expand
+- Ticket history with user statements and technician notes that unlock evidence on click
+- Evidence items unlocked through tool interactions (terminal, event logs, ticket history)
+- 4-tier hint system with score penalties (hints persist across session resume)
 - Root cause evaluation with natural language matching
 - Score breakdown (diagnosis accuracy, evidence quality, remediation quality, efficiency)
 - Full debrief with actual root cause, red herrings, preventative measures
+- Case briefing modal shown at investigation start with a re-open button
+- Replay support for solved cases (profile scores/achievements preserved)
 
 ### MVP Cases
 1. **Domain Authentication Failure** (Windows/AD) — Kerberos time skew

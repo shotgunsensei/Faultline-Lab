@@ -115,6 +115,34 @@ export function processEventLogView(
   };
 }
 
+export function processTicketNoteView(
+  caseDef: CaseDefinition,
+  state: CaseState,
+  noteId: string
+): CaseState {
+  const note = caseDef.ticketHistory.find(n => n.id === noteId);
+  if (!note || !note.revealsEvidence) return state;
+
+  const newEvidence = note.revealsEvidence.filter(
+    eId => !state.unlockedEvidence.includes(eId)
+  );
+
+  if (newEvidence.length === 0) return state;
+
+  return {
+    ...state,
+    unlockedEvidence: [...state.unlockedEvidence, ...newEvidence],
+    actionLog: [
+      ...state.actionLog,
+      {
+        toolType: 'ticket-history',
+        command: `Reviewed note by ${note.author}`,
+        timestamp: Date.now(),
+      },
+    ],
+  };
+}
+
 export function useHint(state: CaseState, level: number): CaseState {
   if (state.hintsUsed.includes(level)) return state;
   return {

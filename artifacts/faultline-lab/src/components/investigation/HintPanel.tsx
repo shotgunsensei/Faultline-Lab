@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { Lightbulb, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -8,6 +8,18 @@ export default function HintPanel() {
   const currentCaseState = useAppStore(s => s.currentCaseState);
   const requestHint = useAppStore(s => s.requestHint);
   const [revealedHints, setRevealedHints] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    if (!currentCaseDef || !currentCaseState) return;
+    const restored: Record<number, string> = {};
+    for (const level of currentCaseState.hintsUsed) {
+      const hint = currentCaseDef.hints.find(h => h.level === level);
+      if (hint) {
+        restored[level] = hint.text;
+      }
+    }
+    setRevealedHints(restored);
+  }, [currentCaseDef, currentCaseState?.caseId]);
 
   if (!currentCaseDef || !currentCaseState) return null;
 
@@ -29,6 +41,11 @@ export default function HintPanel() {
         <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
           Hints
         </span>
+        {currentCaseState.hintsUsed.length > 0 && (
+          <span className="text-xs font-mono text-amber-500 ml-auto">
+            {currentCaseState.hintsUsed.length} used
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">

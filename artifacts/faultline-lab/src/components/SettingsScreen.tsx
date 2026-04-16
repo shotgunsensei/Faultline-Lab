@@ -47,7 +47,7 @@ export default function SettingsScreen() {
               <div>
                 <p className="text-sm text-zinc-200">Sound Effects</p>
                 <p className="text-xs text-zinc-600">
-                  Toggle audio feedback (placeholder)
+                  Toggle sound effects
                 </p>
               </div>
             </div>

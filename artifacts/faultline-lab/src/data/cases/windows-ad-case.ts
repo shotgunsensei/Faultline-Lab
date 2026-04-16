@@ -64,7 +64,7 @@ export const windowsAdCase: CaseDefinition = {
   ],
   ticketHistory: [
     { id: 'th1', author: 'Janet Smith', role: 'End User', timestamp: '2026-04-15 09:30 AM', content: 'I can\'t log into my computer with my domain account. It says something about a "trust relationship." I just had my password reset yesterday and it worked fine after that. This morning it won\'t let me in at all.' },
-    { id: 'th2', author: 'Mike Chen', role: 'Help Desk L1', timestamp: '2026-04-15 09:45 AM', content: 'Attempted remote login — same error. Verified the password reset was completed successfully yesterday. User was able to log in after the reset. Suspecting the password reset may have corrupted something. Escalating.', isRedHerring: true },
+    { id: 'th2', author: 'Mike Chen', role: 'Help Desk L1', timestamp: '2026-04-15 09:45 AM', content: 'Attempted remote login — same error. Verified the password reset was completed successfully yesterday. User was able to log in after the reset. Suspecting the password reset may have corrupted something. Escalating.', isRedHerring: true, revealsEvidence: ['e6'] },
     { id: 'th3', author: 'Sarah Wong', role: 'Help Desk L2', timestamp: '2026-04-15 10:00 AM', content: 'Confirmed DC01 is healthy from other workstations. Other users on the same subnet can authenticate fine. Issue appears isolated to WS-PC042. Local admin access works with cached creds.' },
     { id: 'th4', author: 'Mike Chen', role: 'Help Desk L1', timestamp: '2026-04-14 02:35 PM', content: 'Password reset completed for jsmith per manager request. User confirmed she could log in successfully after the reset. Ticket closed.' },
   ],

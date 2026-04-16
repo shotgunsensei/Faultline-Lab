@@ -1,0 +1,936 @@
+Use the current Faultline Lab codebase, store architecture, entitlement system, and productization plan as the source of truth. Do NOT restart from scratch. Do NOT replace working store, billing, or entitlement logic with a new parallel system. This task is to create a structured, typed, reusable catalog seed layer so the storefront, product detail views, lock modals, upgrade prompts, and entitlement-aware UI all pull from one clean source of truth.
+
+MISSION
+Implement a JSON-ready, TypeScript-safe catalog content layer for Faultline Lab and wire it into the existing store and entitlement UI without breaking current behavior.
+
+IMPORTANT
+I do NOT want a loose blob of product strings or hardcoded copy inside components.
+I want a deliberate catalog registry with stable IDs, typed fields, and reusable data that the UI can consume safely.
+
+DO NOT:
+- hardcode product text inside UI components
+- duplicate catalog logic across multiple files unless clearly separated by purpose
+- change existing product IDs if they already exist and map cleanly
+- create a second competing catalog system
+- break existing billing or entitlement mapping
+- build fake cards with missing data fields
+- leave placeholders like "lorem ipsum", "TODO", or "sample pricing"
+
+DO:
+- preserve working architecture
+- refactor only where needed
+- centralize catalog content
+- use stable product IDs and slugs
+- keep catalog data extensible
+- make the UI pull from this registry
+- keep it easy to map products to Stripe IDs or mock billing IDs
+- validate the catalog structure at load time if practical
+
+PREFERRED IMPLEMENTATION APPROACH
+Use TypeScript seed files, not raw freeform JSON files, so the catalog is strongly typed and easier to maintain.
+However, structure the data so it remains JSON-like and could later be exported to a CMS or database.
+
+================================================================================
+PHASE 1: CREATE THE CATALOG CONTENT LAYER
+================================================================================
+
+Create or extend these files if they do not already exist. If similar files already exist, merge intelligently instead of duplicating.
+
+Recommended files:
+- src/features/catalog/catalog.types.ts
+- src/features/catalog/catalog.seed.ts
+- src/features/catalog/catalog.selectors.ts
+- src/features/catalog/catalog.validation.ts
+- src/features/catalog/catalog.constants.ts
+
+If the current codebase already has a catalog folder, use that instead of creating a duplicate one.
+
+================================================================================
+PHASE 2: DEFINE STRONG TYPES
+================================================================================
+
+Create or extend strong TypeScript types/interfaces for the catalog.
+
+Required types:
+- ProductType
+- PricingModel
+- CatalogCategory
+- ProductStatus
+- ProductBadge
+- CatalogPrice
+- LockModalCopy
+- ProductCTA
+- EntitlementGrant
+- CatalogProduct
+- SubscriptionProduct
+- ContentPackProduct
+- FeatureUpgradeProduct
+- BundleProduct
+- RecommendationHint
+- StoreSection
+- OwnedStateDescriptor if useful
+- ProductRegistry
+
+Support these enums or string unions:
+
+ProductType:
+- subscription
+- one_time_content_pack
+- one_time_feature_upgrade
+- bundle
+- free_tier
+- promotional_unlock
+- admin_grant
+
+PricingModel:
+- free
+- recurring_monthly
+- recurring_yearly
+- one_time
+
+CatalogCategory:
+- plan
+- content_pack
+- feature_upgrade
+- bundle
+- specialty
+- promotional
+
+ProductStatus:
+- active
+- draft
+- hidden
+- retired
+
+ProductBadge:
+- new
+- popular
+- premium
+- specialty
+- best_value
+- featured
+- advanced
+
+StoreSection:
+- featured
+- subscription_plans
+- content_packs
+- feature_upgrades
+- bundles
+- specialty_packs
+- owned_products
+- recommended
+
+CatalogPrice shape:
+- amount: number
+- currency: "USD"
+- billingInterval?: "month" | "year"
+- display: string
+
+LockModalCopy shape:
+- title: string
+- body: string
+- ctaLabel: string
+
+EntitlementGrant examples:
+- cloud_sync
+- daily_challenge
+- full_archive
+- advanced_analytics
+- premium_rotations
+- cross_device_restore
+- case_pack:<slug>
+- feature:<slug>
+- bundle:<slug>
+- advanced_tools
+- deep_telemetry
+- sandbox_pro
+- chaos_mode
+- investigator_analytics
+
+CatalogProduct base fields:
+- id
+- slug
+- type
+- category
+- status
+- name
+- shortDescription
+- longDescription
+- mobileSummary
+- ctaLabel
+- badges
+- tags
+- artworkKey
+- priceModel
+- price
+- featureBullets
+- includedProductIds
+- includedEntitlements
+- lockModal
+- storeSections
+- sortOrder
+- isFeatured
+- isRecommendedDefault
+- recommendationHints
+- stripeProductKey
+- stripePriceKey
+- mockBillingKey
+
+Use discriminated unions if helpful so subscriptions, packs, upgrades, and bundles can have specialized fields.
+
+================================================================================
+PHASE 3: BUILD A CLEAN PRODUCT REGISTRY
+================================================================================
+
+Create a single exported catalog registry in:
+- src/features/catalog/catalog.seed.ts
+
+Export both:
+- a flat array of products
+- a byId map
+- a bySlug map if useful
+
+Use stable IDs and slugs exactly as follows unless an existing production-safe ID already exists and must be preserved.
+
+REQUIRED PRODUCT IDs AND SLUGS
+
+FREE TIER
+1.
+id: product_faultline_free
+slug: faultline-free
+type: free_tier
+category: plan
+
+PRO SUBSCRIPTIONS
+2.
+id: product_faultline_pro_monthly
+slug: faultline-pro-monthly
+type: subscription
+category: plan
+
+3.
+id: product_faultline_pro_annual
+slug: faultline-pro-annual
+type: subscription
+category: plan
+
+CONTENT PACKS
+4.
+id: pack_network_ops
+slug: network-ops-pack
+type: one_time_content_pack
+category: content_pack
+
+5.
+id: pack_server_graveyard
+slug: server-graveyard-pack
+type: one_time_content_pack
+category: content_pack
+
+6.
+id: pack_garage_diagnostics
+slug: garage-diagnostics-pack
+type: one_time_content_pack
+category: content_pack
+
+7.
+id: pack_sensor_mesh
+slug: sensor-mesh-pack
+type: one_time_content_pack
+category: content_pack
+
+8.
+id: pack_mixed_cascades
+slug: mixed-cascades-pack
+type: one_time_content_pack
+category: content_pack
+
+9.
+id: pack_healthcare_imaging
+slug: healthcare-imaging-pack
+type: one_time_content_pack
+category: specialty
+
+FEATURE UPGRADES
+10.
+id: upgrade_advanced_tool_suite
+slug: advanced-tool-suite
+type: one_time_feature_upgrade
+category: feature_upgrade
+
+11.
+id: upgrade_deep_telemetry
+slug: deep-telemetry-pack
+type: one_time_feature_upgrade
+category: feature_upgrade
+
+12.
+id: upgrade_sandbox_pro
+slug: sandbox-pro
+type: one_time_feature_upgrade
+category: feature_upgrade
+
+13.
+id: upgrade_chaos_mode
+slug: chaos-mode
+type: one_time_feature_upgrade
+category: feature_upgrade
+
+14.
+id: upgrade_pro_investigator_analytics
+slug: pro-investigator-analytics
+type: one_time_feature_upgrade
+category: feature_upgrade
+
+BUNDLES
+15.
+id: bundle_master_investigator
+slug: master-investigator-bundle
+type: bundle
+category: bundle
+
+16.
+id: bundle_clinical_systems
+slug: clinical-systems-bundle
+type: bundle
+category: specialty
+
+================================================================================
+PHASE 4: SEED THE EXACT PRODUCT COPY
+================================================================================
+
+Use the following exact content as the initial source copy. Minor formatting cleanup is fine, but do not dilute the meaning.
+
+1) product_faultline_free
+name: Faultline Lab Free
+shortDescription: Enter the lab. Solve starter cases, build instincts, and learn the investigation loop at no cost.
+longDescription: Faultline Lab Free gives new investigators a real way in. Tackle starter cases, explore the core investigation workflow, review debriefs, and begin building a troubleshooting profile without paying up front. It is designed to be useful, not crippled. The free tier gives enough access to understand the engine, enjoy the experience, and decide where to go deeper.
+mobileSummary: Starter access to the lab with 4 cases and core investigation flow.
+ctaLabel: Start Free
+badges: []
+tags: ["free", "starter", "core"]
+priceModel: free
+price.display: Free
+featureBullets:
+- 4 starter handcrafted cases
+- Core Case Files access
+- Standard scoring and debrief
+- Basic profile stats
+- Limited archive history
+- Guest mode supported
+includedEntitlements:
+- case_pack:starter
+- standard_scoring
+- standard_debrief
+- basic_profile
+- limited_archive
+lockModal: none
+storeSections:
+- subscription_plans
+sortOrder: 10
+isFeatured: false
+isRecommendedDefault: false
+
+2) product_faultline_pro_monthly
+name: Faultline Lab Pro
+shortDescription: Unlock cloud sync, daily challenges, advanced stats, and a deeper long-term investigator experience.
+longDescription: Faultline Lab Pro turns the simulator into a living platform. Sync progress across devices, access the daily challenge, keep a full solved-case archive, and unlock richer investigator analytics that reveal how your troubleshooting habits evolve over time. For users who keep coming back to the lab, Pro adds the connective tissue that makes the whole experience feel persistent, intelligent, and worth investing in.
+mobileSummary: Cloud sync, daily challenge, archive, analytics, and cross-device progress.
+ctaLabel: Go Pro Monthly
+badges: ["featured"]
+tags: ["pro", "subscription", "sync"]
+priceModel: recurring_monthly
+price.amount: 8.99
+price.currency: USD
+price.billingInterval: month
+price.display: $8.99/mo
+featureBullets:
+- Cloud sync
+- Daily Challenge access
+- Full archive history
+- Advanced investigator analytics
+- Expanded profile stats
+- Premium rotating featured cases
+- Early-access flags for new content
+- Cross-device progress restore
+includedEntitlements:
+- cloud_sync
+- daily_challenge
+- full_archive
+- advanced_analytics
+- expanded_profile_stats
+- premium_rotations
+- cross_device_restore
+lockModal:
+title: Take the lab with you
+body: Upgrade to Pro to sync progress across devices, unlock the daily challenge, and keep a full history of solved cases and performance trends.
+ctaLabel: View Pro Plans
+storeSections:
+- featured
+- subscription_plans
+sortOrder: 20
+isFeatured: true
+isRecommendedDefault: true
+
+3) product_faultline_pro_annual
+name: Faultline Lab Pro Annual
+shortDescription: The best-value way to unlock cloud sync, daily challenges, advanced stats, and full archive access.
+longDescription: Faultline Lab Pro Annual gives active investigators the strongest long-term value. It includes the full Pro platform experience with cloud sync, daily challenge access, full archive history, advanced investigator analytics, and cross-device restore, while reducing billing friction for users who already know they want Faultline Lab as an ongoing platform.
+mobileSummary: Best-value annual Pro plan with sync, archive, analytics, and daily challenge.
+ctaLabel: Go Pro Annual
+badges: ["best_value", "featured"]
+tags: ["pro", "annual", "best-value"]
+priceModel: recurring_yearly
+price.amount: 79
+price.currency: USD
+price.billingInterval: year
+price.display: $79/yr
+featureBullets:
+- Cloud sync
+- Daily Challenge access
+- Full archive history
+- Advanced investigator analytics
+- Expanded profile stats
+- Premium rotating featured cases
+- Early-access flags for new content
+- Cross-device progress restore
+includedEntitlements:
+- cloud_sync
+- daily_challenge
+- full_archive
+- advanced_analytics
+- expanded_profile_stats
+- premium_rotations
+- cross_device_restore
+lockModal:
+title: Go deeper for the long haul
+body: Upgrade to the annual Pro plan for the best value on cloud sync, archive history, analytics, and daily investigator content.
+ctaLabel: View Pro Plans
+storeSections:
+- featured
+- subscription_plans
+sortOrder: 21
+isFeatured: true
+isRecommendedDefault: true
+
+4) pack_network_ops
+name: Network Ops Pack
+shortDescription: Routing ghosts, policy traps, tunnel weirdness, and layered network failures built for serious troubleshooters.
+longDescription: The Network Ops Pack is built for people who enjoy chasing failures through routing paths, firewall behavior, VPN state, policy mismatches, and the quiet lies told by green status indicators. These cases reward methodical investigation and punish assumption-driven troubleshooting. Expect misleading health signals, layered network dependencies, and moments where the truth hides one hop farther than expected.
+mobileSummary: Routing, firewall, and VPN failures with layered red herrings.
+ctaLabel: Unlock Pack
+badges: ["popular"]
+tags: ["network", "operations", "vpn"]
+priceModel: one_time
+price.amount: 9.99
+price.currency: USD
+price.display: $9.99
+featureBullets:
+- 8 networking, firewall, and VPN cases
+- Advanced routing and policy scenarios
+- Expanded network map variants
+- Strong red-herring design
+- Great fit for infrastructure and MSP-minded users
+includedEntitlements:
+- case_pack:network-ops-pack
+lockModal:
+title: This incident belongs to the Network Ops Pack
+body: Unlock advanced network investigations featuring VPN failures, routing ambiguity, firewall policy traps, and multi-layer traffic breakdowns.
+ctaLabel: Get Network Ops Pack
+storeSections:
+- content_packs
+- featured
+sortOrder: 40
+isFeatured: true
+isRecommendedDefault: true
+
+5) pack_server_graveyard
+name: Server Graveyard Pack
+shortDescription: Crash loops, cert rot, storage pain, and service dependency failures from the cold end of the rack.
+longDescription: The Server Graveyard Pack dives into the failures that linger behind normal-looking dashboards. Services stall, dependencies fracture, certificates expire quietly, and storage issues begin as whispers before they become disasters. These scenarios are built for investigators who like peeling apart stack layers, reading system behavior closely, and finding the failure that hides beneath the failure.
+mobileSummary: Services, storage, cert failures, and backend instability.
+ctaLabel: Unlock Pack
+badges: []
+tags: ["servers", "storage", "ops"]
+priceModel: one_time
+price.amount: 9.99
+price.currency: USD
+price.display: $9.99
+featureBullets:
+- 8 server, service, and storage cases
+- Certificate failures and service dependency breakdowns
+- Crash-loop and resource stress scenarios
+- Strong fit for sysadmins and infrastructure specialists
+includedEntitlements:
+- case_pack:server-graveyard-pack
+lockModal:
+title: Server Graveyard Pack required
+body: Unlock a darker shelf of cases centered on services, storage, certificate failures, and backend instability.
+ctaLabel: Unlock Server Graveyard Pack
+storeSections:
+- content_packs
+sortOrder: 41
+isFeatured: false
+isRecommendedDefault: false
+
+6) pack_garage_diagnostics
+name: Garage Diagnostics Pack
+shortDescription: Misfires, trims, voltage swings, sensor lies, and stubborn drivability problems that refuse to stay simple.
+longDescription: The Garage Diagnostics Pack brings the troubleshooting engine into the bay. These automotive cases lean into unstable idle, misfire behavior, charging anomalies, sensor drift, CAN weirdness, and data that only makes sense when viewed as a whole. It is built for users who enjoy reading telemetry like a story instead of throwing parts at a symptom.
+mobileSummary: Automotive cases focused on misfires, trims, voltage, and drivability.
+ctaLabel: Unlock Pack
+badges: ["premium", "featured"]
+tags: ["automotive", "diagnostics", "premium"]
+priceModel: one_time
+price.amount: 12.99
+price.currency: USD
+price.display: $12.99
+featureBullets:
+- 10 automotive diagnostic cases
+- Richer OBD-style scenarios
+- Voltage, trims, misfires, and sensor behavior
+- Great fit for mechanics, tuners, and data-driven troubleshooters
+includedEntitlements:
+- case_pack:garage-diagnostics-pack
+lockModal:
+title: Garage Diagnostics Pack required
+body: Unlock deeper automotive investigations with richer live data, drivability puzzles, and multi-symptom diagnostic chains.
+ctaLabel: Get Garage Diagnostics Pack
+storeSections:
+- content_packs
+- featured
+sortOrder: 42
+isFeatured: true
+isRecommendedDefault: true
+
+7) pack_sensor_mesh
+name: Sensor Mesh Pack
+shortDescription: Power instability, firmware drift, mesh poisoning, and low-voltage systems behaving like they have learned bad habits.
+longDescription: The Sensor Mesh Pack explores the nervous system of small connected devices. These cases deal in unstable nodes, false telemetry, signal decay, firmware mismatch, poor power quality, and the subtle kind of chaos that spreads through a network one bad reading at a time. It is ideal for users who enjoy finding the one component quietly teaching the rest of the system to fail.
+mobileSummary: Electronics and low-voltage cases with power, signal, and firmware failures.
+ctaLabel: Unlock Pack
+badges: []
+tags: ["electronics", "iot", "sensors"]
+priceModel: one_time
+price.amount: 8.99
+price.currency: USD
+price.display: $8.99
+featureBullets:
+- 8 electronics, IoT, and low-voltage cases
+- Mesh poisoning and false telemetry scenarios
+- Firmware and signal-quality failures
+- Strong fit for electronics and embedded-minded users
+includedEntitlements:
+- case_pack:sensor-mesh-pack
+lockModal:
+title: Sensor Mesh Pack required
+body: Unlock electronics and low-voltage investigations centered on unstable nodes, false readings, bad power, and drifting firmware states.
+ctaLabel: Get Sensor Mesh Pack
+storeSections:
+- content_packs
+sortOrder: 43
+isFeatured: false
+isRecommendedDefault: false
+
+8) pack_mixed_cascades
+name: Mixed Cascades Pack
+shortDescription: Cross-domain incidents where one fault pulls three others into the undertow.
+longDescription: The Mixed Cascades Pack is where clean categories go to die. These cases blend infrastructure, device behavior, software symptoms, and misleading timelines into chained failures that require disciplined correlation instead of quick pattern matching. This pack is for users who want the app to push back.
+mobileSummary: Advanced cross-domain cases with chained failures and deeper ambiguity.
+ctaLabel: Unlock Pack
+badges: ["advanced"]
+tags: ["advanced", "mixed", "challenge"]
+priceModel: one_time
+price.amount: 10.99
+price.currency: USD
+price.display: $10.99
+featureBullets:
+- 8 advanced hybrid failure cases
+- Cross-domain cascading investigations
+- Higher ambiguity and deeper clue interaction
+- Ideal for experienced users seeking challenge
+includedEntitlements:
+- case_pack:mixed-cascades-pack
+lockModal:
+title: Mixed Cascades Pack required
+body: Unlock advanced multi-system failures where symptoms spill across boundaries and the real cause sits upstream of the obvious damage.
+ctaLabel: Get Mixed Cascades Pack
+storeSections:
+- content_packs
+sortOrder: 44
+isFeatured: false
+isRecommendedDefault: false
+
+9) pack_healthcare_imaging
+name: Healthcare Imaging Pack
+shortDescription: Display artifacts, sync faults, delayed studies, workstation oddities, and imaging workflow failures under pressure.
+longDescription: The Healthcare Imaging Pack focuses on specialty cases shaped by imaging workflows, reading workstations, display problems, synchronization issues, transport delays, and clinical system edge cases where timing and trust both matter. These scenarios are sharper, more specialized, and built for users who want a domain-specific layer of complexity with real operational weight.
+mobileSummary: Specialty imaging workflow, workstation, sync, and transport cases.
+ctaLabel: Unlock Specialty Pack
+badges: ["specialty", "premium"]
+tags: ["healthcare", "imaging", "specialty"]
+priceModel: one_time
+price.amount: 14.99
+price.currency: USD
+price.display: $14.99
+featureBullets:
+- 10 healthcare imaging themed cases
+- Display, sync, workflow, and transport issues
+- Specialty-focused investigations
+- Premium add-on for niche expertise
+includedEntitlements:
+- case_pack:healthcare-imaging-pack
+lockModal:
+title: Specialty content locked
+body: Unlock healthcare imaging investigations built around clinical workflows, workstation anomalies, synchronization faults, and specialty transport issues.
+ctaLabel: Get Healthcare Imaging Pack
+storeSections:
+- specialty_packs
+- featured
+sortOrder: 45
+isFeatured: true
+isRecommendedDefault: false
+
+10) upgrade_advanced_tool_suite
+name: Advanced Tool Suite
+shortDescription: Expand the bench with deeper inspection views, richer diagnostics, and more ways to interrogate a problem.
+longDescription: Advanced Tool Suite adds sharper instruments to the lab. Gain access to expanded tool panels, deeper inspection views, and more granular diagnostic visibility across supported cases. This upgrade is for users who want more than the standard instrument set and prefer to work with a finer blade.
+mobileSummary: Deeper inspection tools and richer diagnostic views.
+ctaLabel: Unlock Upgrade
+badges: []
+tags: ["tools", "power-user", "diagnostics"]
+priceModel: one_time
+price.amount: 7.99
+price.currency: USD
+price.display: $7.99
+featureBullets:
+- Expanded inspection tools
+- Richer diagnostic views
+- Additional panel depth
+- Strong fit for power users
+includedEntitlements:
+- advanced_tools
+- feature:advanced-tool-suite
+lockModal:
+title: Advanced Tool Suite required
+body: Unlock deeper inspection panels and premium diagnostic views for users who want more than the standard toolkit.
+ctaLabel: Unlock Advanced Tool Suite
+storeSections:
+- feature_upgrades
+sortOrder: 60
+isFeatured: false
+isRecommendedDefault: false
+
+11) upgrade_deep_telemetry
+name: Deep Telemetry Pack
+shortDescription: Go below the surface with richer history, denser graphing, and deeper signal behavior analysis.
+longDescription: Deep Telemetry Pack enhances the way data is seen over time. It expands graphing depth, improves historical telemetry views, and adds richer analytical perspective to supported automotive and electronics scenarios. For users who trust trends more than snapshots, this is where the signal gets louder.
+mobileSummary: Richer telemetry history, graphs, and signal analysis.
+ctaLabel: Unlock Upgrade
+badges: []
+tags: ["telemetry", "graphs", "analysis"]
+priceModel: one_time
+price.amount: 6.99
+price.currency: USD
+price.display: $6.99
+featureBullets:
+- Richer telemetry history
+- Expanded graphing views
+- Deeper OBD and signal analysis
+- Great fit for data-driven investigators
+includedEntitlements:
+- deep_telemetry
+- feature:deep-telemetry-pack
+lockModal:
+title: Deep Telemetry Pack required
+body: Unlock richer graphs, deeper telemetry history, and enhanced analysis panels for supported scenarios.
+ctaLabel: Get Deep Telemetry Pack
+storeSections:
+- feature_upgrades
+sortOrder: 61
+isFeatured: false
+isRecommendedDefault: false
+
+12) upgrade_sandbox_pro
+name: Sandbox Pro
+shortDescription: Build your own incidents with more control, more slots, and more room to experiment.
+longDescription: Sandbox Pro opens the workbench. Create custom investigations with expanded control over symptoms, root causes, evidence, and scenario structure, then test them in the same investigation flow used by built-in cases. It is the upgrade for users who want to stop being handed puzzles and start crafting them.
+mobileSummary: Full custom case builder with more slots and controls.
+ctaLabel: Unlock Upgrade
+badges: []
+tags: ["sandbox", "builder", "creator"]
+priceModel: one_time
+price.amount: 9.99
+price.currency: USD
+price.display: $9.99
+featureBullets:
+- Full sandbox builder access
+- More custom case slots
+- Advanced scenario composition controls
+- Export/import support where enabled
+includedEntitlements:
+- sandbox_pro
+- feature:sandbox-pro
+lockModal:
+title: Sandbox Pro required
+body: Unlock the full custom case builder with advanced controls, more saved slots, and deeper scenario design options.
+ctaLabel: Unlock Sandbox Pro
+storeSections:
+- feature_upgrades
+sortOrder: 62
+isFeatured: false
+isRecommendedDefault: false
+
+13) upgrade_chaos_mode
+name: Chaos Mode
+shortDescription: Let incidents mutate mid-investigation and turn stable assumptions into glass.
+longDescription: Chaos Mode introduces instability by design. Cases can shift, symptoms can evolve, and the environment can stop holding still long enough to reward lazy certainty. This is not just harder. It is meaner in a thoughtful way.
+mobileSummary: Dynamic incident mutation for higher challenge and replayability.
+ctaLabel: Unlock Upgrade
+badges: ["advanced"]
+tags: ["challenge", "dynamic", "chaos"]
+priceModel: one_time
+price.amount: 4.99
+price.currency: USD
+price.display: $4.99
+featureBullets:
+- Incident mutation mode
+- Unstable scenario modifiers
+- Higher challenge and replayability
+- Built for users who want pressure
+includedEntitlements:
+- chaos_mode
+- feature:chaos-mode
+lockModal:
+title: Chaos Mode locked
+body: Unlock dynamic incident mutation and add a sharper edge to every investigation.
+ctaLabel: Get Chaos Mode
+storeSections:
+- feature_upgrades
+sortOrder: 63
+isFeatured: false
+isRecommendedDefault: false
+
+14) upgrade_pro_investigator_analytics
+name: Pro Investigator Analytics
+shortDescription: See how you actually troubleshoot, where you drift, and where your instincts cut clean.
+longDescription: Pro Investigator Analytics gives your performance a mirror. Track score trends, category strength, hint dependence, recurring mistakes, and the patterns that shape your investigative style over time. It turns raw session history into usable self-diagnosis.
+mobileSummary: Deeper score trends, mistake patterns, and category performance.
+ctaLabel: Unlock Upgrade
+badges: []
+tags: ["analytics", "performance", "insight"]
+priceModel: one_time
+price.amount: 5.99
+price.currency: USD
+price.display: $5.99
+featureBullets:
+- Deeper score breakdowns
+- Trend charts and category performance
+- Hint dependency tracking
+- Mistake pattern visibility
+includedEntitlements:
+- investigator_analytics
+- feature:pro-investigator-analytics
+lockModal:
+title: Analytics upgrade required
+body: Unlock deeper performance insight, trend tracking, and category-level analysis to sharpen how you troubleshoot.
+ctaLabel: Get Pro Investigator Analytics
+storeSections:
+- feature_upgrades
+sortOrder: 64
+isFeatured: false
+isRecommendedDefault: false
+
+15) bundle_master_investigator
+name: Master Investigator Bundle
+shortDescription: The full armory. Pro access, major packs, premium tools, and advanced upgrades in one move.
+longDescription: The Master Investigator Bundle is the fastest path to a loaded Faultline Lab account. It combines Pro annual access with the main content packs and feature upgrades, giving committed users a broad, permanent base of cases and tools without piecing the platform together one unlock at a time. It is built for users who already know they want the whole bench powered on.
+mobileSummary: Pro annual plus major packs and upgrades in one bundle.
+ctaLabel: Get the Bundle
+badges: ["best_value", "featured", "premium"]
+tags: ["bundle", "best-value", "all-in"]
+priceModel: one_time
+price.amount: 49.99
+price.currency: USD
+price.display: $49.99
+featureBullets:
+- Includes Pro annual
+- Includes major content packs
+- Includes major feature upgrades
+- Best fit for committed long-term users
+includedProductIds:
+- product_faultline_pro_annual
+- pack_network_ops
+- pack_server_graveyard
+- pack_garage_diagnostics
+- pack_sensor_mesh
+- pack_mixed_cascades
+- upgrade_advanced_tool_suite
+- upgrade_deep_telemetry
+- upgrade_sandbox_pro
+- upgrade_chaos_mode
+- upgrade_pro_investigator_analytics
+includedEntitlements:
+- bundle:master-investigator-bundle
+lockModal:
+title: Go all in
+body: Unlock the core premium Faultline Lab experience in one purchase with bundled content, tools, and Pro access.
+ctaLabel: View Bundle
+storeSections:
+- bundles
+- featured
+sortOrder: 80
+isFeatured: true
+isRecommendedDefault: true
+
+16) bundle_clinical_systems
+name: Clinical Systems Bundle
+shortDescription: Specialty access for imaging-focused investigations with deeper tools and deeper telemetry.
+longDescription: The Clinical Systems Bundle is a specialty path built around healthcare imaging scenarios and the tools best suited to investigate them. It adds sharper diagnostic capability to a domain where sync, trust, timing, and display behavior all matter. A focused bundle for users who want depth in a narrower lane.
+mobileSummary: Healthcare imaging pack plus deeper tools and telemetry.
+ctaLabel: Get the Bundle
+badges: ["specialty", "featured"]
+tags: ["clinical", "imaging", "specialty"]
+priceModel: one_time
+price.amount: 19.99
+price.currency: USD
+price.display: $19.99
+featureBullets:
+- Includes Healthcare Imaging Pack
+- Includes Advanced Tool Suite
+- Includes Deep Telemetry Pack
+- Specialty-focused value bundle
+includedProductIds:
+- pack_healthcare_imaging
+- upgrade_advanced_tool_suite
+- upgrade_deep_telemetry
+includedEntitlements:
+- bundle:clinical-systems-bundle
+lockModal:
+title: Specialty bundle available
+body: Unlock healthcare imaging cases plus deeper tools and telemetry in one focused bundle.
+ctaLabel: View Clinical Systems Bundle
+storeSections:
+- bundles
+- specialty_packs
+sortOrder: 81
+isFeatured: true
+isRecommendedDefault: false
+
+================================================================================
+PHASE 5: CREATE SELECTORS AND HELPERS
+================================================================================
+
+Create reusable selectors/helpers such as:
+- getAllCatalogProducts()
+- getCatalogProductById(id)
+- getCatalogProductBySlug(slug)
+- getProductsBySection(section)
+- getFeaturedProducts()
+- getContentPacks()
+- getFeatureUpgrades()
+- getBundles()
+- getSubscriptionPlans()
+- getOwnedProducts(userEntitlements)
+- getLockedProducts(userEntitlements)
+- isProductOwned(product, userEntitlements)
+- isProductAccessible(product, userEntitlements)
+- resolveIncludedProducts(bundle)
+- getUpgradePromptForLockedFeature(featureSlug)
+- getStoreCardState(product, userEntitlements, activeSubscription)
+- getRecommendedProducts(userBehavior, userEntitlements)
+
+If the app already has equivalent helpers, update them to use the new seed registry cleanly.
+
+================================================================================
+PHASE 6: VALIDATE THE CATALOG
+================================================================================
+
+Implement lightweight validation at startup or build time.
+
+Validation checks should catch:
+- duplicate ids
+- duplicate slugs
+- missing price display strings
+- invalid store sections
+- invalid badges
+- bundle references to missing product ids
+- missing lockModal for paid locked products
+- empty shortDescription or name
+- invalid includedEntitlements format
+
+Do not overengineer this, but do add enough validation to stop silent catalog corruption.
+
+================================================================================
+PHASE 7: WIRE INTO UI WITHOUT BREAKING EXISTING LOGIC
+================================================================================
+
+Refactor store, product detail drawers/pages, lock modals, upgrade prompts, and entitlement-aware case/tool UI to consume the catalog seed instead of hardcoded product strings.
+
+Specifically:
+- Store cards should pull from catalog.seed.ts
+- Product detail pages/drawers should pull from catalog.seed.ts
+- Locked feature prompts should use product.lockModal where appropriate
+- Mobile cards should use mobileSummary
+- CTA labels should use ctaLabel
+- Bundle pages should resolve included products dynamically
+- "Owned" state should come from entitlement resolution, not fake local flags
+- Free vs paid states should render correctly on both mobile and desktop
+
+Keep existing UI behavior intact where it already works.
+
+================================================================================
+PHASE 8: KEEP BILLING IN SYNC
+================================================================================
+
+Do not break the billing system.
+
+Each product should support:
+- stripeProductKey
+- stripePriceKey
+- mockBillingKey
+
+If these already exist elsewhere, map them cleanly instead of creating duplicates.
+If real Stripe keys are not configured yet, use clear placeholder env-backed keys in a way that is safe and easy to replace.
+
+Do not expose secrets client-side.
+Do not grant ownership based on UI clicks alone in production mode.
+
+================================================================================
+PHASE 9: ACCEPTANCE CRITERIA
+================================================================================
+
+This task is complete only if:
+- catalog types exist and are clean
+- catalog.seed.ts exists and contains the full seeded product registry
+- the registry uses stable ids and slugs
+- selectors/helpers work
+- validation catches bad data
+- store/product detail UI pulls from the registry
+- lock modals use seeded copy
+- no hardcoded duplicate product copy remains in components where avoidable
+- bundles resolve included products correctly
+- owned/locked states still work
+- billing mapping fields exist
+- mobile and desktop storefronts both render correctly
+- no fake or placeholder product cards remain
+
+================================================================================
+SELF-AUDIT DIRECTIVE
+================================================================================
+
+Before finalizing, audit and fix:
+- duplicate product definitions
+- broken or missing slugs
+- cards using old hardcoded text
+- bundle items not resolving
+- inconsistent CTA labels
+- lock modals not mapped
+- mobile cards truncating badly
+- missing product badges
+- missing price display values
+- entitlement checks no longer matching product ids
+
+FINAL INSTRUCTION
+Implement this as a disciplined catalog content layer, not a loose copy dump. The goal is to make Faultline Lab’s store, upgrade prompts, and product detail views consistent, typed, maintainable, and hard to mess up later.

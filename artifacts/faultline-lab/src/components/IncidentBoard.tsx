@@ -29,6 +29,7 @@ const categoryIconMap: Record<string, React.ReactNode> = {
 function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
   const startCase = useAppStore(s => s.startCase);
   const resumeCase = useAppStore(s => s.resumeCase);
+  const restartCase = useAppStore(s => s.restartCase);
   const isSolved = useAppStore(s => s.isCaseSolved(caseDef.id));
   const bestScore = useAppStore(s => s.getCaseScore(caseDef.id));
 
@@ -38,6 +39,11 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
     } else {
       startCase(caseDef.id);
     }
+  };
+
+  const handleReplay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    restartCase(caseDef.id);
   };
 
   return (
@@ -85,12 +91,22 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
           </span>
         </div>
 
-        {bestScore !== undefined && (
-          <div className="flex items-center gap-1 text-xs text-amber-400">
-            <Trophy size={12} />
-            {bestScore}/{caseDef.maxScore}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {isSolved && (
+            <span
+              onClick={handleReplay}
+              className="text-xs text-zinc-600 hover:text-cyan-400 transition-colors cursor-pointer z-10"
+            >
+              Replay
+            </span>
+          )}
+          {bestScore !== undefined && (
+            <div className="flex items-center gap-1 text-xs text-amber-400">
+              <Trophy size={12} />
+              {bestScore}/{caseDef.maxScore}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/0 group-hover:via-cyan-500/40 to-transparent transition-all duration-500" />

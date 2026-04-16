@@ -57,7 +57,7 @@ export const automotiveCase: CaseDefinition = {
   ],
   ticketHistory: [
     { id: 'th1', author: 'Customer (Maria Gonzalez)', role: 'Vehicle Owner', timestamp: '2026-04-15 09:00 AM', content: 'My car has been shaking at stoplights for about two weeks now. It comes and goes — sometimes it\'s fine, sometimes it shakes pretty bad. It seems worse when the A/C is running. My check engine light flashed a couple times but it\'s not on now.' },
-    { id: 'th2', author: 'Previous Shop', role: 'External Mechanic', timestamp: '2026-04-01', content: 'Customer came in with rough idle complaint. Found P0302 and P0303 pending. Replaced all 4 spark plugs with NGK Iridium. Cleared codes. Test drove — seemed OK at the time. Customer returned saying problem came back.', isRedHerring: true },
+    { id: 'th2', author: 'Previous Shop', role: 'External Mechanic', timestamp: '2026-04-01', content: 'Customer came in with rough idle complaint. Found P0302 and P0303 pending. Replaced all 4 spark plugs with NGK Iridium. Cleared codes. Test drove — seemed OK at the time. Customer returned saying problem came back.', isRedHerring: true, revealsEvidence: ['e5'] },
     { id: 'th3', author: 'Service Advisor', role: 'Dealership', timestamp: '2026-04-15 09:15 AM', content: 'Verified customer complaint. Vehicle idles rough intermittently. Previous repair (spark plugs) did not resolve. Customer mentioned the battery was replaced about 6 months ago at a quick-lube shop. Assigned to diagnostic bay.' },
     { id: 'th4', author: 'Tech Notes', role: 'Diagnostic Tech', timestamp: '2026-04-15 09:30 AM', content: 'Initial scan shows P0302/P0303 pending. No stored codes. Noticed voltage seems to bounce around on the scanner. Need to investigate further.' },
   ],

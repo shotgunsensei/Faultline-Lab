@@ -89,6 +89,7 @@ export interface TicketNote {
   timestamp: string;
   content: string;
   isRedHerring?: boolean;
+  revealsEvidence?: string[];
 }
 
 export interface CaseDefinition {

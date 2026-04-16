@@ -59,7 +59,7 @@ export const electronicsSensorCase: CaseDefinition = {
   ticketHistory: [
     { id: 'th1', author: 'Warehouse Operations', role: 'Facility Manager', timestamp: '2026-04-15 08:00 AM', content: 'Our temperature monitoring system is showing false alarms. Sections near nodes 7, 8, and 9 are showing temperatures in the high 80s-90s, but the warehouse is clearly at normal temperature. This started about 5 days ago.' },
     { id: 'th2', author: 'IoT Support L1', role: 'Support Tech', timestamp: '2026-04-15 08:30 AM', content: 'Checked the sensor nodes — they appear to be online and transmitting. The coordinator shows all nodes as ONLINE. Could be a calibration issue? Recommending recalibration of nodes 7, 8, 9.', isRedHerring: true },
-    { id: 'th3', author: 'Network Admin', role: 'IT Staff', timestamp: '2026-04-15 09:00 AM', content: 'Packet loss rate is 8.3% across the mesh network. That\'s way above our 1% baseline. Something is wrong at the network level, not just calibration. Also noticed a firmware update failed for one node last week.' },
+    { id: 'th3', author: 'Network Admin', role: 'IT Staff', timestamp: '2026-04-15 09:00 AM', content: 'Packet loss rate is 8.3% across the mesh network. That\'s way above our 1% baseline. Something is wrong at the network level, not just calibration. Also noticed a firmware update failed for one node last week.', revealsEvidence: ['e4'] },
     { id: 'th4', author: 'IoT Support L1', role: 'Support Tech', timestamp: '2026-04-15 09:30 AM', content: 'Swapped the sensor module on Node 7 as a test — same false readings. The sensor hardware is fine. Data corruption must be happening in transit.' },
   ],
   availableTools: ['terminal', 'event-log', 'ticket-history'],

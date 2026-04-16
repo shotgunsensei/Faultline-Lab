@@ -60,7 +60,7 @@ export const networkingVpnCase: CaseDefinition = {
   ticketHistory: [
     { id: 'th1', author: 'Branch Office Manager', role: 'End User', timestamp: '2026-04-15 07:45 AM', content: 'Nobody in the branch can access the shared drives, ERP, or printers at HQ. This started this morning. Everything was working yesterday.' },
     { id: 'th2', author: 'Tom Rivera', role: 'Network Operations', timestamp: '2026-04-15 08:00 AM', content: 'Checked VPN dashboard - tunnel shows GREEN/UP. Phase 1 is established. Bounced the tunnel once, came right back up green. Internet at both sites is fine. Not sure what\'s going on.' },
-    { id: 'th3', author: 'Lisa Park', role: 'Network Engineer', timestamp: '2026-04-15 08:30 AM', content: 'Ran a change review — there was a scheduled change last night (ticket #4521) to expand the VPN scope for future subnets. The change was approved and implemented. Could be related but the tunnel is showing healthy.' },
+    { id: 'th3', author: 'Lisa Park', role: 'Network Engineer', timestamp: '2026-04-15 08:30 AM', content: 'Ran a change review — there was a scheduled change last night (ticket #4521) to expand the VPN scope for future subnets. The change was approved and implemented. Could be related but the tunnel is showing healthy.', revealsEvidence: ['e4'] },
     { id: 'th4', author: 'Tom Rivera', role: 'Network Operations', timestamp: '2026-04-15 09:15 AM', content: 'Tried pinging across the tunnel — 100% loss. But the tunnel status is UP. Checked routing — looks correct. NAT exemption is in place. Escalating to senior engineer.', isRedHerring: false },
   ],
   availableTools: ['terminal', 'event-log', 'ticket-history'],

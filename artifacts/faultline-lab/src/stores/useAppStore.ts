@@ -23,6 +23,7 @@ import {
   createCaseState,
   processCommand,
   processEventLogView,
+  processTicketNoteView,
   useHint,
   evaluateDiagnosis,
   generateDebrief,
@@ -52,10 +53,12 @@ interface AppState {
   resumeCase: (caseId: string) => void;
   executeCommand: (command: string) => ToolOutput | null;
   viewEventLog: (logId: string) => void;
+  viewTicketNote: (noteId: string) => void;
   requestHint: (level: number) => string | null;
   submitDiagnosis: (submission: DiagnosisSubmission) => Debrief | null;
   setActiveTool: (tool: string) => void;
   toggleDiagnosisForm: () => void;
+  restartCase: (caseId: string) => void;
   exitCase: () => void;
   updateProfile: (updates: Partial<InvestigatorProfile>) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -209,6 +212,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ currentCaseState: newState });
   },
 
+  viewTicketNote: (noteId) => {
+    const { currentCaseDef, currentCaseState } = get();
+    if (!currentCaseDef || !currentCaseState) return;
+
+    const newState = processTicketNoteView(
+      currentCaseDef,
+      currentCaseState,
+      noteId
+    );
+    saveCaseState(currentCaseDef.id, newState);
+    set({ currentCaseState: newState });
+  },
+
   requestHint: (level) => {
     const { currentCaseDef, currentCaseState } = get();
     if (!currentCaseDef || !currentCaseState) return null;
@@ -303,6 +319,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleDiagnosisForm: () =>
     set((state) => ({ showDiagnosisForm: !state.showDiagnosisForm })),
+
+  restartCase: (caseId) => {
+    const caseDef = getCaseById(caseId);
+    if (!caseDef) return;
+
+    const newState = createCaseState(caseId);
+    saveCaseState(caseId, newState);
+    saveCurrentCaseId(caseId);
+
+    set({
+      view: 'investigation',
+      currentCaseId: caseId,
+      currentCaseDef: caseDef,
+      currentCaseState: newState,
+      terminalHistory: [],
+      activeTool: 'terminal',
+      showDiagnosisForm: false,
+    });
+  },
 
   exitCase: () => {
     saveCurrentCaseId(null);

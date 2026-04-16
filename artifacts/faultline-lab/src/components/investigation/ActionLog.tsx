@@ -1,9 +1,10 @@
 import { useAppStore } from '@/stores/useAppStore';
-import { List, Terminal, FileText } from 'lucide-react';
+import { List, Terminal, FileText, MessageSquare } from 'lucide-react';
 
 const toolIcons: Record<string, React.ReactNode> = {
   terminal: <Terminal size={10} />,
   'event-log': <FileText size={10} />,
+  'ticket-history': <MessageSquare size={10} />,
 };
 
 export default function ActionLog() {

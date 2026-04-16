@@ -27,6 +27,7 @@ export default function DebriefScreen() {
   const currentCaseDef = useAppStore(s => s.currentCaseDef);
   const currentCaseState = useAppStore(s => s.currentCaseState);
   const exitCase = useAppStore(s => s.exitCase);
+  const restartCase = useAppStore(s => s.restartCase);
 
   if (!currentCaseDef || !currentCaseState?.debrief) return null;
 
@@ -163,12 +164,18 @@ export default function DebriefScreen() {
             )}
           </div>
 
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-center gap-4">
             <button
               onClick={exitCase}
               className="px-8 py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-sm uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-colors"
             >
               Return to Incident Board
+            </button>
+            <button
+              onClick={() => restartCase(currentCaseDef.id)}
+              className="px-8 py-3 bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 font-mono text-sm uppercase tracking-widest rounded hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+            >
+              Replay Case
             </button>
           </div>
         </motion.div>

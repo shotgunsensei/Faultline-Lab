@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import TerminalPanel from './investigation/TerminalPanel';
 import EventLogPanel from './investigation/EventLogPanel';
@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   Save,
   Clock,
+  Briefcase,
+  X,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -35,6 +37,7 @@ export default function InvestigationWorkspace() {
   const toggleDiagnosisForm = useAppStore(s => s.toggleDiagnosisForm);
   const exitCase = useAppStore(s => s.exitCase);
   const [elapsed, setElapsed] = useState('00:00');
+  const [showBriefing, setShowBriefing] = useState(true);
 
   useEffect(() => {
     if (!currentCaseState) return;
@@ -99,6 +102,14 @@ export default function InvestigationWorkspace() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowBriefing(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            <Briefcase size={12} />
+            <span className="hidden sm:inline">Briefing</span>
+          </button>
+
           <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-500">
             <Clock size={12} />
             {elapsed}
@@ -167,6 +178,68 @@ export default function InvestigationWorkspace() {
 
       <AnimatePresence>
         {showDiagnosisForm && <DiagnosisForm />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBriefing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-[#111822] border border-zinc-800/60 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/50">
+                <div className="flex items-center gap-2">
+                  <Briefcase size={16} className="text-cyan-400" />
+                  <h2 className="font-mono text-sm uppercase tracking-wider text-zinc-200">
+                    Case Briefing
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowBriefing(false)}
+                  className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-zinc-100 mb-2">
+                  {currentCaseDef.title}
+                </h3>
+                <div className="flex items-center gap-2 mb-4 text-xs">
+                  <span className="text-zinc-500">
+                    {categoryLabels[currentCaseDef.category]}
+                  </span>
+                  <span className="text-zinc-700">|</span>
+                  <span className={`uppercase tracking-wider ${difficultyColors[currentCaseDef.difficulty]}`}>
+                    {currentCaseDef.difficulty}
+                  </span>
+                </div>
+
+                <pre className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap font-sans mb-6">
+                  {currentCaseDef.briefing}
+                </pre>
+
+                <p className="text-sm text-zinc-500 mb-4">
+                  {currentCaseDef.description}
+                </p>
+
+                <button
+                  onClick={() => setShowBriefing(false)}
+                  className="w-full py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-colors"
+                >
+                  Begin Investigation
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
