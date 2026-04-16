@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { ClerkProvider, useUser } from '@clerk/react';
 import { useAppStore } from '@/stores/useAppStore';
 import BootScreen from '@/components/BootScreen';
 import IncidentBoard from '@/components/IncidentBoard';
@@ -5,9 +7,29 @@ import InvestigationWorkspace from '@/components/InvestigationWorkspace';
 import DebriefScreen from '@/components/DebriefScreen';
 import ProfileScreen from '@/components/ProfileScreen';
 import SettingsScreen from '@/components/SettingsScreen';
+import StoreScreen from '@/components/StoreScreen';
+import AuthScreen from '@/components/AuthScreen';
+import { CloudSyncProvider } from '@/components/CloudSyncProvider';
+import { Toaster } from 'sonner';
 
-function App() {
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
+
+function AppContent() {
   const view = useAppStore(s => s.view);
+  const { user, isLoaded } = useUser();
+  const setAuthUser = useAppStore(s => s.setAuthUser);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setAuthUser(user ? {
+        id: user.id,
+        email: user.primaryEmailAddress?.emailAddress || null,
+        name: user.fullName || user.firstName || null,
+        avatarUrl: user.imageUrl || null,
+      } : null);
+    }
+  }, [user, isLoaded, setAuthUser]);
 
   const renderView = () => {
     switch (view) {
@@ -23,15 +45,83 @@ function App() {
         return <ProfileScreen />;
       case 'settings':
         return <SettingsScreen />;
+      case 'store':
+        return <StoreScreen />;
+      case 'auth':
+        return <AuthScreen />;
       default:
         return <BootScreen />;
     }
   };
 
   return (
-    <div className="dark">
+    <CloudSyncProvider>
+      <div className="dark">
+        {renderView()}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              border: '1px solid #27272a',
+              color: '#e4e4e7',
+            },
+          }}
+        />
+      </div>
+    </CloudSyncProvider>
+  );
+}
+
+function App() {
+  if (!clerkPubKey) {
+    return (
+      <div className="dark">
+        <AppContentWithoutClerk />
+      </div>
+    );
+  }
+
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+    >
+      <AppContent />
+    </ClerkProvider>
+  );
+}
+
+function AppContentWithoutClerk() {
+  const view = useAppStore(s => s.view);
+
+  const renderView = () => {
+    switch (view) {
+      case 'boot': return <BootScreen />;
+      case 'incident-board': return <IncidentBoard />;
+      case 'investigation': return <InvestigationWorkspace />;
+      case 'debrief': return <DebriefScreen />;
+      case 'profile': return <ProfileScreen />;
+      case 'settings': return <SettingsScreen />;
+      case 'store': return <StoreScreen />;
+      default: return <BootScreen />;
+    }
+  };
+
+  return (
+    <>
       {renderView()}
-    </div>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#18181b',
+            border: '1px solid #27272a',
+            color: '#e4e4e7',
+          },
+        }}
+      />
+    </>
   );
 }
 

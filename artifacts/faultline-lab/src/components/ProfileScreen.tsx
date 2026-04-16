@@ -10,6 +10,10 @@ import {
   Flame,
   Award,
   CheckCircle,
+  LogIn,
+  LogOut,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 
 export default function ProfileScreen() {
@@ -17,6 +21,8 @@ export default function ProfileScreen() {
   const setView = useAppStore(s => s.setView);
   const updateProfile = useAppStore(s => s.updateProfile);
   const resumeCase = useAppStore(s => s.resumeCase);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
+  const authUser = useAppStore(s => s.authUser);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
 
@@ -33,7 +39,7 @@ export default function ProfileScreen() {
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
-      <header className="border-b border-zinc-800/60 px-6 py-4">
+      <header className="border-b border-zinc-800/60 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <button
             onClick={() => setView('incident-board')}
@@ -48,42 +54,70 @@ export default function ProfileScreen() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 sm:pb-8">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-16 h-16 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-              <User size={28} className="text-cyan-400" />
+          <div className="flex items-center gap-4 mb-6 sm:mb-8">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 overflow-hidden">
+              {authUser?.avatarUrl ? (
+                <img src={authUser.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User size={28} className="text-cyan-400" />
+              )}
             </div>
-            <div>
+            <div className="min-w-0">
               {editingName ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    value={nameInput}
-                    onChange={e => setNameInput(e.target.value)}
-                    onBlur={handleSaveName}
-                    onKeyDown={e => e.key === 'Enter' && handleSaveName()}
-                    className="bg-[#111822] border border-zinc-700 rounded px-2 py-1 text-lg text-zinc-100 font-semibold focus:outline-none focus:border-cyan-500/30"
-                    autoFocus
-                  />
-                </div>
+                <input
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onBlur={handleSaveName}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                  className="bg-[#111822] border border-zinc-700 rounded px-2 py-1 text-lg text-zinc-100 font-semibold focus:outline-none focus:border-cyan-500/30 w-full max-w-xs"
+                  autoFocus
+                />
               ) : (
                 <h1
-                  className="text-xl font-bold text-zinc-100 cursor-pointer hover:text-cyan-300 transition-colors"
+                  className="text-lg sm:text-xl font-bold text-zinc-100 cursor-pointer hover:text-cyan-300 transition-colors truncate"
                   onClick={() => setEditingName(true)}
                 >
                   {profile.name}
                 </h1>
               )}
-              <p className="text-sm text-zinc-500">
+              <p className="text-xs sm:text-sm text-zinc-500">
                 Active since {new Date(profile.createdAt).toLocaleDateString()}
               </p>
+              <div className="flex items-center gap-1.5 mt-1">
+                {isSignedIn ? (
+                  <span className="flex items-center gap-1 text-xs text-emerald-400">
+                    <Cloud size={11} />
+                    Cloud synced
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-zinc-500">
+                    <CloudOff size={11} />
+                    Local only
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          {!isSignedIn && (
+            <div className="mb-6 p-4 bg-cyan-950/20 border border-cyan-800/30 rounded-xl">
+              <p className="text-sm text-zinc-300 mb-3">Sign in to sync your progress across devices and unlock purchasing.</p>
+              <button
+                onClick={() => setView('auth')}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <LogIn size={14} />
+                Sign In
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
             <StatCard icon={<CheckCircle size={16} />} label="Cases Solved" value={profile.casesSolved} color="text-emerald-400" />
             <StatCard icon={<Trophy size={16} />} label="Total Score" value={profile.totalScore} color="text-cyan-400" />
             <StatCard icon={<Flame size={16} />} label="Best Streak" value={profile.streakBest} color="text-amber-400" />
@@ -91,7 +125,7 @@ export default function ProfileScreen() {
           </div>
 
           {profile.achievementsUnlocked.length > 0 && (
-            <div className="mb-8">
+            <div className="mb-6 sm:mb-8">
               <h2 className="text-sm font-mono text-zinc-400 uppercase tracking-wider mb-3">
                 Achievements
               </h2>
@@ -121,13 +155,13 @@ export default function ProfileScreen() {
                     onClick={() => resumeCase(c.id)}
                     className="w-full text-left flex items-center justify-between p-3 bg-[#111822] border border-zinc-800/40 rounded-lg hover:border-cyan-500/20 transition-colors"
                   >
-                    <div>
-                      <span className="text-sm text-zinc-200">{c.title}</span>
-                      <span className="text-xs text-zinc-600 ml-2">
+                    <div className="min-w-0">
+                      <span className="text-sm text-zinc-200 block truncate">{c.title}</span>
+                      <span className="text-xs text-zinc-600">
                         {categoryLabels[c.category]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-cyan-400 font-mono">
+                    <div className="flex items-center gap-1 text-xs text-cyan-400 font-mono shrink-0 ml-2">
                       <Target size={12} />
                       {profile.bestScores[c.id]}/{c.maxScore}
                     </div>
@@ -154,12 +188,12 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
-      <div className={`flex items-center gap-1.5 mb-2 ${color}`}>
+    <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-3 sm:p-4">
+      <div className={`flex items-center gap-1.5 mb-1.5 sm:mb-2 ${color}`}>
         {icon}
-        <span className="text-xs uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] sm:text-xs uppercase tracking-wider">{label}</span>
       </div>
-      <div className="text-2xl font-bold font-mono text-zinc-100">{value}</div>
+      <div className="text-xl sm:text-2xl font-bold font-mono text-zinc-100">{value}</div>
     </div>
   );
 }

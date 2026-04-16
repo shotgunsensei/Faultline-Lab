@@ -1,0 +1,722 @@
+Use the current Faultline Lab codebase, case engine, product catalog, entitlement system, store UI, and commercial productization plan as the source of truth. Do NOT restart from scratch. Do NOT create a second disconnected case catalog system.
+
+MISSION
+Implement a structured, typed, reusable case catalog and pack-mapping layer so content packs, starter access, premium locks, product detail pages, Case Files browsing, and entitlement-aware case launching all use one clean source of truth.
+
+This task is specifically to connect the commercial catalog to the actual case library.
+
+The result must ensure:
+- each pack points to real case IDs
+- each case knows which product/pack unlocks it
+- starter/free cases are clearly distinguished
+- locked/unlocked case state is derived from entitlements
+- Case Files and store product detail views can both render from the same metadata layer
+- no paid pack appears to include content that cannot actually launch
+
+DO NOT:
+- hardcode case metadata in UI components
+- duplicate case definitions across multiple unrelated files
+- create fake “included cases” lists in store cards
+- leave paid pack case cards pointing to missing implementations
+- change existing case IDs if they already exist and are used safely unless you update all references carefully
+- create a second parallel registry that competes with the existing product catalog
+- break billing, entitlement, or current working case-launch behavior
+
+DO:
+- preserve working architecture
+- centralize case catalog data
+- use stable case IDs and slugs
+- connect cases to real products and entitlements
+- make case counts derive from actual mappings
+- validate the mapping layer
+- keep the system extensible for future packs and specialty bundles
+
+PREFERRED IMPLEMENTATION APPROACH
+Use TypeScript seed/config files with strong typing. Keep the structure JSON-like and data-driven so it could later move to a database or CMS.
+
+================================================================================
+PHASE 1: CREATE THE CASE CATALOG LAYER
+================================================================================
+
+Create or extend these files if they do not already exist. If similar files already exist, merge intelligently instead of duplicating.
+
+Recommended files:
+- src/features/cases/caseCatalog.types.ts
+- src/features/cases/caseCatalog.seed.ts
+- src/features/cases/caseCatalog.selectors.ts
+- src/features/cases/caseCatalog.validation.ts
+- src/features/cases/caseCatalog.constants.ts
+
+If the app already has a case registry or definitions folder, integrate with it rather than creating a competing system.
+
+Also update the product catalog layer so content pack products can resolve their included cases dynamically.
+
+================================================================================
+PHASE 2: DEFINE STRONG TYPES
+================================================================================
+
+Create or extend strong TypeScript types/interfaces for the case catalog.
+
+Required types:
+- CaseCatalogEntry
+- CaseCatalogStatus
+- CaseAccessModel
+- CaseSourceType
+- CaseToolRequirement
+- CaseRuntimeRequirement
+- CasePreviewCopy
+- CaseDifficulty
+- CaseCategory
+- CasePackLink
+- CaseUnlockRequirement
+- CaseLaunchState
+- CaseRecommendationHint
+- CaseCardState
+- CaseRegistry
+- ProductCaseMappingSummary
+
+Support enums or string unions such as:
+
+CaseCatalogStatus:
+- playable
+- draft
+- hidden
+- retired
+
+CaseAccessModel:
+- free_starter
+- included_with_subscription
+- included_with_pack
+- included_with_bundle
+- included_with_upgrade
+- admin_only
+- promo_unlock
+
+CaseSourceType:
+- handcrafted
+- generated
+- sandbox
+- specialty
+
+CaseCategory:
+- windows_ad
+- networking_vpn
+- servers_storage
+- automotive
+- electronics_iot
+- mixed_cascades
+- healthcare_imaging
+
+CaseDifficulty:
+- easy
+- medium
+- hard
+- expert
+
+CaseCatalogEntry base fields:
+- id
+- slug
+- title
+- shortSummary
+- mobileSummary
+- category
+- difficulty
+- sourceType
+- status
+- estimatedMinutes
+- sortOrder
+- artworkKey
+- tags
+- isStarter
+- isFeatured
+- isDailyEligible
+- isSandboxEligible
+- sourceProductId
+- includedByProductIds
+- unlockRequirements
+- requiredEntitlements
+- requiredToolSlugs
+- previewSymptoms
+- previewSystems
+- redHerringLevel
+- implementationRef
+- definitionRef
+- relatedCaseIds
+- recommendationHints
+
+Use strong types and discriminated unions where helpful. Keep the catalog maintainable.
+
+================================================================================
+PHASE 3: SCAN CURRENT CASE DEFINITIONS AND PRESERVE WHAT WORKS
+================================================================================
+
+Audit the existing case definitions in the codebase.
+
+For each existing case:
+- preserve the current working implementation
+- preserve current ID if it is already in use and stable
+- add catalog metadata around it rather than rewriting a working case unnecessarily
+
+If a case exists but has weak metadata, enrich it.
+If a case is referenced by the store/product layer but has no real playable implementation, fix that gap.
+Do not let paid catalog content point to non-launchable cases.
+
+If necessary:
+- create a clean mapping between legacy case IDs and canonical catalog IDs
+- but avoid needless ID churn
+
+================================================================================
+PHASE 4: EXTEND THE PRODUCT CATALOG TO SUPPORT REAL CASE LINKS
+================================================================================
+
+Update the existing product catalog so content-bearing products can resolve their cases.
+
+Each relevant product should support:
+- includedCaseIds: string[]
+- includedCaseCount: number
+- featuredCaseIds?: string[]
+- starterPreviewCaseIds?: string[] where relevant
+
+Do not hardcode counts if they can be derived from includedCaseIds.
+If store copy promises a pack includes 8 or 10 cases, the mapping and actual playable catalog must match that count by the end of this task.
+
+If a promised case does not yet exist:
+- either implement it as a real playable case definition in this pass
+- or do not expose it as included in a purchasable pack
+No fake inventory.
+
+================================================================================
+PHASE 5: CREATE THE STABLE CASE ID MAP
+================================================================================
+
+Use the following stable case IDs and slugs as the preferred catalog shape unless equivalent existing production-safe IDs already exist and must be preserved. If existing safe IDs differ, create a clean compatibility mapping and update product case references accordingly.
+
+STARTER / FREE CASES
+
+1.
+id: case_windows_ad_password_reset_time_skew
+slug: windows-ad-password-reset-time-skew
+category: windows_ad
+difficulty: medium
+sourceProductId: product_faultline_free
+isStarter: true
+
+2.
+id: case_network_vpn_green_no_traffic
+slug: network-vpn-green-no-traffic
+category: networking_vpn
+difficulty: medium
+sourceProductId: product_faultline_free
+isStarter: true
+
+3.
+id: case_automotive_idle_misfire_voltage
+slug: automotive-idle-misfire-voltage
+category: automotive
+difficulty: medium
+sourceProductId: product_faultline_free
+isStarter: true
+
+4.
+id: case_electronics_sensor_mesh_poison_node
+slug: electronics-sensor-mesh-poison-node
+category: electronics_iot
+difficulty: medium
+sourceProductId: product_faultline_free
+isStarter: true
+
+NETWORK OPS PACK CASES
+
+5.
+id: case_net_route_blackhole_branch_tunnel
+slug: net-route-blackhole-branch-tunnel
+
+6.
+id: case_net_policy_shadow_vpn_path
+slug: net-policy-shadow-vpn-path
+
+7.
+id: case_net_asymmetric_return_dmz
+slug: net-asymmetric-return-dmz
+
+8.
+id: case_net_nat_hairpin_false_health
+slug: net-nat-hairpin-false-health
+
+9.
+id: case_net_mtu_fragmentation_voice_drop
+slug: net-mtu-fragmentation-voice-drop
+
+10.
+id: case_net_dns_split_brain_site_fail
+slug: net-dns-split-brain-site-fail
+
+11.
+id: case_net_stale_arp_gateway_drift
+slug: net-stale-arp-gateway-drift
+
+12.
+id: case_net_qos_policy_starvation_backup
+slug: net-qos-policy-starvation-backup
+
+All of the above:
+category: networking_vpn
+sourceProductId: pack_network_ops
+isStarter: false
+
+SERVER GRAVEYARD PACK CASES
+
+13.
+id: case_srv_cert_expiry_api_chain
+slug: srv-cert-expiry-api-chain
+
+14.
+id: case_srv_service_dependency_crash_loop
+slug: srv-service-dependency-crash-loop
+
+15.
+id: case_srv_storage_latency_db_timeout
+slug: srv-storage-latency-db-timeout
+
+16.
+id: case_srv_backup_vss_snapshot_fail
+slug: srv-backup-vss-snapshot-fail
+
+17.
+id: case_srv_dc_sysvol_dfsr_stall
+slug: srv-dc-sysvol-dfsr-stall
+
+18.
+id: case_srv_reverse_proxy_header_breakage
+slug: srv-reverse-proxy-header-breakage
+
+19.
+id: case_srv_raid_cache_battery_writeback
+slug: srv-raid-cache-battery-writeback
+
+20.
+id: case_srv_license_service_startup_deadlock
+slug: srv-license-service-startup-deadlock
+
+All of the above:
+category: servers_storage
+sourceProductId: pack_server_graveyard
+isStarter: false
+
+GARAGE DIAGNOSTICS PACK CASES
+
+21.
+id: case_auto_cyl4_misfire_load_sensitive
+slug: auto-cyl4-misfire-load-sensitive
+
+22.
+id: case_auto_alternator_ripple_false_sensor_noise
+slug: auto-alternator-ripple-false-sensor-noise
+
+23.
+id: case_auto_throttle_body_idle_hunt
+slug: auto-throttle-body-idle-hunt
+
+24.
+id: case_auto_canbus_abs_dropout_chain
+slug: auto-canbus-abs-dropout-chain
+
+25.
+id: case_auto_evap_purge_idle_surge
+slug: auto-evap-purge-idle-surge
+
+26.
+id: case_auto_ground_strap_voltage_drift
+slug: auto-ground-strap-voltage-drift
+
+27.
+id: case_auto_map_sensor_heat_soak_bias
+slug: auto-map-sensor-heat-soak-bias
+
+28.
+id: case_auto_fuel_trim_vacuum_microleak
+slug: auto-fuel-trim-vacuum-microleak
+
+29.
+id: case_auto_cam_crank_sync_intermittent
+slug: auto-cam-crank-sync-intermittent
+
+30.
+id: case_auto_wheel_speed_sensor_brake_shudder
+slug: auto-wheel-speed-sensor-brake-shudder
+
+All of the above:
+category: automotive
+sourceProductId: pack_garage_diagnostics
+isStarter: false
+
+SENSOR MESH PACK CASES
+
+31.
+id: case_iot_brownout_false_telemetry
+slug: iot-brownout-false-telemetry
+
+32.
+id: case_iot_firmware_drift_mesh_poison
+slug: iot-firmware-drift-mesh-poison
+
+33.
+id: case_iot_rf_interference_channel_hop
+slug: iot-rf-interference-channel-hop
+
+34.
+id: case_iot_sensor_calibration_temp_bias
+slug: iot-sensor-calibration-temp-bias
+
+35.
+id: case_iot_bad_regulator_noise_flood
+slug: iot-bad-regulator-noise-flood
+
+36.
+id: case_iot_gateway_timebase_skew
+slug: iot-gateway-timebase-skew
+
+37.
+id: case_iot_battery_sag_sleep_cycle_loss
+slug: iot-battery-sag-sleep-cycle-loss
+
+38.
+id: case_iot_crc_error_retransmit_storm
+slug: iot-crc-error-retransmit-storm
+
+All of the above:
+category: electronics_iot
+sourceProductId: pack_sensor_mesh
+isStarter: false
+
+MIXED CASCADES PACK CASES
+
+39.
+id: case_mix_dns_ntp_auth_cascade
+slug: mix-dns-ntp-auth-cascade
+
+40.
+id: case_mix_vpn_printer_scan_workflow_break
+slug: mix-vpn-printer-scan-workflow-break
+
+41.
+id: case_mix_storage_latency_app_timeout_alarm_flood
+slug: mix-storage-latency-app-timeout-alarm-flood
+
+42.
+id: case_mix_power_noise_switch_camera_desync
+slug: mix-power-noise-switch-camera-desync
+
+43.
+id: case_mix_bad_patch_certs_queue_backlog
+slug: mix-bad-patch-certs-queue-backlog
+
+44.
+id: case_mix_sensor_drift_auto_shutdown_false_alarm
+slug: mix-sensor-drift-auto-shutdown-false-alarm
+
+45.
+id: case_mix_wifi_roam_voip_ehr_freeze
+slug: mix-wifi-roam-voip-ehr-freeze
+
+46.
+id: case_mix_backup_agent_disk_pressure_rmm_storm
+slug: mix-backup-agent-disk-pressure-rmm-storm
+
+All of the above:
+category: mixed_cascades
+sourceProductId: pack_mixed_cascades
+isStarter: false
+
+HEALTHCARE IMAGING PACK CASES
+
+47.
+id: case_img_mammo_monitor_screen_door
+slug: img-mammo-monitor-screen-door
+
+48.
+id: case_img_powerscribe_report_sync_gap
+slug: img-powerscribe-report-sync-gap
+
+49.
+id: case_img_dicom_ae_port_mismatch
+slug: img-dicom-ae-port-mismatch
+
+50.
+id: case_img_vpn_latency_study_delay
+slug: img-vpn-latency-study-delay
+
+51.
+id: case_img_worklist_hl7_queue_stall
+slug: img-worklist-hl7-queue-stall
+
+52.
+id: case_img_display_lut_profile_corruption
+slug: img-display-lut-profile-corruption
+
+53.
+id: case_img_pacs_prefetch_cache_poison
+slug: img-pacs-prefetch-cache-poison
+
+54.
+id: case_img_barco_qa_false_fail
+slug: img-barco-qa-false-fail
+
+55.
+id: case_img_modality_send_retry_backlog
+slug: img-modality-send-retry-backlog
+
+56.
+id: case_img_reader_profile_roaming_corruption
+slug: img-reader-profile-roaming-corruption
+
+All of the above:
+category: healthcare_imaging
+sourceProductId: pack_healthcare_imaging
+isStarter: false
+
+================================================================================
+PHASE 6: SEED REAL CASE METADATA
+================================================================================
+
+Create catalog entries for all of the above cases.
+
+For each case, include:
+- id
+- slug
+- title
+- shortSummary
+- mobileSummary
+- category
+- difficulty
+- sourceType
+- status
+- estimatedMinutes
+- sourceProductId
+- includedByProductIds
+- requiredEntitlements
+- requiredToolSlugs
+- previewSymptoms
+- previewSystems
+- redHerringLevel
+- implementationRef
+- definitionRef
+- tags
+- isStarter
+- isFeatured
+- isDailyEligible
+- isSandboxEligible
+- sortOrder
+
+Rules:
+- Use concise, premium, believable titles
+- Summaries should feel like real incidents, not joke copy
+- mobileSummary must be short enough for narrow cards
+- requiredEntitlements must line up with the owning product
+- if a case belongs to a bundle indirectly, that should resolve through includedProductIds on the bundle, not by duplicating ownership logic in the case
+- implementationRef/definitionRef should point to real case definitions in the current codebase
+
+IMPORTANT:
+Do not create case catalog entries that claim to be playable if there is no working implementation.
+If a promised case is not yet implemented, implement it now as a real launchable case using the existing simulation engine and available tool set.
+No fake inventory.
+
+================================================================================
+PHASE 7: UPDATE PRODUCT REGISTRY WITH REAL CASE LINKS
+================================================================================
+
+Update the existing product catalog so these products contain real case references:
+
+- product_faultline_free
+- pack_network_ops
+- pack_server_graveyard
+- pack_garage_diagnostics
+- pack_sensor_mesh
+- pack_mixed_cascades
+- pack_healthcare_imaging
+
+Each of those products should expose:
+- includedCaseIds
+- includedCaseCount
+- featuredCaseIds
+
+Bundle products should not duplicate all case IDs manually unless necessary. They should resolve included cases through their included product relationships when possible.
+
+Requirements:
+- starter free product exposes the 4 starter cases
+- each content pack exposes exactly the cases mapped above
+- includedCaseCount is derived and validated
+- store pack detail pages can render their included case lists from this data
+- Case Files can group/filter by pack using this data
+
+================================================================================
+PHASE 8: CREATE SELECTORS AND HELPERS
+================================================================================
+
+Create reusable selectors/helpers such as:
+- getAllCaseCatalogEntries()
+- getCaseCatalogEntryById(id)
+- getCaseCatalogEntryBySlug(slug)
+- getCasesByProductId(productId)
+- getStarterCases()
+- getFeaturedCases()
+- getCasesByCategory(category)
+- getVisibleCasesForUser(userEntitlements)
+- getLockedCasesForUser(userEntitlements)
+- resolveCaseOwnedState(caseEntry, userEntitlements, activeSubscription)
+- getCaseCardState(caseEntry, userEntitlements)
+- getPackLandingCases(productId, userEntitlements)
+- getPackPreviewCases(productId)
+- getCaseCountForProduct(productId)
+- getDailyEligibleCases()
+- getSandboxEligibleCases()
+- getRecommendedCases(userBehavior, userEntitlements)
+- getRelatedCases(caseId)
+
+If equivalent helpers already exist, refactor them to consume the new registry.
+
+================================================================================
+PHASE 9: VALIDATE THE CATALOG AND PACK MAPPINGS
+================================================================================
+
+Implement lightweight validation at startup or build time.
+
+Validation should catch:
+- duplicate case ids
+- duplicate case slugs
+- case references to missing products
+- product includedCaseIds referencing missing cases
+- playable case entries missing real implementationRef or definitionRef
+- free starter cases incorrectly requiring paid entitlements
+- case count mismatch between actual mapped cases and displayed pack counts
+- invalid categories or difficulty values
+- duplicate sort orders within the same pack if practical
+- missing shortSummary or title
+- missing mobileSummary
+- cases visible in store but marked hidden/retired incorrectly
+
+Do not overengineer this, but do stop silent mismatch and fake content exposure.
+
+================================================================================
+PHASE 10: WIRE INTO CASE FILES, STORE, AND LOCK STATES
+================================================================================
+
+Refactor UI layers to consume the case catalog registry.
+
+Specifically:
+- Case Files page should render from caseCatalog.seed.ts metadata
+- Content pack detail views should show real included cases from the registry
+- Locked case cards should show the owning product/pack and upgrade path
+- Free starter cases should be clearly marked and launch correctly
+- Mobile case cards should use mobileSummary
+- Difficulty/category badges should come from catalog metadata
+- Case counts on pack/store pages should be derived from actual mappings
+- “Owned” / “Locked” / “Included in Bundle” states should come from entitlement resolution, not hardcoded booleans
+- Daily Challenge and Sandbox selection logic should only include eligible cases
+
+Keep existing working investigation flow intact.
+
+================================================================================
+PHASE 11: CASE CARD AND PACK PAGE UX
+================================================================================
+
+Create or refine case browsing UX so it feels coherent.
+
+Case card should show:
+- title
+- mobileSummary or shortSummary
+- category
+- difficulty
+- estimatedMinutes
+- owning pack or starter badge
+- owned/locked state
+- CTA:
+  - Investigate
+  - Locked
+  - View Pack
+  - Included
+
+Pack detail page should show:
+- pack title
+- long description from product catalog
+- included case count
+- real list of included cases
+- owned/locked state per case
+- featured cases section if applicable
+- purchase CTA if unowned
+- launch CTA if owned
+
+Mobile requirements:
+- compact readable cards
+- no broken overflow
+- lock state visible without opening every card
+- quick route from locked case to pack page or purchase flow
+
+================================================================================
+PHASE 12: IF CASES ARE MISSING, IMPLEMENT THEM
+================================================================================
+
+If the current codebase does not yet contain real playable implementations for every promised case in the premium packs, add them now using the existing simulation engine and tool panels.
+
+Requirements:
+- each mapped case must launch
+- each mapped case must have a real hidden root cause
+- each mapped case must be solvable through the tool system
+- each mapped case must support evidence collection, diagnosis, scoring, and debrief
+- cases do not all need exotic one-off UI, but they must be real and coherent
+- reuse the existing engine and components where possible
+
+No “coming soon” case entries inside paid packs.
+
+================================================================================
+PHASE 13: KEEP BILLING AND ENTITLEMENTS ALIGNED
+================================================================================
+
+Do not break billing or purchase fulfillment.
+
+Requirements:
+- ownership of a content pack unlocks that pack’s cases
+- ownership through a bundle also unlocks those cases
+- free users only access starter cases unless granted more
+- active Pro subscription unlocks only its intended benefits, not all one-time packs unless bundled
+- specialty bundle resolves healthcare imaging cases through included products cleanly
+- admin or promo unlocks should behave like purchased ownership where applicable
+
+Do not grant case access through UI clicks alone in production mode.
+
+================================================================================
+PHASE 14: ACCEPTANCE CRITERIA
+================================================================================
+
+This task is complete only if:
+- case catalog types exist
+- caseCatalog.seed.ts exists and contains a real registry
+- all content-bearing products resolve real includedCaseIds
+- pack counts are derived from actual mappings
+- starter cases are clearly mapped and launchable
+- paid packs show real included cases
+- locked/unlocked states work correctly
+- case cards and pack pages pull from the registry
+- validation catches mismatches
+- no fake paid case inventory remains
+- every mapped case is launchable and solvable
+- mobile and desktop case browsing both work
+
+================================================================================
+SELF-AUDIT DIRECTIVE
+================================================================================
+
+Before finalizing, audit and fix:
+- duplicate case metadata
+- products with empty includedCaseIds
+- pack pages showing wrong counts
+- case cards still using hardcoded old strings
+- locked cases not pointing to the right owning product
+- bundles not resolving included case access
+- daily challenge or sandbox including ineligible cases
+- mapped paid cases missing implementation
+- mobile cards truncating badly
+- starter/free boundaries not rendering clearly
+
+FINAL INSTRUCTION
+Implement this as the case spine of Faultline Lab. Products should unlock real cases, cases should know where they belong, and the UI should never have to guess. No fake inventory. No ghost packs. No cardboard shelves.

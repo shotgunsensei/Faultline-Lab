@@ -1,12 +1,28 @@
 import { useAppStore } from '@/stores/useAppStore';
-import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2 } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2, LogOut } from 'lucide-react';
 import { clearAllData } from '@/lib/persistence';
 import { useState } from 'react';
+import { useClerk } from '@clerk/react';
+
+const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+function ClerkSignOutButton() {
+  const { signOut } = useClerk();
+  return (
+    <button
+      onClick={() => signOut()}
+      className="px-4 py-1.5 rounded text-xs font-mono uppercase bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+    >
+      Sign Out
+    </button>
+  );
+}
 
 export default function SettingsScreen() {
   const settings = useAppStore(s => s.settings);
   const updateSettings = useAppStore(s => s.updateSettings);
   const setView = useAppStore(s => s.setView);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const handleReset = () => {
@@ -20,7 +36,7 @@ export default function SettingsScreen() {
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
-      <header className="border-b border-zinc-800/60 px-6 py-4">
+      <header className="border-b border-zinc-800/60 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button
             onClick={() => setView('incident-board')}
@@ -35,7 +51,7 @@ export default function SettingsScreen() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-8 space-y-4">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4 pb-20 sm:pb-8">
         <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -139,7 +155,24 @@ export default function SettingsScreen() {
           </div>
         </div>
 
-        <div className="bg-[#111822] border border-red-500/20 rounded-lg p-4 mt-8">
+        {isSignedIn && clerkPubKey && (
+          <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4 mt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <LogOut size={16} className="text-zinc-400" />
+                <div>
+                  <p className="text-sm text-zinc-200">Sign Out</p>
+                  <p className="text-xs text-zinc-600">
+                    Progress will be saved locally
+                  </p>
+                </div>
+              </div>
+              <ClerkSignOutButton />
+            </div>
+          </div>
+        )}
+
+        <div className="bg-[#111822] border border-red-500/20 rounded-lg p-4 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Trash2 size={16} className="text-red-400" />

@@ -38,14 +38,15 @@ export default function DebriefScreen() {
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
-      <header className="border-b border-zinc-800/60 px-6 py-4">
+      <header className="border-b border-zinc-800/60 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <button
             onClick={exitCase}
             className="flex items-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
           >
             <ArrowLeft size={14} />
-            Back to Incident Board
+            <span className="hidden sm:inline">Back to Incident Board</span>
+            <span className="sm:hidden">Back</span>
           </button>
           <span className="text-xs font-mono text-zinc-600">
             Case Debrief
@@ -53,24 +54,24 @@ export default function DebriefScreen() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 sm:pb-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className={`text-center py-8 mb-8 rounded-lg border ${config.bg} ${config.border}`}>
+          <div className={`text-center py-6 sm:py-8 mb-6 sm:mb-8 rounded-lg border ${config.bg} ${config.border}`}>
             <div className={`${config.color} mb-3 flex justify-center`}>
               {config.icon}
             </div>
-            <h1 className={`text-3xl font-bold ${config.color} mb-1`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${config.color} mb-1`}>
               {score.tier}
             </h1>
-            <div className="text-5xl font-bold text-zinc-100 font-mono mb-2">
+            <div className="text-4xl sm:text-5xl font-bold text-zinc-100 font-mono mb-2">
               {score.total}
-              <span className="text-xl text-zinc-600">/{score.maxPossible}</span>
+              <span className="text-lg sm:text-xl text-zinc-600">/{score.maxPossible}</span>
             </div>
-            <p className="text-sm text-zinc-500">{currentCaseDef.title}</p>
+            <p className="text-xs sm:text-sm text-zinc-500">{currentCaseDef.title}</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
@@ -164,16 +165,16 @@ export default function DebriefScreen() {
             )}
           </div>
 
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <button
               onClick={exitCase}
-              className="px-8 py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-sm uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-colors"
+              className="px-6 sm:px-8 py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs sm:text-sm uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-colors"
             >
               Return to Incident Board
             </button>
             <button
               onClick={() => restartCase(currentCaseDef.id)}
-              className="px-8 py-3 bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 font-mono text-sm uppercase tracking-widest rounded hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
+              className="px-6 sm:px-8 py-3 bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 font-mono text-xs sm:text-sm uppercase tracking-widest rounded hover:bg-zinc-800 hover:text-zinc-200 transition-colors"
             >
               Replay Case
             </button>

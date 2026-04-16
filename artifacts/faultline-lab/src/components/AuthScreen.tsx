@@ -1,0 +1,74 @@
+import { SignIn, SignUp } from '@clerk/react';
+import { useState } from 'react';
+import { useAppStore } from '@/stores/useAppStore';
+import { ArrowLeft } from 'lucide-react';
+
+export default function AuthScreen() {
+  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const setView = useAppStore(s => s.setView);
+
+  return (
+    <div className="min-h-screen bg-[#0a0e14] flex flex-col items-center justify-center p-4">
+      <button
+        onClick={() => setView('incident-board')}
+        className="absolute top-4 left-4 flex items-center gap-2 text-zinc-400 hover:text-cyan-400 transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+        <span className="text-sm font-mono">Back</span>
+      </button>
+
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-mono font-bold text-cyan-400 tracking-wider">FAULTLINE LAB</h1>
+        <p className="text-zinc-500 text-sm mt-2">
+          {mode === 'sign-in' ? 'Sign in to sync your progress' : 'Create your investigator account'}
+        </p>
+      </div>
+
+      <div className="w-full max-w-md">
+        {mode === 'sign-in' ? (
+          <SignIn
+            appearance={{
+              elements: {
+                rootBox: 'w-full',
+                cardBox: 'shadow-none bg-transparent',
+                card: 'bg-zinc-900/80 border border-zinc-800 shadow-xl',
+                headerTitle: 'text-zinc-100',
+                headerSubtitle: 'text-zinc-400',
+                formFieldLabel: 'text-zinc-300',
+                formFieldInput: 'bg-zinc-800 border-zinc-700 text-zinc-100',
+                formButtonPrimary: 'bg-cyan-600 hover:bg-cyan-500',
+                footerActionLink: 'text-cyan-400 hover:text-cyan-300',
+                identityPreviewEditButton: 'text-cyan-400',
+                socialButtonsBlockButton: 'bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700',
+              },
+            }}
+          />
+        ) : (
+          <SignUp
+            appearance={{
+              elements: {
+                rootBox: 'w-full',
+                cardBox: 'shadow-none bg-transparent',
+                card: 'bg-zinc-900/80 border border-zinc-800 shadow-xl',
+                headerTitle: 'text-zinc-100',
+                headerSubtitle: 'text-zinc-400',
+                formFieldLabel: 'text-zinc-300',
+                formFieldInput: 'bg-zinc-800 border-zinc-700 text-zinc-100',
+                formButtonPrimary: 'bg-cyan-600 hover:bg-cyan-500',
+                footerActionLink: 'text-cyan-400 hover:text-cyan-300',
+                socialButtonsBlockButton: 'bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700',
+              },
+            }}
+          />
+        )}
+      </div>
+
+      <button
+        onClick={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
+        className="mt-6 text-sm text-zinc-500 hover:text-cyan-400 transition-colors font-mono"
+      >
+        {mode === 'sign-in' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+      </button>
+    </div>
+  );
+}

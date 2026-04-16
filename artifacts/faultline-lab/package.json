@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@clerk/react": "^6.4.0",
     "zustand": "^5.0.12"
   }
 }

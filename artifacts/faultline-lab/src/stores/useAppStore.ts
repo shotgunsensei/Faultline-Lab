@@ -8,6 +8,7 @@ import type {
   DiagnosisSubmission,
   ToolOutput,
   Debrief,
+  AuthUser,
 } from '@/types';
 import {
   loadProfile,
@@ -47,8 +48,11 @@ interface AppState {
   terminalHistory: TerminalEntry[];
   activeTool: string;
   showDiagnosisForm: boolean;
+  authUser: AuthUser | null;
+  isSignedIn: boolean;
 
   setView: (view: AppView) => void;
+  setAuthUser: (user: AuthUser | null) => void;
   startCase: (caseId: string) => void;
   resumeCase: (caseId: string) => void;
   executeCommand: (command: string) => ToolOutput | null;
@@ -77,8 +81,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   terminalHistory: [],
   activeTool: 'terminal',
   showDiagnosisForm: false,
+  authUser: null,
+  isSignedIn: false,
 
   setView: (view) => set({ view }),
+
+  setAuthUser: (user) => set({
+    authUser: user,
+    isSignedIn: !!user,
+  }),
 
   startCase: (caseId) => {
     const caseDef = getCaseById(caseId);

@@ -15,6 +15,9 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  ShoppingBag,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 
 const categoryIconMap: Record<string, React.ReactNode> = {
@@ -117,11 +120,12 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
 export default function IncidentBoard() {
   const profile = useAppStore(s => s.profile);
   const setView = useAppStore(s => s.setView);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
-      <header className="border-b border-zinc-800/60 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="border-b border-zinc-800/60 px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
             <h1 className="font-mono text-lg font-bold text-cyan-400 tracking-wider uppercase">
@@ -129,10 +133,17 @@ export default function IncidentBoard() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setView('store')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-cyan-400 transition-colors rounded-md hover:bg-zinc-800/50"
+            >
+              <ShoppingBag size={14} />
+              <span className="hidden sm:inline">Store</span>
+            </button>
             <button
               onClick={() => setView('profile')}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors rounded-md hover:bg-zinc-800/50"
             >
               <User size={14} />
               <span className="hidden sm:inline">{profile.name}</span>
@@ -140,6 +151,15 @@ export default function IncidentBoard() {
                 {profile.casesSolved} solved
               </span>
             </button>
+            {!isSignedIn && import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && (
+              <button
+                onClick={() => setView('auth')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors rounded-md bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20"
+              >
+                <LogIn size={14} />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
             <button
               onClick={() => setView('settings')}
               className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -150,7 +170,7 @@ export default function IncidentBoard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 sm:pb-8">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

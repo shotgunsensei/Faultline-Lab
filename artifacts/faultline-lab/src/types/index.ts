@@ -194,4 +194,13 @@ export type AppView =
   | 'investigation'
   | 'debrief'
   | 'profile'
-  | 'settings';
+  | 'settings'
+  | 'store'
+  | 'auth';
+
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+}
