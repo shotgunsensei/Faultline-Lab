@@ -225,7 +225,7 @@ export const CATALOG: CatalogProduct[] = [
     includedFeatures: ['wireshark-panel', 'registry-deep-dive', 'service-graph', 'metric-overlay'],
     relatedProductIds: ['pack-network-ops', 'pack-server-graveyard', 'pro-subscription'],
     tags: [],
-    status: 'coming-soon',
+    status: 'available',
     sortOrder: 20,
   },
   {
@@ -244,7 +244,7 @@ export const CATALOG: CatalogProduct[] = [
     includedFeatures: ['chaos-mode'],
     relatedProductIds: ['pack-mixed-cascades'],
     tags: [],
-    status: 'coming-soon',
+    status: 'available',
     sortOrder: 21,
   },
   {
@@ -263,7 +263,7 @@ export const CATALOG: CatalogProduct[] = [
     includedFeatures: ['deep-telemetry'],
     relatedProductIds: ['upgrade-pro-analytics', 'pack-server-graveyard'],
     tags: [],
-    status: 'coming-soon',
+    status: 'available',
     sortOrder: 22,
   },
   {
@@ -282,7 +282,7 @@ export const CATALOG: CatalogProduct[] = [
     includedFeatures: ['sandbox-pro'],
     relatedProductIds: ['upgrade-advanced-tools', 'pro-subscription'],
     tags: [],
-    status: 'coming-soon',
+    status: 'available',
     sortOrder: 23,
   },
   {
@@ -301,7 +301,7 @@ export const CATALOG: CatalogProduct[] = [
     includedFeatures: ['pro-analytics'],
     relatedProductIds: ['upgrade-deep-telemetry', 'pro-subscription'],
     tags: [],
-    status: 'coming-soon',
+    status: 'available',
     sortOrder: 24,
   },
 

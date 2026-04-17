@@ -8,6 +8,11 @@ import HintPanel from './investigation/HintPanel';
 import ActionLog from './investigation/ActionLog';
 import SymptomsPanel from './investigation/SymptomsPanel';
 import DiagnosisForm from './investigation/DiagnosisForm';
+import WiresharkPanel from './investigation/WiresharkPanel';
+import DeepTelemetryPanel from './investigation/DeepTelemetryPanel';
+import ChaosModePanel from './investigation/ChaosModePanel';
+import SandboxPanel from './investigation/SandboxPanel';
+import ProAnalyticsPanel from './investigation/ProAnalyticsPanel';
 import { categoryLabels, difficultyColors } from '@/data/cases';
 import {
   Terminal,
@@ -157,10 +162,24 @@ export default function InvestigationWorkspace() {
       default: {
         const premium = premiumTools.find((t) => t.id === activeTool);
         if (premium) {
+          if (hasFeature(premium.id)) {
+            switch (premium.id) {
+              case 'wireshark-panel':
+                return <WiresharkPanel />;
+              case 'deep-telemetry':
+                return <DeepTelemetryPanel />;
+              case 'chaos-mode':
+                return <ChaosModePanel />;
+              case 'sandbox-pro':
+                return <SandboxPanel />;
+              case 'pro-analytics':
+                return <ProAnalyticsPanel />;
+            }
+          }
           return (
             <PremiumToolPanel
               tool={premium}
-              unlocked={hasFeature(premium.id)}
+              unlocked={false}
               onUpgrade={() => openUpgradeForFeature(premium)}
             />
           );
