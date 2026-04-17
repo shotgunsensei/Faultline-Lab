@@ -38,14 +38,51 @@ import {
   subscribeEntitlements,
 } from '@/lib/entitlements';
 import { useUpgradePrompt } from './UpgradePrompt';
-import { toast } from 'sonner';
 
-const premiumTools = [
-  { id: 'wireshark-panel', label: 'Wireshark', icon: Network },
-  { id: 'deep-telemetry', label: 'Deep Telemetry', icon: Gauge },
-  { id: 'chaos-mode', label: 'Chaos Mode', icon: Zap },
-  { id: 'sandbox-pro', label: 'Sandbox', icon: FlaskConical },
-  { id: 'pro-analytics', label: 'Analytics', icon: BarChart3 },
+interface PremiumToolMeta {
+  id: string;
+  label: string;
+  icon: typeof Network;
+  description: string;
+  baseline: string;
+}
+
+const premiumTools: PremiumToolMeta[] = [
+  {
+    id: 'wireshark-panel',
+    label: 'Wireshark',
+    icon: Network,
+    description: 'Inspect packet captures, decode protocols, and follow streams alongside your terminal session.',
+    baseline: 'Packet capture viewer is reserved on your account. The full Wireshark panel ships with this case soon.',
+  },
+  {
+    id: 'deep-telemetry',
+    label: 'Deep Telemetry',
+    icon: Gauge,
+    description: 'Stream high-resolution metrics, heatmaps, and anomaly markers from the system under investigation.',
+    baseline: 'Telemetry feed is reserved on your account. Live metric streams unlock here when this case ships.',
+  },
+  {
+    id: 'chaos-mode',
+    label: 'Chaos Mode',
+    icon: Zap,
+    description: 'Randomize evidence order, inject red herrings, and add time pressure for replayable challenge runs.',
+    baseline: 'Chaos toggles are reserved on your account. Per-case chaos controls land here in an upcoming update.',
+  },
+  {
+    id: 'sandbox-pro',
+    label: 'Sandbox',
+    icon: FlaskConical,
+    description: 'Spin up a custom scenario sandbox to author your own diagnostic puzzles.',
+    baseline: 'Sandbox slots are reserved on your account. The authoring workspace opens here soon.',
+  },
+  {
+    id: 'pro-analytics',
+    label: 'Analytics',
+    icon: BarChart3,
+    description: 'Career dashboards, skill heatmaps, and exportable case reports tied to this investigation.',
+    baseline: 'Analytics dashboard is reserved on your account. Per-case insights appear here as soon as they ship.',
+  },
 ];
 
 const toolTabs = [
@@ -74,20 +111,19 @@ export default function InvestigationWorkspace() {
     if (activeTool) trackToolUsage(activeTool);
   }, [activeTool, trackToolUsage]);
 
-  const handlePremiumTool = (featureId: string, label: string) => {
-    trackToolUsage(featureId);
-    if (hasFeature(featureId)) {
-      toast.success(`${label} unlocked — opening soon.`);
-      return;
-    }
-    const required = getRequiredProductForFeature(featureId);
-    if (required) {
-      prompt({
-        productId: required.id,
-        contextKey: `feature:${featureId}`,
-        reason: `${label} is part of ${required.name}. Unlock it to use this tool during investigations.`,
-      });
-    }
+  const openUpgradeForFeature = (tool: PremiumToolMeta) => {
+    const required = getRequiredProductForFeature(tool.id);
+    if (!required) return;
+    prompt({
+      productId: required.id,
+      contextKey: `feature:${tool.id}`,
+      reason: `${tool.label} is part of ${required.name}. ${tool.description}`,
+    });
+  };
+
+  const handlePremiumTool = (tool: PremiumToolMeta) => {
+    trackToolUsage(tool.id);
+    setActiveTool(tool.id);
   };
   const toggleDiagnosisForm = useAppStore(s => s.toggleDiagnosisForm);
   const exitCase = useAppStore(s => s.exitCase);
@@ -118,8 +154,19 @@ export default function InvestigationWorkspace() {
         return <EventLogPanel />;
       case 'ticket-history':
         return <TicketHistoryPanel />;
-      default:
+      default: {
+        const premium = premiumTools.find((t) => t.id === activeTool);
+        if (premium) {
+          return (
+            <PremiumToolPanel
+              tool={premium}
+              unlocked={hasFeature(premium.id)}
+              onUpgrade={() => openUpgradeForFeature(premium)}
+            />
+          );
+        }
         return <TerminalPanel />;
+      }
     }
   };
 
@@ -228,14 +275,19 @@ export default function InvestigationWorkspace() {
               {premiumTools.map((tool) => {
                 const Icon = tool.icon;
                 const unlocked = hasFeature(tool.id);
+                const isActive = activeTool === tool.id;
                 return (
                   <button
                     key={tool.id}
-                    onClick={() => handlePremiumTool(tool.id, tool.label)}
+                    onClick={() => handlePremiumTool(tool)}
                     className={`flex items-center gap-1 px-2 py-1.5 text-xs font-mono rounded border transition-colors ${
-                      unlocked
-                        ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10'
-                        : 'border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700/60'
+                      isActive
+                        ? unlocked
+                          ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                          : 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                        : unlocked
+                          ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10'
+                          : 'border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700/60'
                     }`}
                     title={unlocked ? `${tool.label} (unlocked)` : `${tool.label} (upgrade to unlock)`}
                   >
@@ -383,6 +435,81 @@ export default function InvestigationWorkspace() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+interface PremiumToolPanelProps {
+  tool: PremiumToolMeta;
+  unlocked: boolean;
+  onUpgrade: () => void;
+}
+
+function PremiumToolPanel({ tool, unlocked, onUpgrade }: PremiumToolPanelProps) {
+  const Icon = tool.icon;
+  const required = unlocked ? null : getRequiredProductForFeature(tool.id);
+
+  if (unlocked) {
+    return (
+      <div className="h-full w-full flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-[#0d1219] border border-emerald-500/20 rounded-lg p-6 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-300 mb-3">
+            <Icon size={20} />
+          </div>
+          <p className="text-[11px] font-mono uppercase tracking-wider text-emerald-300/80 mb-1">
+            {tool.label} ready
+          </p>
+          <h3 className="text-lg font-semibold text-zinc-100 mb-2">{tool.label}</h3>
+          <p className="text-sm text-zinc-400 leading-relaxed mb-3">{tool.description}</p>
+          <p className="text-xs text-zinc-500 leading-relaxed">{tool.baseline}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-gradient-to-br from-zinc-900 to-[#0d1219] border border-cyan-800/30 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
+            <Lock size={18} />
+          </div>
+          <div>
+            <p className="text-[11px] font-mono uppercase tracking-wider text-cyan-400/80">
+              Premium tool locked
+            </p>
+            <h3 className="text-base font-semibold text-zinc-100">{tool.label}</h3>
+          </div>
+        </div>
+
+        <p className="text-sm text-zinc-300 leading-relaxed mb-4">{tool.description}</p>
+
+        {required && (
+          <div className="rounded-md border border-zinc-800/60 bg-black/20 p-3 mb-4">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1">
+              Included in
+            </p>
+            <p className="text-sm text-zinc-200 font-semibold">{required.name}</p>
+            {required.shortDescription && (
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                {required.shortDescription}
+              </p>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={onUpgrade}
+          disabled={!required}
+          className="w-full py-2.5 rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+        >
+          <ChevronUp size={14} className="rotate-90" />
+          {required ? `Unlock ${tool.label}` : 'Coming soon'}
+        </button>
+        <p className="text-[11px] text-zinc-500 text-center mt-3">
+          Free tools (Terminal, Event Logs, Tickets) stay available — upgrades only add to your kit.
+        </p>
+      </div>
     </div>
   );
 }
