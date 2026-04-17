@@ -1,6 +1,9 @@
 import type {
+  CaseCategory,
   CaseDefinition,
+  Difficulty,
   EvidenceItem,
+  HintTier,
   ToolCommand,
 } from '@/types';
 import type { CaseCatalogEntry } from '@/data/caseCatalog';
@@ -10,9 +13,19 @@ export interface SandboxCommand {
   output: string;
 }
 
+export type SandboxEvidenceImportance = 'low' | 'medium' | 'high' | 'critical';
+
 export interface SandboxEvidence {
   title: string;
   description: string;
+  importance?: SandboxEvidenceImportance;
+  isRedHerring?: boolean;
+}
+
+export interface SandboxHint {
+  label: string;
+  text: string;
+  scorePenalty: number;
 }
 
 export interface SandboxScenario {
@@ -20,11 +33,21 @@ export interface SandboxScenario {
   title: string;
   briefing: string;
   rootCause: string;
+  category?: CaseCategory;
+  difficulty?: Difficulty;
   commands: SandboxCommand[];
   evidence: SandboxEvidence[];
+  hints?: SandboxHint[];
   createdAt: number;
   updatedAt: number;
 }
+
+export const SANDBOX_DEFAULT_CATEGORY: CaseCategory = 'mixed';
+export const SANDBOX_DEFAULT_DIFFICULTY: Difficulty = 'beginner';
+export const SANDBOX_DEFAULT_IMPORTANCE: SandboxEvidenceImportance = 'medium';
+
+const HINT_LABELS = ['Nudge', 'Hint', 'Strong hint', 'Spoiler'] as const;
+const HINT_LEVELS: HintTier['level'][] = [1, 2, 3, 4];
 
 export const SANDBOX_STORAGE_KEY = 'faultline-lab-sandbox-scenarios';
 const CHANGE_EVENT = 'faultline-lab:sandbox-scenarios-changed';
@@ -73,27 +96,47 @@ export function getSandboxScenarioById(id: string): SandboxScenario | undefined 
 
 /**
  * Convert a user-authored sandbox scenario into a runnable CaseDefinition.
- * The mapping is intentionally simple so authors get instant feedback:
- *   - Each authored evidence row becomes an EvidenceItem (medium-importance clue).
- *   - Each authored command becomes a terminal command. Evidence is revealed
- *     index-aligned to commands; any leftover evidence is attached to the last
- *     command so a thorough player can unlock everything.
- *   - With no commands, a synthetic `inspect` command unlocks all evidence so
- *     the case is still completable.
+ *
+ * Author-supplied richer fields (category, difficulty, evidence importance,
+ * red-herring flags, hint tiers) are honored when present; older scenarios
+ * that lack these fields fall back to sensible defaults so they keep
+ * playing as before.
+ *
+ * Mapping rules:
+ *   - Each authored evidence row becomes an EvidenceItem. `importance`
+ *     defaults to medium; `isRedHerring` flips its category to
+ *     `red-herring` and adds it to the case's `redHerrings` list.
+ *   - Each authored command becomes a terminal command. Evidence is
+ *     revealed index-aligned to commands; any leftover evidence is
+ *     attached to the last command so a thorough player can unlock
+ *     everything.
+ *   - With no commands, a synthetic `inspect` command unlocks all
+ *     evidence so the case is still completable.
+ *   - Authored hints map onto levels 1..4 with their author-provided
+ *     label and penalty (capped at 4 tiers).
  *   - The author's free-text root cause is treated as the truth.
  */
 export function buildCaseDefinitionFromSandbox(s: SandboxScenario): CaseDefinition {
+  const category = s.category ?? SANDBOX_DEFAULT_CATEGORY;
+  const difficulty = s.difficulty ?? SANDBOX_DEFAULT_DIFFICULTY;
+
   const evidence: EvidenceItem[] = s.evidence
     .filter((e) => (e.title || '').trim() || (e.description || '').trim())
-    .map((e, i) => ({
-      id: `ev-${i + 1}`,
-      title: (e.title || '').trim() || `Evidence ${i + 1}`,
-      description: (e.description || '').trim(),
-      category: 'clue',
-      importance: 'medium',
-      unlocked: false,
-    }));
+    .map((e, i) => {
+      const isRedHerring = Boolean(e.isRedHerring);
+      return {
+        id: `ev-${i + 1}`,
+        title: (e.title || '').trim() || `Evidence ${i + 1}`,
+        description: (e.description || '').trim(),
+        category: isRedHerring ? 'red-herring' : 'clue',
+        importance: e.importance ?? SANDBOX_DEFAULT_IMPORTANCE,
+        unlocked: false,
+      };
+    });
   const evidenceIds = evidence.map((e) => e.id);
+  const redHerrings: string[] = evidence
+    .filter((e) => e.category === 'red-herring')
+    .map((e) => e.id);
 
   const authoredCmds = s.commands.filter((c) => (c.command || '').trim());
 
@@ -121,13 +164,23 @@ export function buildCaseDefinitionFromSandbox(s: SandboxScenario): CaseDefiniti
     });
   }
 
+  const authoredHints = (s.hints ?? [])
+    .filter((h) => (h.text || '').trim().length > 0)
+    .slice(0, HINT_LEVELS.length);
+  const hints: HintTier[] = authoredHints.map((h, i) => ({
+    level: HINT_LEVELS[i],
+    label: (h.label || '').trim() || HINT_LABELS[i],
+    text: h.text,
+    scorePenalty: Number.isFinite(h.scorePenalty) ? h.scorePenalty : 0,
+  }));
+
   const rootCauseText = (s.rootCause || '').trim();
 
   return {
     id: s.id,
     title: (s.title || '').trim() || 'Untitled scenario',
-    category: 'mixed',
-    difficulty: 'beginner',
+    category,
+    difficulty,
     description: s.briefing || 'Author-defined scenario from the Sandbox.',
     briefing: s.briefing || 'Author-defined scenario from the Sandbox.',
     symptoms: [],
@@ -138,17 +191,20 @@ export function buildCaseDefinitionFromSandbox(s: SandboxScenario): CaseDefiniti
       technicalDetail: rootCauseText,
     },
     evidence,
-    hints: [],
+    hints,
     terminalCommands,
     eventLogs: [],
     ticketHistory: [],
     availableTools: ['terminal'],
-    redHerrings: [],
+    redHerrings,
     remediation: 'Author-defined remediation.',
     preventativeMeasures: [],
     maxScore: 100,
   };
 }
+
+/** Backwards-compatible alias for the richer authoring builder. */
+export const buildSandboxCase = buildCaseDefinitionFromSandbox;
 
 export function getSandboxAuthoredCaseDef(id: string): CaseDefinition | undefined {
   if (!isSandboxScenarioId(id)) return undefined;
@@ -176,8 +232,8 @@ export function buildCatalogEntryFromSandbox(s: SandboxScenario): CaseCatalogEnt
       (s.briefing || '').trim() ||
       'Author-defined sandbox scenario. Play to test your puzzle end-to-end.',
     mobileSummary: (s.title || '').trim() || 'Authored scenario',
-    category: 'mixed',
-    difficulty: 'beginner',
+    category: s.category ?? SANDBOX_DEFAULT_CATEGORY,
+    difficulty: s.difficulty ?? SANDBOX_DEFAULT_DIFFICULTY,
     estimatedMinutes: Math.max(2, Math.round((cmdCount + evCount) * 1.5)),
     sourceType: 'starter',
     status: 'playable',

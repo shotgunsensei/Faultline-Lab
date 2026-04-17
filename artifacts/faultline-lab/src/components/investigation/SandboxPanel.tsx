@@ -12,11 +12,17 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import type { CaseCategory, Difficulty } from '@/types';
 import {
   loadSandboxScenarios,
   persistSandboxScenarios,
+  SANDBOX_DEFAULT_CATEGORY,
+  SANDBOX_DEFAULT_DIFFICULTY,
+  SANDBOX_DEFAULT_IMPORTANCE,
   type SandboxCommand,
   type SandboxEvidence,
+  type SandboxEvidenceImportance,
+  type SandboxHint,
   type SandboxScenario,
 } from '@/lib/sandboxScenarios';
 import { useAppStore } from '@/stores/useAppStore';
@@ -26,6 +32,22 @@ export type { SandboxScenario } from '@/lib/sandboxScenarios';
 const load = loadSandboxScenarios;
 const persist = persistSandboxScenarios;
 
+const CATEGORY_OPTIONS: { value: CaseCategory; label: string }[] = [
+  { value: 'windows-ad', label: 'Windows / AD' },
+  { value: 'networking', label: 'Networking' },
+  { value: 'automotive', label: 'Automotive' },
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'servers', label: 'Servers' },
+  { value: 'mixed', label: 'Mixed' },
+];
+
+const DIFFICULTY_OPTIONS: Difficulty[] = ['beginner', 'intermediate', 'advanced', 'expert'];
+
+const IMPORTANCE_OPTIONS: SandboxEvidenceImportance[] = ['low', 'medium', 'high', 'critical'];
+
+const DEFAULT_HINT_LABELS = ['Nudge', 'Hint', 'Strong hint', 'Spoiler'];
+const DEFAULT_HINT_PENALTIES = [3, 6, 10, 20];
+
 function blank(): SandboxScenario {
   const now = Date.now();
   return {
@@ -33,8 +55,13 @@ function blank(): SandboxScenario {
     title: 'Untitled scenario',
     briefing: '',
     rootCause: '',
+    category: SANDBOX_DEFAULT_CATEGORY,
+    difficulty: SANDBOX_DEFAULT_DIFFICULTY,
     commands: [{ command: '', output: '' }],
-    evidence: [{ title: '', description: '' }],
+    evidence: [
+      { title: '', description: '', importance: SANDBOX_DEFAULT_IMPORTANCE, isRedHerring: false },
+    ],
+    hints: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -56,8 +83,11 @@ function toExport(s: SandboxScenario): ScenarioExport {
       title: s.title,
       briefing: s.briefing,
       rootCause: s.rootCause,
+      category: s.category,
+      difficulty: s.difficulty,
       commands: s.commands,
       evidence: s.evidence,
+      hints: s.hints,
     },
   };
 }
@@ -82,18 +112,38 @@ function fromExport(raw: string): SandboxScenario {
     command: String((c as SandboxCommand)?.command ?? ''),
     output: String((c as SandboxCommand)?.output ?? ''),
   }));
-  const evidence: SandboxEvidence[] = payload.evidence.map((e) => ({
-    title: String((e as SandboxEvidence)?.title ?? ''),
-    description: String((e as SandboxEvidence)?.description ?? ''),
-  }));
+  const evidence: SandboxEvidence[] = payload.evidence.map((e) => {
+    const src = e as SandboxEvidence;
+    const importance = src?.importance;
+    return {
+      title: String(src?.title ?? ''),
+      description: String(src?.description ?? ''),
+      importance: IMPORTANCE_OPTIONS.includes(importance as SandboxEvidenceImportance)
+        ? (importance as SandboxEvidenceImportance)
+        : undefined,
+      isRedHerring: Boolean(src?.isRedHerring),
+    };
+  });
+  const hints: SandboxHint[] | undefined = Array.isArray(payload.hints)
+    ? (payload.hints as SandboxHint[]).map((h) => ({
+        label: String(h?.label ?? ''),
+        text: String(h?.text ?? ''),
+        scorePenalty: Number.isFinite(Number(h?.scorePenalty)) ? Number(h.scorePenalty) : 0,
+      }))
+    : undefined;
   const now = Date.now();
   return {
     id: `sandbox-${now}-${Math.random().toString(36).slice(2, 7)}`,
     title: payload.title || 'Imported scenario',
     briefing: payload.briefing,
     rootCause: payload.rootCause,
+    category: payload.category,
+    difficulty: payload.difficulty,
     commands: commands.length ? commands : [{ command: '', output: '' }],
-    evidence: evidence.length ? evidence : [{ title: '', description: '' }],
+    evidence: evidence.length
+      ? evidence
+      : [{ title: '', description: '', importance: SANDBOX_DEFAULT_IMPORTANCE, isRedHerring: false }],
+    hints,
     createdAt: now,
     updatedAt: now,
   };
@@ -263,6 +313,7 @@ export default function SandboxPanel() {
                 <div className="text-sm text-zinc-200 truncate">{s.title || 'Untitled'}</div>
                 <div className="text-[10px] font-mono text-zinc-500">
                   {s.commands.length} cmd · {s.evidence.length} evidence
+                  {s.hints && s.hints.length > 0 ? ` · ${s.hints.length} hint` : ''}
                 </div>
               </button>
               <button
@@ -295,6 +346,40 @@ export default function SandboxPanel() {
                   onChange={(e) => update({ ...active, title: e.target.value })}
                 />
               </Field>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Category">
+                  <select
+                    className="w-full bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500/50"
+                    value={active.category ?? SANDBOX_DEFAULT_CATEGORY}
+                    onChange={(e) =>
+                      update({ ...active, category: e.target.value as CaseCategory })
+                    }
+                  >
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Difficulty">
+                  <select
+                    className="w-full bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1.5 text-zinc-100 focus:outline-none focus:border-fuchsia-500/50"
+                    value={active.difficulty ?? SANDBOX_DEFAULT_DIFFICULTY}
+                    onChange={(e) =>
+                      update({ ...active, difficulty: e.target.value as Difficulty })
+                    }
+                  >
+                    {DIFFICULTY_OPTIONS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
               <Field label="Briefing">
                 <textarea
                   rows={3}
@@ -355,35 +440,162 @@ export default function SandboxPanel() {
               <Section
                 title="Evidence"
                 onAdd={() =>
-                  update({ ...active, evidence: [...active.evidence, { title: '', description: '' }] })
+                  update({
+                    ...active,
+                    evidence: [
+                      ...active.evidence,
+                      {
+                        title: '',
+                        description: '',
+                        importance: SANDBOX_DEFAULT_IMPORTANCE,
+                        isRedHerring: false,
+                      },
+                    ],
+                  })
                 }
               >
                 {active.evidence.map((e, i) => (
+                  <div key={i} className="border border-zinc-900/60 rounded p-2 mb-2 space-y-2">
+                    <div className="grid grid-cols-12 gap-2">
+                      <input
+                        className="col-span-4 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
+                        placeholder="title"
+                        value={e.title}
+                        onChange={(ev) => {
+                          const arr = [...active.evidence];
+                          arr[i] = { ...e, title: ev.target.value };
+                          update({ ...active, evidence: arr });
+                        }}
+                      />
+                      <input
+                        className="col-span-7 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
+                        placeholder="description"
+                        value={e.description}
+                        onChange={(ev) => {
+                          const arr = [...active.evidence];
+                          arr[i] = { ...e, description: ev.target.value };
+                          update({ ...active, evidence: arr });
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const arr = active.evidence.filter((_, idx) => idx !== i);
+                          update({
+                            ...active,
+                            evidence: arr.length
+                              ? arr
+                              : [
+                                  {
+                                    title: '',
+                                    description: '',
+                                    importance: SANDBOX_DEFAULT_IMPORTANCE,
+                                    isRedHerring: false,
+                                  },
+                                ],
+                          });
+                        }}
+                        className="col-span-1 text-zinc-500 hover:text-red-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 pl-1">
+                      <label className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                        Importance
+                        <select
+                          className="bg-[#0a0e14] border border-zinc-800 rounded px-1.5 py-0.5 text-[11px] text-zinc-200 normal-case tracking-normal"
+                          value={e.importance ?? SANDBOX_DEFAULT_IMPORTANCE}
+                          onChange={(ev) => {
+                            const arr = [...active.evidence];
+                            arr[i] = {
+                              ...e,
+                              importance: ev.target.value as SandboxEvidenceImportance,
+                            };
+                            update({ ...active, evidence: arr });
+                          }}
+                        >
+                          {IMPORTANCE_OPTIONS.map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-1 text-[11px] text-amber-300/90">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(e.isRedHerring)}
+                          onChange={(ev) => {
+                            const arr = [...active.evidence];
+                            arr[i] = { ...e, isRedHerring: ev.target.checked };
+                            update({ ...active, evidence: arr });
+                          }}
+                        />
+                        Red herring
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section
+                title="Hint tiers (up to 4)"
+                onAdd={() => {
+                  const current = active.hints ?? [];
+                  if (current.length >= 4) return;
+                  const i = current.length;
+                  const next: SandboxHint = {
+                    label: DEFAULT_HINT_LABELS[i],
+                    text: '',
+                    scorePenalty: DEFAULT_HINT_PENALTIES[i],
+                  };
+                  update({ ...active, hints: [...current, next] });
+                }}
+              >
+                {(active.hints ?? []).length === 0 && (
+                  <div className="text-[11px] text-zinc-500 italic">
+                    No hints — add a tier to give players a graduated nudge ladder.
+                  </div>
+                )}
+                {(active.hints ?? []).map((h, i) => (
                   <div key={i} className="grid grid-cols-12 gap-2 mb-2">
                     <input
-                      className="col-span-4 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
-                      placeholder="title"
-                      value={e.title}
+                      className="col-span-3 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
+                      placeholder="label"
+                      value={h.label}
                       onChange={(ev) => {
-                        const arr = [...active.evidence];
-                        arr[i] = { ...e, title: ev.target.value };
-                        update({ ...active, evidence: arr });
+                        const arr = [...(active.hints ?? [])];
+                        arr[i] = { ...h, label: ev.target.value };
+                        update({ ...active, hints: arr });
                       }}
                     />
                     <input
-                      className="col-span-7 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
-                      placeholder="description"
-                      value={e.description}
+                      className="col-span-6 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
+                      placeholder="hint text"
+                      value={h.text}
                       onChange={(ev) => {
-                        const arr = [...active.evidence];
-                        arr[i] = { ...e, description: ev.target.value };
-                        update({ ...active, evidence: arr });
+                        const arr = [...(active.hints ?? [])];
+                        arr[i] = { ...h, text: ev.target.value };
+                        update({ ...active, hints: arr });
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      className="col-span-2 bg-[#0a0e14] border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-100"
+                      placeholder="penalty"
+                      value={h.scorePenalty}
+                      onChange={(ev) => {
+                        const arr = [...(active.hints ?? [])];
+                        const n = Number(ev.target.value);
+                        arr[i] = { ...h, scorePenalty: Number.isFinite(n) ? n : 0 };
+                        update({ ...active, hints: arr });
                       }}
                     />
                     <button
                       onClick={() => {
-                        const arr = active.evidence.filter((_, idx) => idx !== i);
-                        update({ ...active, evidence: arr.length ? arr : [{ title: '', description: '' }] });
+                        const arr = (active.hints ?? []).filter((_, idx) => idx !== i);
+                        update({ ...active, hints: arr });
                       }}
                       className="col-span-1 text-zinc-500 hover:text-red-400"
                     >
