@@ -30,7 +30,7 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 
 ### Key Directories
 - `artifacts/faultline-lab/src/types/` — TypeScript domain model
-- `artifacts/faultline-lab/src/data/cases/` — Handcrafted case definitions (4 MVP cases) + typed `registry.ts` (`CASE_DEFINITIONS` map)
+- `artifacts/faultline-lab/src/data/cases/` — Case definitions (4 MVP cases, all authored via the framework) + typed `registry.ts` (`CASE_DEFINITIONS` map)
 - `artifacts/faultline-lab/src/data/cases/authoring/` — Case Authoring Framework (schema, helpers, validation, per-domain templates)
 - `artifacts/faultline-lab/src/data/caseCatalog/` — Catalog spine: 56 entries with status/access/source-product mapping, validation, and selectors
 - `artifacts/faultline-lab/src/data/catalog.ts` — Product catalog (14 products: tiers, packs, upgrades, bundles)
@@ -119,6 +119,9 @@ The framework lives at `data/cases/authoring/` and is the supported way to add n
 - `helpers.ts` exports composition helpers (`symptom`, `rootCause`, `evidence`, `command`, `eventLog`, `ticket`, `hintLadder`) plus `composeCase(draft)` which validates and lifts a draft into a `CaseDefinition` (or throws with actionable issues).
 - `validate.ts` enforces: required identity fields, ≥2 symptoms, ≥4 evidence items, exactly 4 hint tiers with strictly increasing penalties, all `revealsEvidence` ids point at real evidence, every clue/critical evidence is reachable from at least one command/event/ticket, tool variety on advanced/expert cases, `maxScore === 100`.
 - `templates.ts` exports `createTemplate(domain, opts)` for seven domains: `windows-ad`, `networking`, `servers`, `automotive`, `electronics`, `mixed`, `healthcare-imaging`. Each template returns a draft that already passes the validator with placeholder content so authors get green-on-load.
+
+#### Reference case
+All four MVP cases (`windows-ad-case.ts`, `networking-vpn-case.ts`, `automotive-case.ts`, `electronics-sensor-case.ts`) are authored through `createTemplate` + `composeCase` — no raw `CaseDefinition` literals remain in the repo. **`windows-ad-case.ts` is the canonical reference**: it shows the spread-and-override pattern, full evidence/command/event/ticket cross-referencing, and a 4-tier hint ladder. Copy it verbatim when bootstrapping a new case.
 
 #### How to add a new case
 1. Pick a catalog entry from `data/caseCatalog/entries.ts` (or add one) and note its `id` and `sourceProductId`.

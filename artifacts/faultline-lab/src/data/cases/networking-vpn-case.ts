@@ -1,12 +1,17 @@
 import type { CaseDefinition } from '@/types';
+import { composeCase, createTemplate } from './authoring';
 
-export const networkingVpnCase: CaseDefinition = {
-  id: 'case-networking-vpn-001',
-  title: 'Phantom VPN Tunnel',
-  category: 'networking',
-  difficulty: 'advanced',
-  description: 'A site-to-site VPN tunnel shows UP/green status on both endpoints, but traffic between the remote subnets is failing silently. Users at the branch office cannot reach any resources at HQ.',
-  briefing: 'PRIORITY: CRITICAL\n\nSite-to-site IPSec VPN between HQ (10.1.0.0/24) and Branch Office (10.2.0.0/24) shows healthy/UP on both Cisco ASA firewalls. Branch users report complete inability to access HQ file servers, applications, and printers since approximately 06:00 this morning. HQ users cannot reach branch resources either. The tunnel was working yesterday.',
+export const networkingVpnCase: CaseDefinition = composeCase({
+  ...createTemplate('networking', {
+    id: 'case-networking-vpn-001',
+    slug: 'phantom-vpn-tunnel',
+    title: 'Phantom VPN Tunnel',
+    difficulty: 'advanced',
+  }),
+  description:
+    'A site-to-site VPN tunnel shows UP/green status on both endpoints, but traffic between the remote subnets is failing silently. Users at the branch office cannot reach any resources at HQ.',
+  briefing:
+    'PRIORITY: CRITICAL\n\nSite-to-site IPSec VPN between HQ (10.1.0.0/24) and Branch Office (10.2.0.0/24) shows healthy/UP on both Cisco ASA firewalls. Branch users report complete inability to access HQ file servers, applications, and printers since approximately 06:00 this morning. HQ users cannot reach branch resources either. The tunnel was working yesterday.',
   symptoms: [
     { id: 's1', description: 'VPN tunnel status shows UP/green on both ASA endpoints', severity: 'medium' },
     { id: 's2', description: 'No traffic flows between 10.1.0.0/24 and 10.2.0.0/24', severity: 'critical' },
@@ -16,18 +21,20 @@ export const networkingVpnCase: CaseDefinition = {
   rootCause: {
     id: 'rc1',
     title: 'Mismatched IPSec Phase 2 Proxy IDs (Crypto ACL)',
-    description: 'A firewall rule change at HQ last night modified the crypto ACL, changing the Phase 2 proxy identity. The tunnel renegotiated Phase 1 successfully (showing green), but Phase 2 SAs are not being established because the proxy IDs no longer match between sites.',
-    technicalDetail: 'The HQ ASA crypto ACL was changed from "permit ip 10.1.0.0/24 10.2.0.0/24" to "permit ip 10.1.0.0/16 10.2.0.0/24" during a late-night change window. This /16 vs /24 mismatch means the Phase 2 proxy identities don\'t match between the two endpoints. IKE Phase 1 (ISAKMP SA) establishes fine because it only negotiates encryption parameters, not traffic selectors. Phase 2 (IPSec SA) fails silently because the proxy IDs disagree, so no IPSec SAs are built and no traffic is encrypted/forwarded.',
+    description:
+      'A firewall rule change at HQ last night modified the crypto ACL, changing the Phase 2 proxy identity. The tunnel renegotiated Phase 1 successfully (showing green), but Phase 2 SAs are not being established because the proxy IDs no longer match between sites.',
+    technicalDetail:
+      'The HQ ASA crypto ACL was changed from "permit ip 10.1.0.0/24 10.2.0.0/24" to "permit ip 10.1.0.0/16 10.2.0.0/24" during a late-night change window. This /16 vs /24 mismatch means the Phase 2 proxy identities don\'t match between the two endpoints. IKE Phase 1 (ISAKMP SA) establishes fine because it only negotiates encryption parameters, not traffic selectors. Phase 2 (IPSec SA) fails silently because the proxy IDs disagree, so no IPSec SAs are built and no traffic is encrypted/forwarded.',
   },
   evidence: [
-    { id: 'e1', title: 'Tunnel Status Green', description: 'ASDM shows VPN tunnel status as UP on both endpoints', category: 'red-herring', importance: 'medium', unlocked: false },
-    { id: 'e2', title: 'Phase 1 Active, Phase 2 Missing', description: '"show crypto isakmp sa" shows ACTIVE, but "show crypto ipsec sa" shows 0 packets encrypted/decrypted', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e3', title: 'Crypto ACL Mismatch', description: 'HQ crypto ACL uses 10.1.0.0/16 while Branch uses 10.1.0.0/24 — proxy ID mismatch', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e4', title: 'Recent Change Log', description: 'Change ticket #4521 modified HQ firewall ACLs at 23:45 last night', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e5', title: 'No ESP Traffic', description: 'Packet capture shows ISAKMP (UDP 500) traffic but no ESP packets between sites', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e6', title: 'Routing Table Clean', description: 'Route tables on both sides correctly point VPN traffic to tunnel interface', category: 'contextual', importance: 'low', unlocked: false },
-    { id: 'e7', title: 'NAT Not Interfering', description: 'NAT exemption rules are correctly configured for VPN traffic', category: 'contextual', importance: 'low', unlocked: false },
-    { id: 'e8', title: 'IKE Debug Messages', description: 'Debug output shows "QM FSM error" during Phase 2 negotiation - proxy ID mismatch', category: 'clue', importance: 'critical', unlocked: false },
+    { id: 'e1', title: 'Tunnel Status Green', description: 'ASDM shows VPN tunnel status as UP on both endpoints', category: 'red-herring', importance: 'medium' },
+    { id: 'e2', title: 'Phase 1 Active, Phase 2 Missing', description: '"show crypto isakmp sa" shows ACTIVE, but "show crypto ipsec sa" shows 0 packets encrypted/decrypted', category: 'clue', importance: 'critical' },
+    { id: 'e3', title: 'Crypto ACL Mismatch', description: 'HQ crypto ACL uses 10.1.0.0/16 while Branch uses 10.1.0.0/24 — proxy ID mismatch', category: 'clue', importance: 'critical' },
+    { id: 'e4', title: 'Recent Change Log', description: 'Change ticket #4521 modified HQ firewall ACLs at 23:45 last night', category: 'clue', importance: 'high' },
+    { id: 'e5', title: 'No ESP Traffic', description: 'Packet capture shows ISAKMP (UDP 500) traffic but no ESP packets between sites', category: 'clue', importance: 'high' },
+    { id: 'e6', title: 'Routing Table Clean', description: 'Route tables on both sides correctly point VPN traffic to tunnel interface', category: 'contextual', importance: 'low' },
+    { id: 'e7', title: 'NAT Not Interfering', description: 'NAT exemption rules are correctly configured for VPN traffic', category: 'contextual', importance: 'low' },
+    { id: 'e8', title: 'IKE Debug Messages', description: 'Debug output shows "QM FSM error" during Phase 2 negotiation - proxy ID mismatch', category: 'clue', importance: 'critical' },
   ],
   hints: [
     { level: 1, label: 'Subtle Nudge', text: 'A VPN showing "UP" doesn\'t necessarily mean all phases are healthy. VPN has multiple negotiation phases.', scorePenalty: 5 },
@@ -59,7 +66,7 @@ export const networkingVpnCase: CaseDefinition = {
   ],
   ticketHistory: [
     { id: 'th1', author: 'Branch Office Manager', role: 'End User', timestamp: '2026-04-15 07:45 AM', content: 'Nobody in the branch can access the shared drives, ERP, or printers at HQ. This started this morning. Everything was working yesterday.' },
-    { id: 'th2', author: 'Tom Rivera', role: 'Network Operations', timestamp: '2026-04-15 08:00 AM', content: 'Checked VPN dashboard - tunnel shows GREEN/UP. Phase 1 is established. Bounced the tunnel once, came right back up green. Internet at both sites is fine. Not sure what\'s going on.' },
+    { id: 'th2', author: 'Tom Rivera', role: 'Network Operations', timestamp: '2026-04-15 08:00 AM', content: "Checked VPN dashboard - tunnel shows GREEN/UP. Phase 1 is established. Bounced the tunnel once, came right back up green. Internet at both sites is fine. Not sure what's going on." },
     { id: 'th3', author: 'Lisa Park', role: 'Network Engineer', timestamp: '2026-04-15 08:30 AM', content: 'Ran a change review — there was a scheduled change last night (ticket #4521) to expand the VPN scope for future subnets. The change was approved and implemented. Could be related but the tunnel is showing healthy.', revealsEvidence: ['e4'] },
     { id: 'th4', author: 'Tom Rivera', role: 'Network Operations', timestamp: '2026-04-15 09:15 AM', content: 'Tried pinging across the tunnel — 100% loss. But the tunnel status is UP. Checked routing — looks correct. NAT exemption is in place. Escalating to senior engineer.', isRedHerring: false },
   ],
@@ -68,7 +75,8 @@ export const networkingVpnCase: CaseDefinition = {
     'The tunnel showing "UP/green" is misleading — the monitoring only checks Phase 1 (IKE SA), not Phase 2 (IPSec SA)',
     'Routing and NAT are correctly configured and are not the issue',
   ],
-  remediation: 'Correct the HQ crypto ACL to match the Branch side: change 10.1.0.0/255.255.0.0 back to 10.1.0.0/255.255.255.0, or update the Branch ACL to match the new /16 scope. Then clear the crypto SA (clear crypto sa) to force renegotiation.',
+  remediation:
+    'Correct the HQ crypto ACL to match the Branch side: change 10.1.0.0/255.255.0.0 back to 10.1.0.0/255.255.255.0, or update the Branch ACL to match the new /16 scope. Then clear the crypto SA (clear crypto sa) to force renegotiation.',
   preventativeMeasures: [
     'Implement change management verification that checks both sides of VPN configurations',
     'Set up monitoring that validates Phase 2 SA establishment, not just Phase 1',
@@ -76,4 +84,4 @@ export const networkingVpnCase: CaseDefinition = {
     'Require peer-review for crypto ACL changes',
   ],
   maxScore: 100,
-};
+});

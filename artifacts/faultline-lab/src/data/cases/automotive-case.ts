@@ -1,12 +1,17 @@
 import type { CaseDefinition } from '@/types';
+import { composeCase, createTemplate } from './authoring';
 
-export const automotiveCase: CaseDefinition = {
-  id: 'case-automotive-001',
-  title: 'Unstable Idle Ghost',
-  category: 'automotive',
-  difficulty: 'intermediate',
-  description: 'A 2019 sedan exhibits intermittent rough idle, sporadic misfire counts on cylinders 2 and 3, and voltage fluctuations visible on the OBD scanner. No check engine light is consistently on.',
-  briefing: 'PRIORITY: MEDIUM\n\nCustomer complaint: 2019 Honda Accord 2.0T with 67,000 miles. Vehicle has rough/unstable idle that comes and goes. Sometimes runs perfectly smooth, other times shakes at stoplights. Customer says it\'s worse when the A/C is on. No persistent check engine light, but the MIL has flashed briefly a few times. Previous shop replaced spark plugs — no improvement.',
+export const automotiveCase: CaseDefinition = composeCase({
+  ...createTemplate('automotive', {
+    id: 'case-automotive-001',
+    slug: 'unstable-idle-ghost',
+    title: 'Unstable Idle Ghost',
+    difficulty: 'intermediate',
+  }),
+  description:
+    'A 2019 sedan exhibits intermittent rough idle, sporadic misfire counts on cylinders 2 and 3, and voltage fluctuations visible on the OBD scanner. No check engine light is consistently on.',
+  briefing:
+    "PRIORITY: MEDIUM\n\nCustomer complaint: 2019 Honda Accord 2.0T with 67,000 miles. Vehicle has rough/unstable idle that comes and goes. Sometimes runs perfectly smooth, other times shakes at stoplights. Customer says it's worse when the A/C is on. No persistent check engine light, but the MIL has flashed briefly a few times. Previous shop replaced spark plugs — no improvement.",
   symptoms: [
     { id: 's1', description: 'Intermittent rough idle — RPM fluctuates between 650-850 at rest', severity: 'high' },
     { id: 's2', description: 'Sporadic misfire counts on cylinders 2 and 3', severity: 'high' },
@@ -16,24 +21,26 @@ export const automotiveCase: CaseDefinition = {
   rootCause: {
     id: 'rc1',
     title: 'Failing Alternator with Intermittent Voltage Regulator',
-    description: 'The alternator\'s internal voltage regulator is failing intermittently, causing erratic charging voltage. The voltage spikes and dips affect the ECU\'s sensor readings and injector pulse width calculations, creating lean/rich swings that manifest as rough idle and misfires on the weakest coils.',
-    technicalDetail: 'The voltage regulator inside the alternator is intermittently failing, causing charging voltage to swing between 13.2V and 14.8V instead of maintaining steady 14.2V. These voltage fluctuations directly affect: (1) ECU reference voltage for sensor calculations, (2) Injector solenoid response time (higher voltage = shorter effective pulse), (3) Ignition coil dwell time. The misfires on cylinders 2 and 3 are because those coil packs have slightly higher resistance (normal wear) and are most sensitive to voltage variation. The previous spark plug replacement was addressing a symptom, not the cause.',
+    description:
+      "The alternator's internal voltage regulator is failing intermittently, causing erratic charging voltage. The voltage spikes and dips affect the ECU's sensor readings and injector pulse width calculations, creating lean/rich swings that manifest as rough idle and misfires on the weakest coils.",
+    technicalDetail:
+      'The voltage regulator inside the alternator is intermittently failing, causing charging voltage to swing between 13.2V and 14.8V instead of maintaining steady 14.2V. These voltage fluctuations directly affect: (1) ECU reference voltage for sensor calculations, (2) Injector solenoid response time (higher voltage = shorter effective pulse), (3) Ignition coil dwell time. The misfires on cylinders 2 and 3 are because those coil packs have slightly higher resistance (normal wear) and are most sensitive to voltage variation. The previous spark plug replacement was addressing a symptom, not the cause.',
   },
   evidence: [
-    { id: 'e1', title: 'RPM Instability Pattern', description: 'RPM oscillates 650-850 in a semi-regular pattern at idle, worse with electrical loads', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e2', title: 'Voltage Irregularity', description: 'System voltage swings 13.2V-14.8V with no load changes — alternator output is unstable', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e3', title: 'Misfire Correlation', description: 'Misfire counts on Cyl 2 and 3 increase when voltage exceeds 14.5V', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e4', title: 'Fuel Trim Swings', description: 'STFT oscillates -8% to +12% — ECU is constantly correcting fuel mixture', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e5', title: 'New Spark Plugs', description: 'Spark plugs were replaced 2,000 miles ago — properly gapped and correct part number', category: 'red-herring', importance: 'medium', unlocked: false },
-    { id: 'e6', title: 'A/C Load Trigger', description: 'Symptoms worsen with A/C on — additional electrical load exacerbates voltage regulation issue', category: 'clue', importance: 'medium', unlocked: false },
-    { id: 'e7', title: 'Coil Resistance Variance', description: 'Coil packs on Cyl 2 and 3 measure 0.8 ohms higher primary resistance than Cyl 1 and 4', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e8', title: 'No Vacuum Leaks', description: 'Smoke test shows no vacuum leaks in intake system', category: 'contextual', importance: 'low', unlocked: false },
+    { id: 'e1', title: 'RPM Instability Pattern', description: 'RPM oscillates 650-850 in a semi-regular pattern at idle, worse with electrical loads', category: 'clue', importance: 'high' },
+    { id: 'e2', title: 'Voltage Irregularity', description: 'System voltage swings 13.2V-14.8V with no load changes — alternator output is unstable', category: 'clue', importance: 'critical' },
+    { id: 'e3', title: 'Misfire Correlation', description: 'Misfire counts on Cyl 2 and 3 increase when voltage exceeds 14.5V', category: 'clue', importance: 'critical' },
+    { id: 'e4', title: 'Fuel Trim Swings', description: 'STFT oscillates -8% to +12% — ECU is constantly correcting fuel mixture', category: 'clue', importance: 'high' },
+    { id: 'e5', title: 'New Spark Plugs', description: 'Spark plugs were replaced 2,000 miles ago — properly gapped and correct part number', category: 'red-herring', importance: 'medium' },
+    { id: 'e6', title: 'A/C Load Trigger', description: 'Symptoms worsen with A/C on — additional electrical load exacerbates voltage regulation issue', category: 'clue', importance: 'medium' },
+    { id: 'e7', title: 'Coil Resistance Variance', description: 'Coil packs on Cyl 2 and 3 measure 0.8 ohms higher primary resistance than Cyl 1 and 4', category: 'clue', importance: 'high' },
+    { id: 'e8', title: 'No Vacuum Leaks', description: 'Smoke test shows no vacuum leaks in intake system', category: 'contextual', importance: 'low' },
   ],
   hints: [
     { level: 1, label: 'Subtle Nudge', text: 'The misfires happen on specific cylinders, but the cause might not be cylinder-specific. What affects all cylinders but hits some harder?', scorePenalty: 5 },
     { level: 2, label: 'Directional Clue', text: 'Watch the voltage readings carefully. A healthy charging system should be very stable. What happens when voltage is unstable?', scorePenalty: 10 },
-    { level: 3, label: 'Stronger Clue', text: 'The voltage regulator controls alternator output. If it\'s failing intermittently, it would cause exactly these symptoms. Check alternator output stability.', scorePenalty: 20 },
-    { level: 4, label: 'Reveal Path', text: 'The alternator\'s voltage regulator is failing. Erratic voltage affects injector timing, coil dwell, and ECU calculations. Cylinders 2 and 3 misfire because their coils have slightly higher resistance and are most sensitive to voltage swings.', scorePenalty: 35 },
+    { level: 3, label: 'Stronger Clue', text: "The voltage regulator controls alternator output. If it's failing intermittently, it would cause exactly these symptoms. Check alternator output stability.", scorePenalty: 20 },
+    { level: 4, label: 'Reveal Path', text: "The alternator's voltage regulator is failing. Erratic voltage affects injector timing, coil dwell, and ECU calculations. Cylinders 2 and 3 misfire because their coils have slightly higher resistance and are most sensitive to voltage swings.", scorePenalty: 35 },
   ],
   terminalCommands: [
     { command: 'obd read dtc', aliases: ['read dtc', 'read codes', 'dtc'], description: 'Read diagnostic trouble codes', output: 'Scanning for DTCs...\n\nStored Codes:\n  P0302 - Cylinder 2 Misfire Detected (Pending)\n  P0303 - Cylinder 3 Misfire Detected (Pending)\n\nPending Codes:\n  P0302 - Cylinder 2 Misfire Detected\n  P0303 - Cylinder 3 Misfire Detected\n\nFreeze Frame Data (P0302):\n  Engine RPM: 712\n  Vehicle Speed: 0 MPH\n  Coolant Temp: 198°F\n  Calc Load: 34.5%\n  STFT B1: +11.7%\n  LTFT B1: +3.2%\n  System Voltage: 14.7V', revealsEvidence: ['e3'] },
@@ -56,7 +63,7 @@ export const automotiveCase: CaseDefinition = {
     { id: 'el6', timestamp: '2026-04-10 09:00:00', source: 'Charging', level: 'info', message: 'Alternator output test requested', details: 'Previous shop noted voltage fluctuation but did not diagnose further.' },
   ],
   ticketHistory: [
-    { id: 'th1', author: 'Customer (Maria Gonzalez)', role: 'Vehicle Owner', timestamp: '2026-04-15 09:00 AM', content: 'My car has been shaking at stoplights for about two weeks now. It comes and goes — sometimes it\'s fine, sometimes it shakes pretty bad. It seems worse when the A/C is running. My check engine light flashed a couple times but it\'s not on now.' },
+    { id: 'th1', author: 'Customer (Maria Gonzalez)', role: 'Vehicle Owner', timestamp: '2026-04-15 09:00 AM', content: "My car has been shaking at stoplights for about two weeks now. It comes and goes — sometimes it's fine, sometimes it shakes pretty bad. It seems worse when the A/C is running. My check engine light flashed a couple times but it's not on now." },
     { id: 'th2', author: 'Previous Shop', role: 'External Mechanic', timestamp: '2026-04-01', content: 'Customer came in with rough idle complaint. Found P0302 and P0303 pending. Replaced all 4 spark plugs with NGK Iridium. Cleared codes. Test drove — seemed OK at the time. Customer returned saying problem came back.', isRedHerring: true, revealsEvidence: ['e5'] },
     { id: 'th3', author: 'Service Advisor', role: 'Dealership', timestamp: '2026-04-15 09:15 AM', content: 'Verified customer complaint. Vehicle idles rough intermittently. Previous repair (spark plugs) did not resolve. Customer mentioned the battery was replaced about 6 months ago at a quick-lube shop. Assigned to diagnostic bay.' },
     { id: 'th4', author: 'Tech Notes', role: 'Diagnostic Tech', timestamp: '2026-04-15 09:30 AM', content: 'Initial scan shows P0302/P0303 pending. No stored codes. Noticed voltage seems to bounce around on the scanner. Need to investigate further.' },
@@ -64,9 +71,10 @@ export const automotiveCase: CaseDefinition = {
   availableTools: ['terminal', 'event-log', 'ticket-history'],
   redHerrings: [
     'The spark plug replacement was a reasonable first step but did not address the root cause — the plugs were fine',
-    'The battery replacement 6 months ago is unrelated to the alternator\'s voltage regulator failure',
+    "The battery replacement 6 months ago is unrelated to the alternator's voltage regulator failure",
   ],
-  remediation: 'Replace the alternator assembly (includes voltage regulator). Verify stable charging voltage (14.0-14.4V with < 0.3V variance). Clear DTCs and verify idle stability. Coil packs on cylinders 2 and 3 should be monitored — they have elevated resistance but are currently within extended tolerance.',
+  remediation:
+    'Replace the alternator assembly (includes voltage regulator). Verify stable charging voltage (14.0-14.4V with < 0.3V variance). Clear DTCs and verify idle stability. Coil packs on cylinders 2 and 3 should be monitored — they have elevated resistance but are currently within extended tolerance.',
   preventativeMeasures: [
     'Regular charging system testing during routine maintenance',
     'Monitor voltage regulator output during multi-point inspections',
@@ -74,4 +82,4 @@ export const automotiveCase: CaseDefinition = {
     'Document and correlate electrical symptoms with charging system data before replacing ignition components',
   ],
   maxScore: 100,
-};
+});

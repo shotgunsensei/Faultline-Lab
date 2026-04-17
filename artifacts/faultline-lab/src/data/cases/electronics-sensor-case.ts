@@ -1,12 +1,17 @@
 import type { CaseDefinition } from '@/types';
+import { composeCase, createTemplate } from './authoring';
 
-export const electronicsSensorCase: CaseDefinition = {
-  id: 'case-electronics-001',
-  title: 'Mesh Network Phantom',
-  category: 'electronics',
-  difficulty: 'advanced',
-  description: 'A 12-node smart sensor mesh network in a warehouse has one unstable node causing cascading false telemetry readings across neighboring nodes. The mesh self-healing algorithm keeps routing through the bad node.',
-  briefing: 'PRIORITY: HIGH\n\nA Zigbee-based environmental monitoring mesh network (12 nodes, 1 coordinator) in Warehouse B is producing unreliable temperature and humidity data. Nodes 7, 8, and 9 are reporting intermittent temperature spikes of +15-20°F that don\'t match physical conditions. The issue started approximately 5 days ago. The network was stable for 8 months prior.',
+export const electronicsSensorCase: CaseDefinition = composeCase({
+  ...createTemplate('electronics', {
+    id: 'case-electronics-001',
+    slug: 'mesh-network-phantom',
+    title: 'Mesh Network Phantom',
+    difficulty: 'advanced',
+  }),
+  description:
+    'A 12-node smart sensor mesh network in a warehouse has one unstable node causing cascading false telemetry readings across neighboring nodes. The mesh self-healing algorithm keeps routing through the bad node.',
+  briefing:
+    "PRIORITY: HIGH\n\nA Zigbee-based environmental monitoring mesh network (12 nodes, 1 coordinator) in Warehouse B is producing unreliable temperature and humidity data. Nodes 7, 8, and 9 are reporting intermittent temperature spikes of +15-20°F that don't match physical conditions. The issue started approximately 5 days ago. The network was stable for 8 months prior.",
   symptoms: [
     { id: 's1', description: 'Nodes 7, 8, 9 report intermittent false temperature spikes (+15-20°F)', severity: 'high' },
     { id: 's2', description: 'Node 5 shows signal quality degradation and frequent re-associations', severity: 'high' },
@@ -16,24 +21,26 @@ export const electronicsSensorCase: CaseDefinition = {
   rootCause: {
     id: 'rc1',
     title: 'Node 5 Firmware Bug Triggered by Low Voltage from Degraded Power Supply',
-    description: 'Node 5\'s power supply capacitor is degrading, causing intermittent voltage drops below the radio module\'s minimum operating voltage. This triggers a firmware bug where the node transmits corrupted routing table updates and garbled sensor data during brownout recovery. Neighboring nodes (7, 8, 9) receive and propagate these corrupted values.',
-    technicalDetail: 'Node 5\'s electrolytic capacitor (C12, 100µF) has degraded to approximately 35µF due to heat exposure near an HVAC duct. During peak radio transmission, the voltage drops below 2.8V (minimum for the CC2530 radio), causing partial memory corruption in the routing table stored in XDATA RAM. The firmware (v2.1.3) has a known bug where brownout recovery doesn\'t validate the routing table checksum before broadcasting updates. This causes Node 5 to advertise invalid routes and transmit corrupted sensor readings during recovery. Nodes 7, 8, 9 are downstream of Node 5 in the mesh topology and accept its corrupted routing updates, causing cascading data integrity issues.',
+    description:
+      "Node 5's power supply capacitor is degrading, causing intermittent voltage drops below the radio module's minimum operating voltage. This triggers a firmware bug where the node transmits corrupted routing table updates and garbled sensor data during brownout recovery. Neighboring nodes (7, 8, 9) receive and propagate these corrupted values.",
+    technicalDetail:
+      "Node 5's electrolytic capacitor (C12, 100µF) has degraded to approximately 35µF due to heat exposure near an HVAC duct. During peak radio transmission, the voltage drops below 2.8V (minimum for the CC2530 radio), causing partial memory corruption in the routing table stored in XDATA RAM. The firmware (v2.1.3) has a known bug where brownout recovery doesn't validate the routing table checksum before broadcasting updates. This causes Node 5 to advertise invalid routes and transmit corrupted sensor readings during recovery. Nodes 7, 8, 9 are downstream of Node 5 in the mesh topology and accept its corrupted routing updates, causing cascading data integrity issues.",
   },
   evidence: [
-    { id: 'e1', title: 'False Temperature Spikes', description: 'Nodes 7, 8, 9 report temperature spikes that don\'t correlate with physical measurements', category: 'clue', importance: 'medium', unlocked: false },
-    { id: 'e2', title: 'Node 5 Voltage Drops', description: 'Node 5 supply voltage drops to 2.6V during transmissions — below 2.8V radio minimum', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e3', title: 'Corrupted Routing Updates', description: 'Node 5 broadcasts invalid routing table entries during brownout recovery', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e4', title: 'Firmware Version Mismatch', description: 'Node 5 runs firmware v2.1.3 while others run v2.2.1 — v2.1.3 has known brownout recovery bug', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e5', title: 'Topology Instability', description: 'Mesh routing constantly shifts as Node 5 alternates between functional and degraded states', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e6', title: 'Node 5 Near HVAC Duct', description: 'Node 5 is mounted near a hot air HVAC exhaust — elevated ambient temperature accelerates capacitor degradation', category: 'clue', importance: 'medium', unlocked: false },
-    { id: 'e7', title: 'Downstream Node Pattern', description: 'Only nodes downstream of Node 5 in the mesh topology are affected (7, 8, 9)', category: 'clue', importance: 'high', unlocked: false },
-    { id: 'e8', title: 'Coordinator Shows No Issues', description: 'The Zigbee coordinator (Node 0) and direct-connected nodes (1-4, 6, 10-12) show stable readings', category: 'contextual', importance: 'medium', unlocked: false },
+    { id: 'e1', title: 'False Temperature Spikes', description: "Nodes 7, 8, 9 report temperature spikes that don't correlate with physical measurements", category: 'clue', importance: 'medium' },
+    { id: 'e2', title: 'Node 5 Voltage Drops', description: 'Node 5 supply voltage drops to 2.6V during transmissions — below 2.8V radio minimum', category: 'clue', importance: 'critical' },
+    { id: 'e3', title: 'Corrupted Routing Updates', description: 'Node 5 broadcasts invalid routing table entries during brownout recovery', category: 'clue', importance: 'critical' },
+    { id: 'e4', title: 'Firmware Version Mismatch', description: 'Node 5 runs firmware v2.1.3 while others run v2.2.1 — v2.1.3 has known brownout recovery bug', category: 'clue', importance: 'critical' },
+    { id: 'e5', title: 'Topology Instability', description: 'Mesh routing constantly shifts as Node 5 alternates between functional and degraded states', category: 'clue', importance: 'high' },
+    { id: 'e6', title: 'Node 5 Near HVAC Duct', description: 'Node 5 is mounted near a hot air HVAC exhaust — elevated ambient temperature accelerates capacitor degradation', category: 'clue', importance: 'medium' },
+    { id: 'e7', title: 'Downstream Node Pattern', description: 'Only nodes downstream of Node 5 in the mesh topology are affected (7, 8, 9)', category: 'clue', importance: 'high' },
+    { id: 'e8', title: 'Coordinator Shows No Issues', description: 'The Zigbee coordinator (Node 0) and direct-connected nodes (1-4, 6, 10-12) show stable readings', category: 'contextual', importance: 'medium' },
   ],
   hints: [
     { level: 1, label: 'Subtle Nudge', text: 'The affected nodes share something in common in the network topology. Look at how data flows through the mesh.', scorePenalty: 5 },
     { level: 2, label: 'Directional Clue', text: 'One node upstream of the affected cluster is behaving unusually. Check its signal quality and re-association patterns.', scorePenalty: 10 },
     { level: 3, label: 'Stronger Clue', text: 'Node 5 is the common upstream point. Its power supply may be compromised — check voltage levels during radio activity.', scorePenalty: 20 },
-    { level: 4, label: 'Reveal Path', text: 'Node 5\'s capacitor has degraded, causing brownout during transmissions. Firmware v2.1.3 has a bug where brownout recovery broadcasts corrupted routing tables. Update firmware and replace the capacitor.', scorePenalty: 35 },
+    { level: 4, label: 'Reveal Path', text: "Node 5's capacitor has degraded, causing brownout during transmissions. Firmware v2.1.3 has a bug where brownout recovery broadcasts corrupted routing tables. Update firmware and replace the capacitor.", scorePenalty: 35 },
   ],
   terminalCommands: [
     { command: 'mesh status', aliases: ['network status', 'status'], description: 'Show mesh network status', output: 'Zigbee Mesh Network Status\n============================\nCoordinator: Node 0 (Online)\nTotal Nodes: 12 + 1 coordinator\nNetwork PAN ID: 0x1A2B\nChannel: 15 (2.425 GHz)\n\nNode Status:\n  Node  0: ONLINE  Coordinator  RSSI: --    Quality: 100%\n  Node  1: ONLINE  Router       RSSI: -42   Quality: 98%\n  Node  2: ONLINE  Router       RSSI: -45   Quality: 97%\n  Node  3: ONLINE  Router       RSSI: -51   Quality: 95%\n  Node  4: ONLINE  Router       RSSI: -48   Quality: 96%\n  Node  5: ONLINE  Router       RSSI: -67   Quality: 72% *** DEGRADED ***\n  Node  6: ONLINE  Router       RSSI: -44   Quality: 97%\n  Node  7: ONLINE  End Device   RSSI: -71   Quality: 68% *** DEGRADED ***\n  Node  8: ONLINE  End Device   RSSI: -69   Quality: 70% *** DEGRADED ***\n  Node  9: ONLINE  End Device   RSSI: -73   Quality: 65% *** DEGRADED ***\n  Node 10: ONLINE  Router       RSSI: -46   Quality: 96%\n  Node 11: ONLINE  End Device   RSSI: -50   Quality: 94%\n  Node 12: ONLINE  End Device   RSSI: -52   Quality: 93%\n\nPacket Loss Rate: 8.3% (Normal: < 1%)', revealsEvidence: ['e5'] },
@@ -59,7 +66,7 @@ export const electronicsSensorCase: CaseDefinition = {
   ticketHistory: [
     { id: 'th1', author: 'Warehouse Operations', role: 'Facility Manager', timestamp: '2026-04-15 08:00 AM', content: 'Our temperature monitoring system is showing false alarms. Sections near nodes 7, 8, and 9 are showing temperatures in the high 80s-90s, but the warehouse is clearly at normal temperature. This started about 5 days ago.' },
     { id: 'th2', author: 'IoT Support L1', role: 'Support Tech', timestamp: '2026-04-15 08:30 AM', content: 'Checked the sensor nodes — they appear to be online and transmitting. The coordinator shows all nodes as ONLINE. Could be a calibration issue? Recommending recalibration of nodes 7, 8, 9.', isRedHerring: true },
-    { id: 'th3', author: 'Network Admin', role: 'IT Staff', timestamp: '2026-04-15 09:00 AM', content: 'Packet loss rate is 8.3% across the mesh network. That\'s way above our 1% baseline. Something is wrong at the network level, not just calibration. Also noticed a firmware update failed for one node last week.', revealsEvidence: ['e4'] },
+    { id: 'th3', author: 'Network Admin', role: 'IT Staff', timestamp: '2026-04-15 09:00 AM', content: "Packet loss rate is 8.3% across the mesh network. That's way above our 1% baseline. Something is wrong at the network level, not just calibration. Also noticed a firmware update failed for one node last week.", revealsEvidence: ['e4'] },
     { id: 'th4', author: 'IoT Support L1', role: 'Support Tech', timestamp: '2026-04-15 09:30 AM', content: 'Swapped the sensor module on Node 7 as a test — same false readings. The sensor hardware is fine. Data corruption must be happening in transit.' },
   ],
   availableTools: ['terminal', 'event-log', 'ticket-history'],
@@ -67,7 +74,8 @@ export const electronicsSensorCase: CaseDefinition = {
     'Recalibrating the sensor nodes would not fix the issue — the sensors themselves are reading correctly',
     'Replacing sensor hardware on affected nodes is unnecessary — the corruption happens during data relay through Node 5',
   ],
-  remediation: 'Replace the degraded capacitor (C12) on Node 5\'s power supply board, then update Node 5\'s firmware from v2.1.3 to v2.2.1 to fix the brownout recovery bug. Relocate Node 5 away from the HVAC exhaust to prevent recurrence. After repair, clear the mesh routing tables to force clean re-association.',
+  remediation:
+    "Replace the degraded capacitor (C12) on Node 5's power supply board, then update Node 5's firmware from v2.1.3 to v2.2.1 to fix the brownout recovery bug. Relocate Node 5 away from the HVAC exhaust to prevent recurrence. After repair, clear the mesh routing tables to force clean re-association.",
   preventativeMeasures: [
     'Ensure all nodes are on the latest firmware — implement automated firmware compliance checks',
     'Add voltage monitoring alerts for all nodes (trigger at 3.0V, critical at 2.8V)',
@@ -75,4 +83,4 @@ export const electronicsSensorCase: CaseDefinition = {
     'Implement data validation at the coordinator level — reject readings with >10% deviation without confirmation from neighboring nodes',
   ],
   maxScore: 100,
-};
+});

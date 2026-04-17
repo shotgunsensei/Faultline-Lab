@@ -1,12 +1,28 @@
 import type { CaseDefinition } from '@/types';
+import { composeCase, createTemplate } from './authoring';
 
-export const windowsAdCase: CaseDefinition = {
-  id: 'case-windows-ad-001',
-  title: 'Domain Authentication Failure',
-  category: 'windows-ad',
-  difficulty: 'intermediate',
-  description: 'A domain-joined workstation cannot authenticate users after a recent password reset. Users report "The trust relationship between this workstation and the primary domain failed" errors.',
-  briefing: 'PRIORITY: HIGH\n\nA domain-joined PC (WS-PC042) in the Finance department cannot authenticate any domain user after a password reset was performed yesterday by the Help Desk. The machine was working fine before the reset. Local admin access is available. The domain controller (DC01) appears healthy from other machines.',
+/**
+ * Reference case for the Case Authoring Framework.
+ *
+ * Pattern: seed a `CaseDraft` from `createTemplate('<domain>', …)` to
+ * inherit category-correct defaults (tools, briefing prefix, root-cause
+ * scaffolding), then override every authored field with the real case
+ * content and pass the draft through `composeCase` to validate it and
+ * lift it into a fully-formed `CaseDefinition`.
+ *
+ * See `replit.md` ("Reference case") for the rationale.
+ */
+export const windowsAdCase: CaseDefinition = composeCase({
+  ...createTemplate('windows-ad', {
+    id: 'case-windows-ad-001',
+    slug: 'domain-authentication-failure',
+    title: 'Domain Authentication Failure',
+    difficulty: 'intermediate',
+  }),
+  description:
+    'A domain-joined workstation cannot authenticate users after a recent password reset. Users report "The trust relationship between this workstation and the primary domain failed" errors.',
+  briefing:
+    'PRIORITY: HIGH\n\nA domain-joined PC (WS-PC042) in the Finance department cannot authenticate any domain user after a password reset was performed yesterday by the Help Desk. The machine was working fine before the reset. Local admin access is available. The domain controller (DC01) appears healthy from other machines.',
   symptoms: [
     { id: 's1', description: 'Domain login fails with trust relationship error', severity: 'critical' },
     { id: 's2', description: 'Cached credentials allow local profile access but no network resources', severity: 'high' },
@@ -16,26 +32,28 @@ export const windowsAdCase: CaseDefinition = {
   rootCause: {
     id: 'rc1',
     title: 'Kerberos Time Skew Exceeding Tolerance',
-    description: 'The workstation clock has drifted 7 minutes from the domain controller, exceeding the default Kerberos 5-minute maximum tolerance. This causes all Kerberos authentication tickets to be rejected.',
-    technicalDetail: 'Kerberos protocol requires clocks to be synchronized within 5 minutes (default MaxClockSkew). The workstation\'s time service (W32Time) stopped syncing after a failed NTP update, causing progressive drift. The password reset was coincidental — the real failure is the time skew preventing Kerberos ticket validation.',
+    description:
+      'The workstation clock has drifted 7 minutes from the domain controller, exceeding the default Kerberos 5-minute maximum tolerance. This causes all Kerberos authentication tickets to be rejected.',
+    technicalDetail:
+      "Kerberos protocol requires clocks to be synchronized within 5 minutes (default MaxClockSkew). The workstation's time service (W32Time) stopped syncing after a failed NTP update, causing progressive drift. The password reset was coincidental — the real failure is the time skew preventing Kerberos ticket validation.",
   },
   evidence: [
-    { id: 'e1', title: 'Trust Relationship Error', description: 'Event log shows "The trust relationship between this workstation and the primary domain failed"', category: 'clue', importance: 'medium', unlocked: false },
-    { id: 'e2', title: 'Time Offset Detected', description: 'System clock is 7 minutes ahead of DC01 (w32tm /stripchart shows +420s offset)', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e3', title: 'W32Time Service Stopped', description: 'Windows Time service (W32Time) is in stopped state, last sync failed 3 days ago', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e4', title: 'Kerberos Error KRB_AP_ERR_SKEW', description: 'Security event log shows Kerberos error 0x25 (KRB_AP_ERR_SKEW) - clock skew too great', category: 'clue', importance: 'critical', unlocked: false },
-    { id: 'e5', title: 'DNS Resolution Working', description: 'nslookup resolves DC01 correctly most of the time', category: 'contextual', importance: 'low', unlocked: false },
-    { id: 'e6', title: 'Password Reset Logged', description: 'Help Desk ticket shows password was reset yesterday at 14:32', category: 'red-herring', importance: 'medium', unlocked: false },
-    { id: 'e7', title: 'Cached Credentials Active', description: 'Cached domain credentials allow limited local access', category: 'contextual', importance: 'low', unlocked: false },
-    { id: 'e8', title: 'DC Connectivity Confirmed', description: 'Ping to DC01 succeeds with <1ms latency', category: 'contextual', importance: 'low', unlocked: false },
-    { id: 'e9', title: 'DCDIAG Clean', description: 'dcdiag /s:DC01 shows all tests passed on the domain controller', category: 'contextual', importance: 'medium', unlocked: false },
-    { id: 'e10', title: 'Secure Channel Broken', description: 'nltest /sc_verify shows secure channel is broken', category: 'clue', importance: 'high', unlocked: false },
+    { id: 'e1', title: 'Trust Relationship Error', description: 'Event log shows "The trust relationship between this workstation and the primary domain failed"', category: 'clue', importance: 'medium' },
+    { id: 'e2', title: 'Time Offset Detected', description: 'System clock is 7 minutes ahead of DC01 (w32tm /stripchart shows +420s offset)', category: 'clue', importance: 'critical' },
+    { id: 'e3', title: 'W32Time Service Stopped', description: 'Windows Time service (W32Time) is in stopped state, last sync failed 3 days ago', category: 'clue', importance: 'critical' },
+    { id: 'e4', title: 'Kerberos Error KRB_AP_ERR_SKEW', description: 'Security event log shows Kerberos error 0x25 (KRB_AP_ERR_SKEW) - clock skew too great', category: 'clue', importance: 'critical' },
+    { id: 'e5', title: 'DNS Resolution Working', description: 'nslookup resolves DC01 correctly most of the time', category: 'contextual', importance: 'low' },
+    { id: 'e6', title: 'Password Reset Logged', description: 'Help Desk ticket shows password was reset yesterday at 14:32', category: 'red-herring', importance: 'medium' },
+    { id: 'e7', title: 'Cached Credentials Active', description: 'Cached domain credentials allow limited local access', category: 'contextual', importance: 'low' },
+    { id: 'e8', title: 'DC Connectivity Confirmed', description: 'Ping to DC01 succeeds with <1ms latency', category: 'contextual', importance: 'low' },
+    { id: 'e9', title: 'DCDIAG Clean', description: 'dcdiag /s:DC01 shows all tests passed on the domain controller', category: 'contextual', importance: 'medium' },
+    { id: 'e10', title: 'Secure Channel Broken', description: 'nltest /sc_verify shows secure channel is broken', category: 'clue', importance: 'high' },
   ],
   hints: [
     { level: 1, label: 'Subtle Nudge', text: 'The password reset might be a coincidence. What else could prevent Kerberos authentication?', scorePenalty: 5 },
-    { level: 2, label: 'Directional Clue', text: 'Kerberos is sensitive to certain environmental factors. Check if the workstation\'s environment matches the domain controller.', scorePenalty: 10 },
+    { level: 2, label: 'Directional Clue', text: "Kerberos is sensitive to certain environmental factors. Check if the workstation's environment matches the domain controller.", scorePenalty: 10 },
     { level: 3, label: 'Stronger Clue', text: 'Compare the system clocks between the workstation and DC01. Kerberos has a strict tolerance.', scorePenalty: 20 },
-    { level: 4, label: 'Reveal Path', text: 'The W32Time service has stopped, causing the clock to drift beyond Kerberos\' 5-minute tolerance. Check w32tm and the time service status.', scorePenalty: 35 },
+    { level: 4, label: 'Reveal Path', text: "The W32Time service has stopped, causing the clock to drift beyond Kerberos' 5-minute tolerance. Check w32tm and the time service status.", scorePenalty: 35 },
   ],
   terminalCommands: [
     { command: 'ping dc01', aliases: ['ping DC01'], description: 'Ping domain controller', output: 'Pinging DC01 [192.168.1.10] with 32 bytes of data:\nReply from 192.168.1.10: bytes=32 time<1ms TTL=128\nReply from 192.168.1.10: bytes=32 time<1ms TTL=128\nReply from 192.168.1.10: bytes=32 time<1ms TTL=128\nReply from 192.168.1.10: bytes=32 time<1ms TTL=128\n\nPing statistics for 192.168.1.10:\n    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss),\nApproximate round trip times in milli-seconds:\n    Minimum = 0ms, Maximum = 0ms, Average = 0ms', revealsEvidence: ['e8'] },
@@ -63,7 +81,7 @@ export const windowsAdCase: CaseDefinition = {
     { id: 'el8', timestamp: '2026-04-15 08:00:00', source: 'Application', level: 'info', message: 'Windows Update check completed', details: 'No updates available.' },
   ],
   ticketHistory: [
-    { id: 'th1', author: 'Janet Smith', role: 'End User', timestamp: '2026-04-15 09:30 AM', content: 'I can\'t log into my computer with my domain account. It says something about a "trust relationship." I just had my password reset yesterday and it worked fine after that. This morning it won\'t let me in at all.' },
+    { id: 'th1', author: 'Janet Smith', role: 'End User', timestamp: '2026-04-15 09:30 AM', content: "I can't log into my computer with my domain account. It says something about a \"trust relationship.\" I just had my password reset yesterday and it worked fine after that. This morning it won't let me in at all." },
     { id: 'th2', author: 'Mike Chen', role: 'Help Desk L1', timestamp: '2026-04-15 09:45 AM', content: 'Attempted remote login — same error. Verified the password reset was completed successfully yesterday. User was able to log in after the reset. Suspecting the password reset may have corrupted something. Escalating.', isRedHerring: true, revealsEvidence: ['e6'] },
     { id: 'th3', author: 'Sarah Wong', role: 'Help Desk L2', timestamp: '2026-04-15 10:00 AM', content: 'Confirmed DC01 is healthy from other workstations. Other users on the same subnet can authenticate fine. Issue appears isolated to WS-PC042. Local admin access works with cached creds.' },
     { id: 'th4', author: 'Mike Chen', role: 'Help Desk L1', timestamp: '2026-04-14 02:35 PM', content: 'Password reset completed for jsmith per manager request. User confirmed she could log in successfully after the reset. Ticket closed.' },
@@ -73,7 +91,8 @@ export const windowsAdCase: CaseDefinition = {
     'The password reset is coincidental — it completed successfully and the user logged in fine afterward',
     'DNS intermittent issues are caused by timing out during Kerberos pre-auth, not actual DNS failure',
   ],
-  remediation: 'Start the W32Time service, force a time sync with the domain controller (w32tm /resync /force), then rejoin the domain or reset the computer account to restore the secure channel.',
+  remediation:
+    'Start the W32Time service, force a time sync with the domain controller (w32tm /resync /force), then rejoin the domain or reset the computer account to restore the secure channel.',
   preventativeMeasures: [
     'Monitor W32Time service status across domain workstations',
     'Set up alerts for time synchronization failures',
@@ -81,4 +100,4 @@ export const windowsAdCase: CaseDefinition = {
     'Implement NTP monitoring for clock drift detection',
   ],
   maxScore: 100,
-};
+});
