@@ -362,6 +362,47 @@ export const CATALOG: CatalogProduct[] = [
   },
 ];
 
+/**
+ * Hydrates each product with derived fields (`includedCaseIds`,
+ * `caseCount`, `featuredCaseIds`) computed from the case catalog
+ * registry. This runs once at module load so the rest of the app can
+ * read product.includedCaseIds directly without going through the
+ * registry, while the registry remains the single source of truth.
+ *
+ * Imported lazily via `await import` to avoid a hard dependency cycle —
+ * the case catalog selectors import CATALOG, but its entries module is
+ * dependency-free, so we only need the entries here.
+ */
+import { CASE_CATALOG_ENTRIES as _CASE_ENTRIES } from './caseCatalog/entries';
+
+(function hydrateProductCaseFields() {
+  const directByProduct = new Map<string, string[]>();
+  for (const entry of _CASE_ENTRIES) {
+    const list = directByProduct.get(entry.sourceProductId) || [];
+    list.push(entry.id);
+    directByProduct.set(entry.sourceProductId, list);
+  }
+
+  for (const product of CATALOG) {
+    let ids = directByProduct.get(product.id) || [];
+    if (ids.length === 0 && product.bundledProductIds) {
+      const seen = new Set<string>();
+      for (const inner of product.bundledProductIds) {
+        for (const id of directByProduct.get(inner) || []) {
+          if (!seen.has(id)) {
+            seen.add(id);
+            ids.push(id);
+          }
+        }
+      }
+    }
+    if (ids.length > 0) {
+      product.includedCaseIds = ids;
+      product.caseCount = ids.length;
+    }
+  }
+})();
+
 export function getProduct(id: string): CatalogProduct | undefined {
   return CATALOG.find((p) => p.id === id);
 }

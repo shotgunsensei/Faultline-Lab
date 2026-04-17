@@ -1,5 +1,5 @@
 import { CASE_CATALOG_ENTRIES } from './entries';
-import { CATALOG } from '@/data/catalog';
+import { CATALOG, FREE_CASE_IDS } from '@/data/catalog';
 
 export interface CatalogValidationIssue {
   level: 'error' | 'warning';
@@ -119,6 +119,68 @@ export function validateCaseCatalog(): CatalogValidationIssue[] {
         productId: product.id,
         message: `Pack ${product.id} advertises caseCount=${product.caseCount} but registry has ${mapped} entries`,
       });
+    }
+  }
+
+  // Starter / FREE_CASE_IDS sync: every isStarter entry must appear in
+  // FREE_CASE_IDS, and FREE_CASE_IDS may not advertise a case id that
+  // isn't actually flagged as a starter in the registry.
+  const starterIds = new Set(
+    CASE_CATALOG_ENTRIES.filter((e) => e.isStarter).map((e) => e.id)
+  );
+  const freeIds = new Set(FREE_CASE_IDS);
+  for (const id of starterIds) {
+    if (!freeIds.has(id)) {
+      issues.push({
+        level: 'error',
+        code: 'starter-missing-from-free-list',
+        caseId: id,
+        message: `Starter case ${id} is not listed in FREE_CASE_IDS`,
+      });
+    }
+  }
+  for (const id of freeIds) {
+    if (!starterIds.has(id)) {
+      issues.push({
+        level: 'error',
+        code: 'free-list-non-starter',
+        caseId: id,
+        message: `FREE_CASE_IDS lists ${id} but it is not flagged isStarter in the registry`,
+      });
+    }
+  }
+
+  // Derived product fields hydrated by catalog.ts must match the
+  // registry exactly for any product that owns cases.
+  const expectedByProduct = new Map<string, Set<string>>();
+  for (const entry of CASE_CATALOG_ENTRIES) {
+    const set = expectedByProduct.get(entry.sourceProductId) || new Set<string>();
+    set.add(entry.id);
+    expectedByProduct.set(entry.sourceProductId, set);
+  }
+  for (const product of CATALOG) {
+    const expected = expectedByProduct.get(product.id);
+    if (!expected) continue;
+    const advertised = new Set(product.includedCaseIds || []);
+    if (advertised.size !== expected.size) {
+      issues.push({
+        level: 'error',
+        code: 'product-case-derivation-mismatch',
+        productId: product.id,
+        message: `Product ${product.id} advertises ${advertised.size} case ids but registry maps ${expected.size}`,
+      });
+      continue;
+    }
+    for (const id of expected) {
+      if (!advertised.has(id)) {
+        issues.push({
+          level: 'error',
+          code: 'product-case-derivation-missing',
+          productId: product.id,
+          caseId: id,
+          message: `Product ${product.id} missing derived case id ${id}`,
+        });
+      }
     }
   }
 

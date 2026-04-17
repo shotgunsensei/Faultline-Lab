@@ -19,6 +19,7 @@ import {
   subscribeEntitlements,
   getEntitlements,
   getBetterValueBundle,
+  isCaseAccessible,
 } from '@/lib/entitlements';
 import { recommendProducts } from '@/lib/recommendations';
 import { startStripeCheckout } from '@/lib/api';
@@ -358,6 +359,7 @@ function ProductDetail({
                   <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                     {cases.map((c) => {
                       const playable = c.status === 'playable';
+                      const owned = isCaseAccessible(c.id);
                       return (
                         <li
                           key={c.id}
@@ -377,6 +379,16 @@ function ProductDetail({
                               {!playable && (
                                 <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300/80">
                                   In dev
+                                </span>
+                              )}
+                              {playable && owned && (
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400/80">
+                                  Owned
+                                </span>
+                              )}
+                              {playable && !owned && (
+                                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                                  Locked
                                 </span>
                               )}
                             </div>
