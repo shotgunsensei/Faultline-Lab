@@ -201,8 +201,9 @@ function packEntries(
 ): CaseCatalogEntry[] {
   return specs.map((spec, idx) => {
     const [slug, title, shortSummary, mobileSummary, difficulty, estimatedMinutes, systems, symptoms, redHerring] = spec;
+    const id = `case-${productId.replace(/^pack-/, '')}-${String(idx + 1).padStart(2, '0')}`;
     return {
-      id: `case-${productId.replace(/^pack-/, '')}-${String(idx + 1).padStart(2, '0')}`,
+      id,
       slug,
       title,
       shortSummary,
@@ -211,7 +212,7 @@ function packEntries(
       difficulty,
       estimatedMinutes,
       sourceType: 'pack' as const,
-      status: 'planned' as const,
+      status: 'playable' as const,
       accessModel: 'pack' as const,
       sourceProductId: productId,
       requiredEntitlements: [productId],
@@ -219,6 +220,7 @@ function packEntries(
       previewSymptoms: symptoms,
       previewSystems: systems,
       redHerringLevel: redHerring,
+      implementationRef: id,
       tags: [category],
       isStarter: false,
       isFeatured: false,

@@ -2,6 +2,12 @@ import { windowsAdCase } from './windows-ad-case';
 import { networkingVpnCase } from './networking-vpn-case';
 import { automotiveCase } from './automotive-case';
 import { electronicsSensorCase } from './electronics-sensor-case';
+import { networkOpsCases } from './packs/network-ops';
+import { serverGraveyardCases } from './packs/server-graveyard';
+import { garageDiagnosticsCases } from './packs/garage-diagnostics';
+import { sensorMeshCases } from './packs/sensor-mesh';
+import { mixedCascadesCases } from './packs/mixed-cascades';
+import { healthcareImagingCases } from './packs/healthcare-imaging';
 import type { CaseDefinition } from '@/types';
 
 export const CASE_DEFINITIONS = {
@@ -13,7 +19,15 @@ export const CASE_DEFINITIONS = {
 
 export type CaseImplementationKey = keyof typeof CASE_DEFINITIONS;
 
-export const allCases: CaseDefinition[] = Object.values(CASE_DEFINITIONS);
+export const allCases: CaseDefinition[] = [
+  ...Object.values(CASE_DEFINITIONS),
+  ...networkOpsCases,
+  ...serverGraveyardCases,
+  ...garageDiagnosticsCases,
+  ...sensorMeshCases,
+  ...mixedCascadesCases,
+  ...healthcareImagingCases,
+];
 
 export function getCaseByImplementationKey(key: CaseImplementationKey): CaseDefinition {
   return CASE_DEFINITIONS[key];
