@@ -89,8 +89,17 @@ export function removeOwnedProduct(productId: string): void {
   }
 }
 
+function isStaffOverride(): boolean {
+  return !!(currentEntitlements.isSuperAdmin || currentEntitlements.isAdmin);
+}
+
 export function hasEntitlement(productId: string): boolean {
   if (productId === 'base-free') return true;
+  if (isStaffOverride()) {
+    const product = CATALOG.find((p) => p.id === productId);
+    if (product?.status === 'disabled') return false;
+    return true;
+  }
 
   if (currentEntitlements.ownedProductIds.includes(productId)) return true;
 
@@ -131,6 +140,9 @@ function findCaseEntry(caseId: string) {
 }
 
 export function isCaseAccessible(caseId: string): boolean {
+  // 0. Staff override: admins / super admins see everything.
+  if (isStaffOverride()) return true;
+
   // 1. Explicit free starter cases.
   if (FREE_CASE_IDS.includes(caseId)) return true;
   const entry = findCaseEntry(caseId);
@@ -163,6 +175,7 @@ export function caseExists(caseId: string): boolean {
 
 export function hasFeature(featureId: string): boolean {
   if (FREE_FEATURES.includes(featureId)) return true;
+  if (isStaffOverride()) return true;
 
   if (currentEntitlements.isProUser && PRO_FEATURES.includes(featureId)) return true;
 
@@ -237,6 +250,8 @@ export function getBetterValueBundle(productId: string): CatalogProduct | null {
 }
 
 export function getCurrentPlanLabel(): string {
+  if (currentEntitlements.isSuperAdmin) return 'Super Admin (Full Access)';
+  if (currentEntitlements.isAdmin) return 'Admin (Full Access)';
   if (currentEntitlements.isProUser) {
     if (currentEntitlements.subscriptionInterval === 'year') return 'Pro Investigator (Annual)';
     return 'Pro Investigator (Monthly)';
