@@ -170,6 +170,11 @@ export default function InvestigationWorkspace() {
     }
   };
 
+  const handleMobilePremiumTap = (tool: PremiumToolMeta) => {
+    setMobileDrawer(null);
+    handlePremiumTool(tool);
+  };
+
   const renderDrawerContent = () => {
     switch (mobileDrawer) {
       case 'evidence':
@@ -184,6 +189,66 @@ export default function InvestigationWorkspace() {
               <ActionLog />
             </div>
           </>
+        );
+      case 'tools':
+        return (
+          <div className="p-3 space-y-2">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 px-1">
+              Premium investigation tools
+            </p>
+            {premiumTools.map((tool) => {
+              const Icon = tool.icon;
+              const unlocked = hasFeature(tool.id);
+              const required = unlocked ? null : getRequiredProductForFeature(tool.id);
+              return (
+                <button
+                  key={tool.id}
+                  onClick={() => handleMobilePremiumTap(tool)}
+                  className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                    unlocked
+                      ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
+                      : 'border-zinc-800/60 bg-black/20 hover:border-cyan-500/40 hover:bg-cyan-500/5'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-2 rounded-md shrink-0 ${
+                        unlocked
+                          ? 'bg-emerald-500/10 text-emerald-300'
+                          : 'bg-cyan-500/10 text-cyan-300'
+                      }`}
+                    >
+                      {unlocked ? <Icon size={16} /> : <Lock size={14} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-zinc-100">
+                          {tool.label}
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            unlocked
+                              ? 'bg-emerald-500/10 text-emerald-300'
+                              : 'bg-cyan-500/10 text-cyan-300'
+                          }`}
+                        >
+                          {unlocked ? 'Unlocked' : 'Locked'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-snug mt-1">
+                        {tool.description}
+                      </p>
+                      {required && (
+                        <p className="text-[11px] text-cyan-300/80 mt-1.5">
+                          Included in {required.name}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         );
       default:
         return null;
@@ -301,6 +366,21 @@ export default function InvestigationWorkspace() {
             <div className="flex-1" />
 
             <div className="flex lg:hidden items-center gap-1">
+              <button
+                onClick={() => setMobileDrawer(mobileDrawer === 'tools' ? null : 'tools')}
+                className={`md:hidden relative min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg transition-colors ${
+                  mobileDrawer === 'tools'
+                    ? 'bg-cyan-500/10 text-cyan-400'
+                    : 'text-zinc-600 hover:text-zinc-400'
+                }`}
+                title="Premium tools"
+                aria-label="Premium tools"
+              >
+                <Lock size={18} />
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-cyan-500/80 text-[9px] font-mono font-semibold text-white flex items-center justify-center">
+                  {premiumTools.length}
+                </span>
+              </button>
               {sidebarTabs.map(tab => {
                 const Icon = tab.icon;
                 return (
@@ -335,7 +415,9 @@ export default function InvestigationWorkspace() {
                 >
                   <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 bg-[#0c1017] border-b border-zinc-800/30">
                     <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
-                      {sidebarTabs.find(t => t.id === mobileDrawer)?.label}
+                      {mobileDrawer === 'tools'
+                        ? 'Premium Tools'
+                        : sidebarTabs.find(t => t.id === mobileDrawer)?.label}
                     </span>
                     <button
                       onClick={() => setMobileDrawer(null)}
