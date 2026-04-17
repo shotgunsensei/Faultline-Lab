@@ -17,7 +17,10 @@ import {
   adminRevertCatalogOverride,
   adminUpdateUserRole,
   adminDeleteUser,
+  adminFetchCatalogOverrideHistory,
+  adminRollbackCatalogOverride,
   type CatalogOverridePayload,
+  type CatalogOverrideHistoryEntry,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -37,6 +40,8 @@ import {
   Tag,
   Undo2,
   FilePlus,
+  History,
+  RotateCcw,
 } from 'lucide-react';
 import AdminCaseAuthoringPanel from './AdminCaseAuthoringPanel';
 
@@ -100,6 +105,9 @@ export default function AdminPanel() {
   const [overrideMeta, setOverrideMeta] = useState<Record<string, CatalogOverrideMeta>>({});
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<CatalogOverride>({});
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<CatalogOverrideHistoryEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   useSyncExternalStore(
     (cb) => subscribeCatalog(cb),
     () => CATALOG.length
@@ -224,6 +232,85 @@ export default function AdminPanel() {
       toast.success('Reverted to original values.');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Failed to revert catalog entry.';
+      toast.error(message);
+    }
+  };
+
+  const openHistory = async (productId: string) => {
+    setHistoryFor(productId);
+    setHistoryEntries(null);
+    setHistoryLoading(true);
+    try {
+      const res = await adminFetchCatalogOverrideHistory(productId);
+      setHistoryEntries(res.history);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to load history.';
+      toast.error(message);
+      setHistoryEntries([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const refreshOverridesFromServer = async () => {
+    try {
+      const r = await adminFetchCatalogOverrides();
+      const map: Record<string, CatalogOverride> = {};
+      const metaMap: Record<string, CatalogOverrideMeta> = {};
+      for (const raw of (r.overrides || []) as Array<Record<string, unknown>>) {
+        const productId = String(raw.productId || '');
+        if (!productId) continue;
+        const override: CatalogOverride = {};
+        if (raw.status === 'available' || raw.status === 'coming-soon' || raw.status === 'disabled') {
+          override.status = raw.status;
+        }
+        if (typeof raw.featured === 'boolean') override.featured = raw.featured;
+        if (typeof raw.shortDescription === 'string') override.shortDescription = raw.shortDescription;
+        if (typeof raw.longDescription === 'string') override.longDescription = raw.longDescription;
+        if (Array.isArray(raw.tags)) override.tags = raw.tags.filter((t): t is string => typeof t === 'string');
+        map[productId] = override;
+        const editorRaw = raw.editor as
+          | { id?: unknown; displayName?: unknown; email?: unknown }
+          | null
+          | undefined;
+        metaMap[productId] = {
+          updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
+          editor: editorRaw && typeof editorRaw.id === 'string'
+            ? {
+                id: editorRaw.id,
+                displayName: typeof editorRaw.displayName === 'string' ? editorRaw.displayName : null,
+                email: typeof editorRaw.email === 'string' ? editorRaw.email : null,
+              }
+            : null,
+        };
+      }
+      const previousIds = new Set(Object.keys(overrides));
+      setOverrides(map);
+      setOverrideMeta(metaMap);
+      const allIds = new Set<string>([...previousIds, ...Object.keys(map)]);
+      for (const id of allIds) {
+        if (map[id]) {
+          applyCatalogOverrides([{ productId: id, ...map[id] }]);
+        } else {
+          revertCatalogProduct(id);
+        }
+      }
+    } catch {}
+  };
+
+  const rollbackTo = async (productId: string, entry: CatalogOverrideHistoryEntry) => {
+    try {
+      await adminRollbackCatalogOverride(productId, entry.id);
+      await refreshOverridesFromServer();
+      const res = await adminFetchCatalogOverrideHistory(productId);
+      setHistoryEntries(res.history);
+      toast.success(
+        entry.overrides === null
+          ? 'Rolled back to defaults.'
+          : 'Rolled back to selected version.'
+      );
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to roll back.';
       toast.error(message);
     }
   };
@@ -442,6 +529,13 @@ export default function AdminPanel() {
                         className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"
                       >
                         {isEditing ? <X size={14} /> : <Pencil size={14} />}
+                      </button>
+                      <button
+                        title="View edit history"
+                        onClick={() => openHistory(p.id)}
+                        className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"
+                      >
+                        <History size={14} />
                       </button>
                       {overrides[p.id] && (
                         <button
@@ -699,6 +793,103 @@ export default function AdminPanel() {
         )}
         {tab === 'authoring' && <AdminCaseAuthoringPanel />}
       </main>
+
+      {historyFor && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-end"
+          onClick={() => setHistoryFor(null)}
+        >
+          <div
+            className="w-full max-w-md h-full bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-zinc-950/95 border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-emerald-300 font-mono uppercase tracking-wider">
+                  Edit history
+                </h2>
+                <p className="text-[11px] text-zinc-500 font-mono truncate">{historyFor}</p>
+              </div>
+              <button
+                onClick={() => setHistoryFor(null)}
+                className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {historyLoading && (
+                <p className="text-xs text-zinc-500">Loading history…</p>
+              )}
+              {!historyLoading && historyEntries && historyEntries.length === 0 && (
+                <p className="text-xs text-zinc-500">No edits recorded for this entry yet.</p>
+              )}
+              {historyEntries?.map((h, idx) => {
+                const isCurrent = idx === 0;
+                const editorLabel =
+                  h.editor?.displayName || h.editor?.email || h.editor?.id || 'unknown';
+                const tagsStr = (val: CatalogOverridePayload | null) =>
+                  val
+                    ? [
+                        val.status ? `status: ${val.status}` : null,
+                        typeof val.featured === 'boolean' ? `featured: ${val.featured}` : null,
+                        val.shortDescription ? `short: "${val.shortDescription}"` : null,
+                        val.longDescription
+                          ? `long: "${val.longDescription.slice(0, 60)}${val.longDescription.length > 60 ? '…' : ''}"`
+                          : null,
+                        val.tags ? `tags: [${val.tags.join(', ')}]` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : '(reverted to defaults)';
+                return (
+                  <div
+                    key={h.id}
+                    className="border border-zinc-800 rounded-lg p-3 bg-zinc-900/40"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                            h.action === 'revert' || h.action === 'rollback'
+                              ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                              : h.action === 'create'
+                                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                                : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
+                          }`}
+                        >
+                          {h.action}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border bg-zinc-800 text-zinc-300 border-zinc-700">
+                            current
+                          </span>
+                        )}
+                      </div>
+                      {!isCurrent && (
+                        <button
+                          onClick={() => rollbackTo(historyFor, h)}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono uppercase tracking-wider hover:bg-amber-500/20"
+                        >
+                          <RotateCcw size={11} /> Roll back
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 font-mono break-words">
+                      {tagsStr(h.overrides)}
+                    </p>
+                    <p className="text-[11px] text-zinc-500 font-mono mt-1">
+                      <span className="text-zinc-300">{editorLabel}</span>
+                      {' · '}
+                      {formatRelativeTime(h.changedAt)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

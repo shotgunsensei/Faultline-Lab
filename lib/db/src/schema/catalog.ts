@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
 export type CatalogOverrideShape = {
   status?: "available" | "coming-soon" | "disabled";
@@ -16,3 +16,21 @@ export const catalogOverridesTable = pgTable("catalog_overrides", {
 });
 
 export type CatalogOverride = typeof catalogOverridesTable.$inferSelect;
+
+export const catalogOverrideHistoryTable = pgTable(
+  "catalog_override_history",
+  {
+    id: text("id").primaryKey(),
+    productId: text("product_id").notNull(),
+    action: text("action").notNull(),
+    overrides: jsonb("overrides"),
+    previousOverrides: jsonb("previous_overrides"),
+    changedAt: timestamp("changed_at").defaultNow().notNull(),
+    changedByUserId: text("changed_by_user_id"),
+  },
+  (t) => ({
+    productIdx: index("catalog_override_history_product_idx").on(t.productId, t.changedAt),
+  }),
+);
+
+export type CatalogOverrideHistory = typeof catalogOverrideHistoryTable.$inferSelect;

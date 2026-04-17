@@ -106,6 +106,40 @@ export async function adminRevertCatalogOverride(productId: string) {
   });
 }
 
+export type CatalogOverrideHistoryEntry = {
+  id: string;
+  productId: string;
+  action: 'create' | 'update' | 'rollback' | 'revert' | string;
+  overrides: CatalogOverridePayload | null;
+  previousOverrides: CatalogOverridePayload | null;
+  changedAt: string | null;
+  changedByUserId: string | null;
+  editor: { id: string; displayName: string | null; email: string | null } | null;
+};
+
+export async function adminFetchCatalogOverrideHistory(
+  productId: string
+): Promise<{ history: CatalogOverrideHistoryEntry[] }> {
+  return apiFetch(
+    `/admin/catalog/overrides/${encodeURIComponent(productId)}/history`
+  );
+}
+
+export async function adminRollbackCatalogOverride(
+  productId: string,
+  historyId: string
+): Promise<{
+  success: boolean;
+  restored: CatalogOverridePayload | null;
+  updatedAt?: string;
+  updatedByUserId?: string | null;
+}> {
+  return apiFetch(
+    `/admin/catalog/overrides/${encodeURIComponent(productId)}/rollback/${encodeURIComponent(historyId)}`,
+    { method: 'POST' }
+  );
+}
+
 export async function adminRevokeEntitlement(userId: string, entitlementId: string) {
   return apiFetch(
     `/admin/users/${encodeURIComponent(userId)}/entitlements/${encodeURIComponent(entitlementId)}`,

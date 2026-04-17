@@ -1,7 +1,14 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
-import { db, usersTable, userEntitlementsTable, catalogOverridesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import {
+  db,
+  usersTable,
+  userEntitlementsTable,
+  catalogOverridesTable,
+  catalogOverrideHistoryTable,
+} from "@workspace/db";
+import { eq, and, desc } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { grantEntitlementFromCheckout } from "../lib/grantEntitlement";
 import { notifyCatalogOverridesChanged } from "../lib/catalogEvents";
 
@@ -198,34 +205,61 @@ router.get("/admin/catalog/overrides", requireAuth, requireAdmin, async (_req, r
   }
 });
 
-router.put("/admin/catalog/overrides/:productId", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const productId = getParam(req, "productId");
-    const overrides = req.body || {};
-    const adminUser = (req as any).adminUser as { id: string };
-    const existing = await db
+async function applyOverride(
+  productId: string,
+  overrides: Record<string, unknown>,
+  adminUserId: string,
+  action: "update" | "create" | "rollback",
+): Promise<{ updatedAt: Date; previous: Record<string, unknown> | null }> {
+  return db.transaction(async (tx) => {
+    const existing = await tx
       .select()
       .from(catalogOverridesTable)
       .where(eq(catalogOverridesTable.productId, productId))
       .limit(1);
     const now = new Date();
+    const previous = existing.length === 0
+      ? null
+      : (existing[0].overrides as Record<string, unknown>);
+
     if (existing.length === 0) {
-      await db.insert(catalogOverridesTable).values({
+      await tx.insert(catalogOverridesTable).values({
         productId,
         overrides,
         updatedAt: now,
-        updatedByUserId: adminUser.id,
+        updatedByUserId: adminUserId,
       });
     } else {
-      await db
+      await tx
         .update(catalogOverridesTable)
-        .set({ overrides, updatedAt: now, updatedByUserId: adminUser.id })
+        .set({ overrides, updatedAt: now, updatedByUserId: adminUserId })
         .where(eq(catalogOverridesTable.productId, productId));
     }
+
+    await tx.insert(catalogOverrideHistoryTable).values({
+      id: randomUUID(),
+      productId,
+      action: existing.length === 0 ? "create" : action,
+      overrides,
+      previousOverrides: previous,
+      changedAt: now,
+      changedByUserId: adminUserId,
+    });
+
+    return { updatedAt: now, previous };
+  });
+}
+
+router.put("/admin/catalog/overrides/:productId", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const productId = getParam(req, "productId");
+    const overrides = req.body || {};
+    const adminUser = (req as any).adminUser as { id: string };
+    const { updatedAt } = await applyOverride(productId, overrides, adminUser.id, "update");
     notifyCatalogOverridesChanged();
     return res.json({
       success: true,
-      updatedAt: now.toISOString(),
+      updatedAt: updatedAt.toISOString(),
       updatedByUserId: adminUser.id,
     });
   } catch (err) {
@@ -241,9 +275,32 @@ router.delete(
   async (req, res) => {
     try {
       const productId = getParam(req, "productId");
-      await db
-        .delete(catalogOverridesTable)
-        .where(eq(catalogOverridesTable.productId, productId));
+      const adminUser = (req as any).adminUser as { id: string };
+      await db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(catalogOverridesTable)
+          .where(eq(catalogOverridesTable.productId, productId))
+          .limit(1);
+        const previous = existing.length === 0
+          ? null
+          : (existing[0].overrides as Record<string, unknown>);
+        await tx
+          .delete(catalogOverridesTable)
+          .where(eq(catalogOverridesTable.productId, productId));
+        if (existing.length > 0) {
+          await tx.insert(catalogOverrideHistoryTable).values({
+            id: randomUUID(),
+            productId,
+            action: "revert",
+            overrides: null,
+            previousOverrides: previous,
+            changedAt: new Date(),
+            changedByUserId: adminUser.id,
+          });
+        }
+      });
+      notifyCatalogOverridesChanged();
       return res.json({ success: true });
     } catch (err) {
       console.error("Failed to revert catalog override:", err);
@@ -335,6 +392,128 @@ router.delete(
       return res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete user:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.get(
+  "/admin/catalog/overrides/:productId/history",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const productId = getParam(req, "productId");
+      const rows = await db
+        .select({
+          id: catalogOverrideHistoryTable.id,
+          productId: catalogOverrideHistoryTable.productId,
+          action: catalogOverrideHistoryTable.action,
+          overrides: catalogOverrideHistoryTable.overrides,
+          previousOverrides: catalogOverrideHistoryTable.previousOverrides,
+          changedAt: catalogOverrideHistoryTable.changedAt,
+          changedByUserId: catalogOverrideHistoryTable.changedByUserId,
+          editorEmail: usersTable.email,
+          editorDisplayName: usersTable.displayName,
+        })
+        .from(catalogOverrideHistoryTable)
+        .leftJoin(
+          usersTable,
+          eq(usersTable.id, catalogOverrideHistoryTable.changedByUserId),
+        )
+        .where(eq(catalogOverrideHistoryTable.productId, productId))
+        .orderBy(desc(catalogOverrideHistoryTable.changedAt))
+        .limit(100);
+      return res.json({
+        history: rows.map((r) => ({
+          id: r.id,
+          productId: r.productId,
+          action: r.action,
+          overrides: r.overrides,
+          previousOverrides: r.previousOverrides,
+          changedAt: r.changedAt?.toISOString?.() ?? null,
+          changedByUserId: r.changedByUserId,
+          editor: r.changedByUserId
+            ? {
+                id: r.changedByUserId,
+                displayName: r.editorDisplayName,
+                email: r.editorEmail,
+              }
+            : null,
+        })),
+      });
+    } catch (err) {
+      console.error("Failed to load catalog override history:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.post(
+  "/admin/catalog/overrides/:productId/rollback/:historyId",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const productId = getParam(req, "productId");
+      const historyId = getParam(req, "historyId");
+      const adminUser = (req as any).adminUser as { id: string };
+      const rows = await db
+        .select()
+        .from(catalogOverrideHistoryTable)
+        .where(
+          and(
+            eq(catalogOverrideHistoryTable.id, historyId),
+            eq(catalogOverrideHistoryTable.productId, productId),
+          ),
+        )
+        .limit(1);
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "History entry not found" });
+      }
+      const target = rows[0];
+      const targetSnapshot = target.overrides as Record<string, unknown> | null;
+      if (targetSnapshot === null) {
+        await db.transaction(async (tx) => {
+          const existingBefore = await tx
+            .select()
+            .from(catalogOverridesTable)
+            .where(eq(catalogOverridesTable.productId, productId))
+            .limit(1);
+          await tx
+            .delete(catalogOverridesTable)
+            .where(eq(catalogOverridesTable.productId, productId));
+          await tx.insert(catalogOverrideHistoryTable).values({
+            id: randomUUID(),
+            productId,
+            action: "rollback",
+            overrides: null,
+            previousOverrides:
+              existingBefore.length === 0
+                ? null
+                : (existingBefore[0].overrides as Record<string, unknown>),
+            changedAt: new Date(),
+            changedByUserId: adminUser.id,
+          });
+        });
+        notifyCatalogOverridesChanged();
+        return res.json({ success: true, restored: null });
+      }
+      const { updatedAt } = await applyOverride(
+        productId,
+        targetSnapshot,
+        adminUser.id,
+        "rollback",
+      );
+      notifyCatalogOverridesChanged();
+      return res.json({
+        success: true,
+        restored: targetSnapshot,
+        updatedAt: updatedAt.toISOString(),
+        updatedByUserId: adminUser.id,
+      });
+    } catch (err) {
+      console.error("Failed to rollback catalog override:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   },
