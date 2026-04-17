@@ -36,7 +36,9 @@ import {
   X,
   Tag,
   Undo2,
+  FilePlus,
 } from 'lucide-react';
+import AdminCaseAuthoringPanel from './AdminCaseAuthoringPanel';
 
 type CatalogOverride = CatalogOverridePayload;
 
@@ -93,7 +95,7 @@ export default function AdminPanel() {
     (cb) => subscribeEntitlements(cb),
     () => getEntitlements()
   );
-  const [tab, setTab] = useState<'catalog' | 'users'>('catalog');
+  const [tab, setTab] = useState<'catalog' | 'users' | 'authoring'>('catalog');
   const [overrides, setOverrides] = useState<Record<string, CatalogOverride>>({});
   const [overrideMeta, setOverrideMeta] = useState<Record<string, CatalogOverrideMeta>>({});
   const [editing, setEditing] = useState<string | null>(null);
@@ -357,6 +359,14 @@ export default function AdminPanel() {
               }`}
             >
               Users
+            </button>
+            <button
+              onClick={() => setTab('authoring')}
+              className={`px-3 py-1.5 font-mono uppercase tracking-wider flex items-center gap-1 ${
+                tab === 'authoring' ? 'bg-zinc-800 text-emerald-300' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <FilePlus size={12} /> Authoring
             </button>
           </div>
         </div>
@@ -687,6 +697,7 @@ export default function AdminPanel() {
             </div>
           </div>
         )}
+        {tab === 'authoring' && <AdminCaseAuthoringPanel />}
       </main>
     </div>
   );
