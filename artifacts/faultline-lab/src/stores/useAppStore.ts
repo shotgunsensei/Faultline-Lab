@@ -28,7 +28,9 @@ import {
   useHint,
   evaluateDiagnosis,
   generateDebrief,
+  applyChaosToCaseDef,
 } from '@/lib/simulation';
+import { loadChaosSettings } from '@/lib/chaos';
 import { resolveCaseDefinitionByEntryId } from '@/data/caseCatalog';
 import { getUtcDateKey, utcDateDiffInDays } from '@/lib/dailyChallenge';
 
@@ -130,10 +132,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     const existingState = savedStates[caseId];
 
     if (existingState && existingState.status === 'active') {
+      const decorated = applyChaosToCaseDef(
+        caseDef,
+        existingState.chaos,
+        existingState.startedAt
+      );
       set({
         view: 'investigation',
         currentCaseId: caseId,
-        currentCaseDef: caseDef,
+        currentCaseDef: decorated,
         currentCaseState: existingState,
         terminalHistory: [],
         activeTool: 'terminal',
@@ -145,14 +152,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       return;
     }
 
-    const newState = createCaseState(caseId);
+    const chaos = loadChaosSettings(caseId);
+    const newState = createCaseState(caseId, chaos);
+    const decorated = applyChaosToCaseDef(caseDef, newState.chaos, newState.startedAt);
     saveCaseState(caseId, newState);
     saveCurrentCaseId(caseId);
 
     set({
       view: 'investigation',
       currentCaseId: caseId,
-      currentCaseDef: caseDef,
+      currentCaseDef: decorated,
       currentCaseState: newState,
       terminalHistory: [],
       activeTool: 'terminal',
@@ -165,13 +174,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   startSandboxRun: (caseId) => {
     const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
-    const newState = createCaseState(caseId);
+    const chaos = loadChaosSettings(caseId);
+    const newState = createCaseState(caseId, chaos);
+    const decorated = applyChaosToCaseDef(caseDef, newState.chaos, newState.startedAt);
     // Sandbox runs are ephemeral — do not persist them to the saved-state map
     // or current-case pointer, so they never overwrite real progress.
     set({
       view: 'investigation',
       currentCaseId: caseId,
-      currentCaseDef: caseDef,
+      currentCaseDef: decorated,
       currentCaseState: newState,
       terminalHistory: [],
       activeTool: 'terminal',
@@ -184,13 +195,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   startDailyChallenge: (caseId) => {
     const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
-    const newState = createCaseState(caseId);
+    const chaos = loadChaosSettings(caseId);
+    const newState = createCaseState(caseId, chaos);
+    const decorated = applyChaosToCaseDef(caseDef, newState.chaos, newState.startedAt);
     saveCaseState(caseId, newState);
     saveCurrentCaseId(caseId);
     set({
       view: 'investigation',
       currentCaseId: caseId,
-      currentCaseDef: caseDef,
+      currentCaseDef: decorated,
       currentCaseState: newState,
       terminalHistory: [],
       activeTool: 'terminal',
@@ -208,11 +221,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const existingState = savedStates[caseId];
     if (!existingState) return;
 
+    const decorated = applyChaosToCaseDef(
+      caseDef,
+      existingState.chaos,
+      existingState.startedAt
+    );
+
     if (existingState.status === 'debriefed' && existingState.debrief) {
       set({
         view: 'debrief',
         currentCaseId: caseId,
-        currentCaseDef: caseDef,
+        currentCaseDef: decorated,
         currentCaseState: existingState,
       });
       return;
@@ -221,7 +240,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       view: 'investigation',
       currentCaseId: caseId,
-      currentCaseDef: caseDef,
+      currentCaseDef: decorated,
       currentCaseState: existingState,
       terminalHistory: [],
       activeTool: 'terminal',
@@ -317,6 +336,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   requestHint: (level) => {
     const { currentCaseDef, currentCaseState, sandboxRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return null;
+    if (currentCaseState.chaos?.hintBlackout) return null;
 
     const hint = currentCaseDef.hints.find(h => h.level === level);
     if (!hint) return null;
@@ -457,14 +477,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
 
-    const newState = createCaseState(caseId);
+    const chaos = loadChaosSettings(caseId);
+    const newState = createCaseState(caseId, chaos);
+    const decorated = applyChaosToCaseDef(caseDef, newState.chaos, newState.startedAt);
     saveCaseState(caseId, newState);
     saveCurrentCaseId(caseId);
 
     set({
       view: 'investigation',
       currentCaseId: caseId,
-      currentCaseDef: caseDef,
+      currentCaseDef: decorated,
       currentCaseState: newState,
       terminalHistory: [],
       activeTool: 'terminal',
@@ -513,9 +535,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       const caseDef = resolveCaseDefinitionByEntryId(currentCaseId);
 
       if (state && caseDef && state.status === 'active') {
+        const decorated = applyChaosToCaseDef(caseDef, state.chaos, state.startedAt);
         set({
           currentCaseId,
-          currentCaseDef: caseDef,
+          currentCaseDef: decorated,
           currentCaseState: state,
         });
       }

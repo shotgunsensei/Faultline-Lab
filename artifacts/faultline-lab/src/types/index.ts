@@ -127,6 +127,9 @@ export interface ScoreBreakdown {
   efficiency: number;
   hintPenalty: number;
   riskyActionPenalty: number;
+  timePenalty: number;
+  chaosMultiplier: number;
+  baseTotal: number;
   total: number;
   maxPossible: number;
   tier: ScoreTier;
@@ -177,6 +180,14 @@ export interface Achievement {
   condition: (state: CaseState) => boolean;
 }
 
+export interface CaseChaosSnapshot {
+  shuffleEvidence: boolean;
+  injectRedHerrings: boolean;
+  timePressure: boolean;
+  hintBlackout: boolean;
+  intensity: number;
+}
+
 export interface CaseState {
   caseId: string;
   status: 'active' | 'submitted' | 'debriefed';
@@ -189,6 +200,8 @@ export interface CaseState {
   totalCommands: number;
   diagnosis?: DiagnosisSubmission;
   debrief?: Debrief;
+  chaos?: CaseChaosSnapshot;
+  timeLimitMs?: number;
 }
 
 export interface AppSettings {

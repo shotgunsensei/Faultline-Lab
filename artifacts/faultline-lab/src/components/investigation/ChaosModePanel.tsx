@@ -1,42 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Zap, Shuffle, Bomb, Timer, EyeOff, RotateCcw } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import {
+  DEFAULT_CHAOS as DEFAULTS,
+  loadChaosSettings,
+  saveChaosSettings,
+  type ChaosSettings,
+} from '@/lib/chaos';
 
-export interface ChaosSettings {
-  shuffleEvidence: boolean;
-  injectRedHerrings: boolean;
-  timePressure: boolean;
-  hintBlackout: boolean;
-  intensity: number;
-}
-
-const DEFAULTS: ChaosSettings = {
-  shuffleEvidence: false,
-  injectRedHerrings: false,
-  timePressure: false,
-  hintBlackout: false,
-  intensity: 1,
-};
-
-const STORAGE_KEY = 'faultline-lab-chaos-settings';
-
-export function loadChaosSettings(caseId: string): ChaosSettings {
-  try {
-    const raw = localStorage.getItem(`${STORAGE_KEY}:${caseId}`);
-    if (!raw) return DEFAULTS;
-    return { ...DEFAULTS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-export function saveChaosSettings(caseId: string, settings: ChaosSettings) {
-  try {
-    localStorage.setItem(`${STORAGE_KEY}:${caseId}`, JSON.stringify(settings));
-  } catch {
-    /* ignore */
-  }
-}
+export type { ChaosSettings };
+export { loadChaosSettings, saveChaosSettings };
 
 const TOGGLES: { key: keyof ChaosSettings; label: string; desc: string; icon: typeof Zap }[] = [
   {
@@ -67,13 +40,34 @@ const TOGGLES: { key: keyof ChaosSettings; label: string; desc: string; icon: ty
 
 export default function ChaosModePanel() {
   const currentCaseDef = useAppStore((s) => s.currentCaseDef);
+  const currentCaseState = useAppStore((s) => s.currentCaseState);
   const [settings, setSettings] = useState<ChaosSettings>(DEFAULTS);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     if (currentCaseDef) setSettings(loadChaosSettings(currentCaseDef.id));
   }, [currentCaseDef]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   if (!currentCaseDef) return null;
+
+  const activeChaos = currentCaseState?.chaos;
+  const timeLimitMs = currentCaseState?.timeLimitMs;
+  const elapsedMs = currentCaseState ? now - currentCaseState.startedAt : 0;
+  const remainingMs =
+    activeChaos?.timePressure && timeLimitMs ? timeLimitMs - elapsedMs : null;
+  const overtimeSec =
+    remainingMs !== null && remainingMs < 0 ? Math.floor(-remainingMs / 1000) : 0;
+  const formatClock = (ms: number) => {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60).toString().padStart(2, '0');
+    const s = (total % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const update = (next: ChaosSettings) => {
     setSettings(next);
@@ -99,6 +93,45 @@ export default function ChaosModePanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {activeChaos && (
+          <div className="p-2 rounded border border-amber-700/40 bg-amber-500/5 text-[11px] text-amber-200 font-mono">
+            Active modifiers for this run:{' '}
+            {[
+              activeChaos.shuffleEvidence && 'shuffle',
+              activeChaos.injectRedHerrings && 'red-herrings',
+              activeChaos.timePressure && 'time-pressure',
+              activeChaos.hintBlackout && 'hint-blackout',
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'none'}
+            {' · '}intensity ×{activeChaos.intensity.toFixed(1)}
+          </div>
+        )}
+
+        {remainingMs !== null && (
+          <div
+            className={`p-3 rounded border ${
+              overtimeSec > 0
+                ? 'border-red-500/50 bg-red-500/10 text-red-200'
+                : 'border-amber-500/40 bg-amber-500/5 text-amber-200'
+            }`}
+          >
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="uppercase tracking-wider">
+                {overtimeSec > 0 ? 'Overtime' : 'Time remaining'}
+              </span>
+              <span className="text-base font-semibold">
+                {overtimeSec > 0 ? `+${formatClock(overtimeSec * 1000)}` : formatClock(remainingMs)}
+              </span>
+            </div>
+            <p className="text-[11px] mt-1 opacity-80">
+              {overtimeSec > 0
+                ? 'Every 30s past the deadline costs 2 efficiency points (capped at 20).'
+                : 'Submit before the timer hits 00:00 to avoid time penalties.'}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {TOGGLES.map((t) => {
             const Icon = t.icon;

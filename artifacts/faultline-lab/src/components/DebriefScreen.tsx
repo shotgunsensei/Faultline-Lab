@@ -83,7 +83,7 @@ export default function DebriefScreen() {
             <p className="text-xs sm:text-sm text-zinc-500">{currentCaseDef.title}</p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
             <ScoreCard icon={<Target size={16} />} label="Diagnosis" value={score.diagnosisAccuracy} max={40} color="text-cyan-400" />
             <ScoreCard icon={<Search size={16} />} label="Evidence" value={score.evidenceQuality} max={25} color="text-blue-400" />
             <ScoreCard icon={<Wrench size={16} />} label="Remediation" value={score.remediationQuality} max={20} color="text-emerald-400" />
@@ -91,6 +91,39 @@ export default function DebriefScreen() {
             <ScoreCard icon={<Lightbulb size={16} />} label="Hint Penalty" value={-score.hintPenalty} max={0} color="text-red-400" negative />
             <ScoreCard icon={<Clock size={16} />} label="Time" value={timeMinutes} max={0} color="text-zinc-400" suffix=" min" />
           </div>
+
+          {(score.timePenalty > 0 || score.chaosMultiplier > 1) && (
+            <div className="mb-8 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap size={14} className="text-amber-400" />
+                <span className="text-xs font-mono text-amber-300 uppercase tracking-wider">
+                  Chaos Mode adjustments
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                {currentCaseState.chaos && (
+                  <div className="text-zinc-400">
+                    <div className="text-zinc-500">Intensity</div>
+                    <div className="font-mono text-amber-200">×{currentCaseState.chaos.intensity.toFixed(1)}</div>
+                  </div>
+                )}
+                {score.timePenalty > 0 && (
+                  <div className="text-zinc-400">
+                    <div className="text-zinc-500">Time penalty</div>
+                    <div className="font-mono text-red-300">-{score.timePenalty}</div>
+                  </div>
+                )}
+                {score.chaosMultiplier > 1 && (
+                  <div className="text-zinc-400">
+                    <div className="text-zinc-500">Score multiplier</div>
+                    <div className="font-mono text-emerald-300">
+                      ×{score.chaosMultiplier.toFixed(2)} (base {score.baseTotal})
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-6">
             <Section title="Actual Root Cause" icon={<Target size={16} />}>

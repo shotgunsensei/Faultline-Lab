@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
-import { Lightbulb, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Lightbulb, ChevronRight, AlertTriangle, EyeOff } from 'lucide-react';
 
 export default function HintPanel() {
   const currentCaseDef = useAppStore(s => s.currentCaseDef);
   const currentCaseState = useAppStore(s => s.currentCaseState);
   const requestHint = useAppStore(s => s.requestHint);
   const [revealedHints, setRevealedHints] = useState<Record<number, string>>({});
+  const blackedOut = !!currentCaseState?.chaos?.hintBlackout;
 
   useEffect(() => {
     if (!currentCaseDef || !currentCaseState) return;
@@ -48,11 +49,18 @@ export default function HintPanel() {
         )}
       </div>
 
-      <div className="space-y-2">
+      {blackedOut && (
+        <div className="mb-2 p-2 rounded border border-red-500/40 bg-red-500/10 text-xs text-red-300 flex items-center gap-2">
+          <EyeOff size={12} />
+          <span>Chaos Mode: hints are blacked out for this run.</span>
+        </div>
+      )}
+
+      <div className={`space-y-2 ${blackedOut ? 'opacity-40 pointer-events-none' : ''}`}>
         {currentCaseDef.hints.map(hint => {
           const isUsed = currentCaseState.hintsUsed.includes(hint.level);
           const isRevealed = !!revealedHints[hint.level];
-          const isNext = nextAvailableHint?.level === hint.level;
+          const isNext = !blackedOut && nextAvailableHint?.level === hint.level;
 
           return (
             <div key={hint.level}>

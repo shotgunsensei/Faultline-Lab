@@ -1,6 +1,8 @@
 import type {
   CaseDefinition,
   CaseState,
+  CaseChaosSnapshot,
+  EventLogEntry,
   ToolOutput,
   DiagnosisSubmission,
   ScoreBreakdown,
@@ -8,18 +10,111 @@ import type {
   Debrief,
   EvidenceItem,
 } from '@/types';
+import {
+  chaosTimeLimitMs,
+  computeChaosMultiplier,
+  isChaosActive,
+  type ChaosSettings,
+} from '@/lib/chaos';
 
-export function createCaseState(caseId: string): CaseState {
+export function createCaseState(caseId: string, chaos?: ChaosSettings | null): CaseState {
+  const startedAt = Date.now();
+  const snapshot: CaseChaosSnapshot | undefined = chaos
+    ? {
+        shuffleEvidence: chaos.shuffleEvidence,
+        injectRedHerrings: chaos.injectRedHerrings,
+        timePressure: chaos.timePressure,
+        hintBlackout: chaos.hintBlackout,
+        intensity: chaos.intensity,
+      }
+    : undefined;
   return {
     caseId,
     status: 'active',
-    startedAt: Date.now(),
+    startedAt,
     unlockedEvidence: [],
     actionLog: [],
     hintsUsed: [],
     riskyActions: 0,
     totalCommands: 0,
+    chaos: snapshot,
+    timeLimitMs: chaosTimeLimitMs(chaos),
   };
+}
+
+function seededRng(seed: number) {
+  let s = (seed >>> 0) || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+function shuffle<T>(arr: T[], rng: () => number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const HERRING_TITLES = [
+  'Phantom packet drop on uplink',
+  'Stale DNS cache spike',
+  'Anomalous fan RPM jitter',
+  'Unrelated cron job failure',
+  'Voltage micro-dip on rail B',
+  'Recent firmware advisory',
+  'Idle CPU thermal blip',
+  'Background indexer surge',
+];
+
+export function applyChaosToCaseDef(
+  caseDef: CaseDefinition,
+  chaos: ChaosSettings | CaseChaosSnapshot | undefined | null,
+  seed: number
+): CaseDefinition {
+  if (!chaos || !isChaosActive(chaos as ChaosSettings)) return caseDef;
+
+  let evidence: EvidenceItem[] = [...caseDef.evidence];
+  let eventLogs: EventLogEntry[] = [...caseDef.eventLogs];
+  const rng = seededRng(seed);
+
+  if (chaos.injectRedHerrings) {
+    const extra = Math.max(1, Math.round(2 * chaos.intensity));
+    for (let i = 0; i < extra; i++) {
+      const id = `chaos-rh-evidence-${i}`;
+      const title = HERRING_TITLES[i % HERRING_TITLES.length];
+      evidence.push({
+        id,
+        title,
+        description:
+          'Plausible-but-unrelated lead surfaced by Chaos Mode. Verify before relying on it.',
+        category: 'red-herring',
+        importance: 'medium',
+        unlocked: false,
+      });
+      const ts = new Date(seed + i * 1000).toISOString();
+      eventLogs.push({
+        id: `chaos-rh-log-${i}`,
+        timestamp: ts,
+        source: 'chaos-injector',
+        level: i % 2 === 0 ? 'warning' : 'error',
+        message: `Possible anomaly: ${title}`,
+        details:
+          'Injected by Chaos Mode. Treat as a candidate lead, not ground truth.\nIf you cite this in your diagnosis it will count as a red herring.',
+        revealsEvidence: [id],
+      });
+    }
+  }
+
+  if (chaos.shuffleEvidence) {
+    evidence = shuffle(evidence, rng);
+    eventLogs = shuffle(eventLogs, rng);
+  }
+
+  return { ...caseDef, evidence, eventLogs };
 }
 
 export function processCommand(
@@ -144,11 +239,16 @@ export function processTicketNoteView(
 }
 
 export function useHint(state: CaseState, level: number): CaseState {
+  if (state.chaos?.hintBlackout) return state;
   if (state.hintsUsed.includes(level)) return state;
   return {
     ...state,
     hintsUsed: [...state.hintsUsed, level],
   };
+}
+
+export function isHintBlackedOut(state: CaseState | null | undefined): boolean {
+  return !!state?.chaos?.hintBlackout;
 }
 
 export function evaluateDiagnosis(
@@ -178,10 +278,26 @@ export function evaluateDiagnosis(
 
   const riskyActionPenalty = state.riskyActions * 3;
 
+  let timePenalty = 0;
+  if (state.chaos?.timePressure && state.timeLimitMs) {
+    const completed = state.completedAt ?? Date.now();
+    const elapsed = completed - state.startedAt;
+    if (elapsed > state.timeLimitMs) {
+      const overSec = (elapsed - state.timeLimitMs) / 1000;
+      timePenalty = Math.min(20, Math.floor(overSec / 30) * 2);
+    }
+  }
+
   const rawTotal =
     diagnosisAccuracy + evidenceQuality + remediationQuality + efficiency;
-  const total = Math.max(0, rawTotal - hintPenalty - riskyActionPenalty);
-  const maxPossible = caseDef.maxScore;
+  const baseTotal = Math.max(
+    0,
+    rawTotal - hintPenalty - riskyActionPenalty - timePenalty
+  );
+
+  const chaosMultiplier = computeChaosMultiplier(state.chaos);
+  const total = Math.round(baseTotal * chaosMultiplier);
+  const maxPossible = Math.round(caseDef.maxScore * chaosMultiplier);
 
   const tier = determineTier(diagnosisAccuracy, total, maxPossible);
 
@@ -192,6 +308,9 @@ export function evaluateDiagnosis(
     efficiency,
     hintPenalty,
     riskyActionPenalty,
+    timePenalty,
+    chaosMultiplier,
+    baseTotal,
     total,
     maxPossible,
     tier,

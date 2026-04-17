@@ -133,19 +133,33 @@ export default function InvestigationWorkspace() {
   const toggleDiagnosisForm = useAppStore(s => s.toggleDiagnosisForm);
   const exitCase = useAppStore(s => s.exitCase);
   const [elapsed, setElapsed] = useState('00:00');
+  const [countdown, setCountdown] = useState<{ label: string; overtime: boolean } | null>(null);
   const [showBriefing, setShowBriefing] = useState(true);
   const [mobileDrawer, setMobileDrawer] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentCaseState) return;
-    const interval = setInterval(() => {
+    const tick = () => {
       const ms = Date.now() - currentCaseState.startedAt;
       const minutes = Math.floor(ms / 60000);
       const seconds = Math.floor((ms % 60000) / 1000);
       setElapsed(
         `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
       );
-    }, 1000);
+
+      if (currentCaseState.chaos?.timePressure && currentCaseState.timeLimitMs) {
+        const remainingMs = currentCaseState.timeLimitMs - ms;
+        const overtime = remainingMs < 0;
+        const absMs = Math.abs(remainingMs);
+        const m = Math.floor(absMs / 60000).toString().padStart(2, '0');
+        const s = Math.floor((absMs % 60000) / 1000).toString().padStart(2, '0');
+        setCountdown({ label: `${overtime ? '+' : ''}${m}:${s}`, overtime });
+      } else {
+        setCountdown(null);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [currentCaseState]);
 
@@ -317,6 +331,20 @@ export default function InvestigationWorkspace() {
             <Clock size={12} />
             {elapsed}
           </div>
+
+          {countdown && (
+            <div
+              className={`flex items-center gap-1 px-2 py-0.5 text-xs font-mono rounded border ${
+                countdown.overtime
+                  ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+              }`}
+              title={countdown.overtime ? 'Overtime — losing efficiency points' : 'Chaos Mode time pressure'}
+            >
+              <Zap size={12} />
+              {countdown.label}
+            </div>
+          )}
 
           <div className="hidden sm:flex items-center gap-1 text-xs font-mono text-zinc-600">
             <Save size={12} />
