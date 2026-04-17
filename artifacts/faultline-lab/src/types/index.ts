@@ -147,6 +147,14 @@ export interface Debrief {
   totalTime: number;
 }
 
+export interface DailyChallengeProgress {
+  lastCompletedDateUtc: string | null;
+  lastCompletedCaseId: string | null;
+  currentStreak: number;
+  bestStreak: number;
+  totalCompleted: number;
+}
+
 export interface InvestigatorProfile {
   name: string;
   casesSolved: number;
@@ -158,6 +166,7 @@ export interface InvestigatorProfile {
   solvedCaseIds: string[];
   createdAt: number;
   lastActiveAt: number;
+  dailyChallenge: DailyChallengeProgress;
 }
 
 export interface Achievement {
@@ -197,7 +206,9 @@ export type AppView =
   | 'settings'
   | 'store'
   | 'auth'
-  | 'admin';
+  | 'admin'
+  | 'daily'
+  | 'sandbox';
 
 export interface AuthUser {
   id: string;

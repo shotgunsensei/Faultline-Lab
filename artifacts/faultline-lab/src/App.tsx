@@ -10,6 +10,8 @@ import SettingsScreen from '@/components/SettingsScreen';
 import StoreScreen from '@/components/StoreScreen';
 import AuthScreen from '@/components/AuthScreen';
 import AdminPanel from '@/components/AdminPanel';
+import DailyChallengeScreen from '@/components/DailyChallengeScreen';
+import SandboxScreen from '@/components/SandboxScreen';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { UpgradePromptProvider } from '@/components/UpgradePrompt';
 import { resetEntitlements } from '@/lib/entitlements';
@@ -59,6 +61,10 @@ function AppContent() {
         return <AdminPanel />;
       case 'auth':
         return <AuthScreen />;
+      case 'daily':
+        return <DailyChallengeScreen />;
+      case 'sandbox':
+        return <SandboxScreen />;
       default:
         return <BootScreen />;
     }
@@ -103,6 +109,8 @@ function AppContentWithoutClerk() {
       case 'store': return <StoreScreen />;
       case 'admin': return <AdminPanel />;
       case 'auth': return <IncidentBoard />;
+      case 'daily': return <DailyChallengeScreen />;
+      case 'sandbox': return <SandboxScreen />;
       default: return <BootScreen />;
     }
   };

@@ -25,8 +25,17 @@ function safeSet(key: string, value: unknown): void {
   }
 }
 
+const DEFAULT_DAILY_PROGRESS = {
+  lastCompletedDateUtc: null,
+  lastCompletedCaseId: null,
+  currentStreak: 0,
+  bestStreak: 0,
+  totalCompleted: 0,
+};
+
 export function loadProfile(): InvestigatorProfile {
-  return safeGet<InvestigatorProfile>(KEYS.PROFILE, {
+  const stored = safeGet<Partial<InvestigatorProfile> | null>(KEYS.PROFILE, null);
+  const base: InvestigatorProfile = {
     name: 'Investigator',
     casesSolved: 0,
     bestScores: {},
@@ -37,7 +46,17 @@ export function loadProfile(): InvestigatorProfile {
     solvedCaseIds: [],
     createdAt: Date.now(),
     lastActiveAt: Date.now(),
-  });
+    dailyChallenge: { ...DEFAULT_DAILY_PROGRESS },
+  };
+  if (!stored) return base;
+  return {
+    ...base,
+    ...stored,
+    dailyChallenge: {
+      ...DEFAULT_DAILY_PROGRESS,
+      ...(stored.dailyChallenge ?? {}),
+    },
+  };
 }
 
 export function saveProfile(profile: InvestigatorProfile): void {

@@ -23,6 +23,8 @@ import {
   LogIn,
   Lock,
   Hammer,
+  Calendar,
+  FlaskConical,
 } from 'lucide-react';
 
 const categoryIconMap: Record<string, React.ReactNode> = {
@@ -228,6 +230,25 @@ export default function IncidentBoard() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setView('daily')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-cyan-400 transition-colors rounded-md hover:bg-zinc-800/50"
+            >
+              <Calendar size={14} />
+              <span className="hidden sm:inline">Daily</span>
+              {profile.dailyChallenge.currentStreak > 0 && (
+                <span className="text-orange-400 font-mono">
+                  {profile.dailyChallenge.currentStreak}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setView('sandbox')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-purple-300 transition-colors rounded-md hover:bg-zinc-800/50"
+            >
+              <FlaskConical size={14} />
+              <span className="hidden sm:inline">Sandbox</span>
+            </button>
             <button
               onClick={() => setView('store')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-400 hover:text-cyan-400 transition-colors rounded-md hover:bg-zinc-800/50"

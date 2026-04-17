@@ -30,6 +30,7 @@ import {
   generateDebrief,
 } from '@/lib/simulation';
 import { resolveCaseDefinitionByEntryId } from '@/data/caseCatalog';
+import { getUtcDateKey, utcDateDiffInDays } from '@/lib/dailyChallenge';
 
 interface TerminalEntry {
   type: 'input' | 'output';
@@ -52,6 +53,8 @@ interface AppState {
   isSignedIn: boolean;
   toolUsageSignals: Record<string, number>;
   pendingStoreProduct: { productId: string; reason: string } | null;
+  sandboxRunCaseId: string | null;
+  dailyRunCaseId: string | null;
 
   trackToolUsage: (signal: string) => void;
   setView: (view: AppView) => void;
@@ -60,6 +63,8 @@ interface AppState {
   setAuthUser: (user: AuthUser | null) => void;
   startCase: (caseId: string) => void;
   resumeCase: (caseId: string) => void;
+  startSandboxRun: (caseId: string) => void;
+  startDailyChallenge: (caseId: string) => void;
   executeCommand: (command: string) => ToolOutput | null;
   viewEventLog: (logId: string) => void;
   viewTicketNote: (noteId: string) => void;
@@ -90,6 +95,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isSignedIn: false,
   toolUsageSignals: {},
   pendingStoreProduct: null,
+  sandboxRunCaseId: null,
+  dailyRunCaseId: null,
 
   openStoreWithProduct: (productId, reason) =>
     set({ pendingStoreProduct: { productId, reason }, view: 'store' }),
@@ -131,6 +138,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         terminalHistory: [],
         activeTool: 'terminal',
         showDiagnosisForm: false,
+        sandboxRunCaseId: null,
+        dailyRunCaseId: null,
       });
       saveCurrentCaseId(caseId);
       return;
@@ -148,6 +157,46 @@ export const useAppStore = create<AppState>((set, get) => ({
       terminalHistory: [],
       activeTool: 'terminal',
       showDiagnosisForm: false,
+      sandboxRunCaseId: null,
+      dailyRunCaseId: null,
+    });
+  },
+
+  startSandboxRun: (caseId) => {
+    const caseDef = resolveCaseDefinitionByEntryId(caseId);
+    if (!caseDef) return;
+    const newState = createCaseState(caseId);
+    // Sandbox runs are ephemeral — do not persist them to the saved-state map
+    // or current-case pointer, so they never overwrite real progress.
+    set({
+      view: 'investigation',
+      currentCaseId: caseId,
+      currentCaseDef: caseDef,
+      currentCaseState: newState,
+      terminalHistory: [],
+      activeTool: 'terminal',
+      showDiagnosisForm: false,
+      sandboxRunCaseId: caseId,
+      dailyRunCaseId: null,
+    });
+  },
+
+  startDailyChallenge: (caseId) => {
+    const caseDef = resolveCaseDefinitionByEntryId(caseId);
+    if (!caseDef) return;
+    const newState = createCaseState(caseId);
+    saveCaseState(caseId, newState);
+    saveCurrentCaseId(caseId);
+    set({
+      view: 'investigation',
+      currentCaseId: caseId,
+      currentCaseDef: caseDef,
+      currentCaseState: newState,
+      terminalHistory: [],
+      activeTool: 'terminal',
+      showDiagnosisForm: false,
+      sandboxRunCaseId: null,
+      dailyRunCaseId: caseId,
     });
   },
 
@@ -182,8 +231,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   executeCommand: (command) => {
-    const { currentCaseDef, currentCaseState } = get();
+    const { currentCaseDef, currentCaseState, sandboxRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return null;
+    const isSandbox = sandboxRunCaseId === currentCaseDef.id;
 
     if (command.toLowerCase().trim() === 'help') {
       const helpOutput = currentCaseDef.terminalCommands
@@ -215,7 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       command
     );
 
-    saveCaseState(currentCaseDef.id, newState);
+    if (!isSandbox) saveCaseState(currentCaseDef.id, newState);
 
     set((state) => ({
       currentCaseState: newState,
@@ -235,7 +285,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   viewEventLog: (logId) => {
-    const { currentCaseDef, currentCaseState } = get();
+    const { currentCaseDef, currentCaseState, sandboxRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return;
 
     const newState = processEventLogView(
@@ -243,12 +293,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentCaseState,
       logId
     );
-    saveCaseState(currentCaseDef.id, newState);
+    if (sandboxRunCaseId !== currentCaseDef.id) {
+      saveCaseState(currentCaseDef.id, newState);
+    }
     set({ currentCaseState: newState });
   },
 
   viewTicketNote: (noteId) => {
-    const { currentCaseDef, currentCaseState } = get();
+    const { currentCaseDef, currentCaseState, sandboxRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return;
 
     const newState = processTicketNoteView(
@@ -256,26 +308,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentCaseState,
       noteId
     );
-    saveCaseState(currentCaseDef.id, newState);
+    if (sandboxRunCaseId !== currentCaseDef.id) {
+      saveCaseState(currentCaseDef.id, newState);
+    }
     set({ currentCaseState: newState });
   },
 
   requestHint: (level) => {
-    const { currentCaseDef, currentCaseState } = get();
+    const { currentCaseDef, currentCaseState, sandboxRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return null;
 
     const hint = currentCaseDef.hints.find(h => h.level === level);
     if (!hint) return null;
 
     const newState = useHint(currentCaseState, level);
-    saveCaseState(currentCaseDef.id, newState);
+    if (sandboxRunCaseId !== currentCaseDef.id) {
+      saveCaseState(currentCaseDef.id, newState);
+    }
     set({ currentCaseState: newState });
 
     return hint.text;
   },
 
   submitDiagnosis: (submission) => {
-    const { currentCaseDef, currentCaseState, profile } = get();
+    const { currentCaseDef, currentCaseState, profile, sandboxRunCaseId, dailyRunCaseId } = get();
     if (!currentCaseDef || !currentCaseState) return null;
 
     const scoreBreakdown = evaluateDiagnosis(
@@ -292,6 +348,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       diagnosis: submission,
       debrief,
     };
+
+    const isSandboxRun = sandboxRunCaseId === currentCaseDef.id;
+    const isDailyRun = dailyRunCaseId === currentCaseDef.id;
+
+    if (isSandboxRun) {
+      // Sandbox: surface the debrief, but do not persist state or scores.
+      set({
+        currentCaseState: completedState,
+        view: 'debrief',
+        showDiagnosisForm: false,
+      });
+      return debrief;
+    }
 
     saveCaseState(currentCaseDef.id, completedState);
 
@@ -338,6 +407,34 @@ export const useAppStore = create<AppState>((set, get) => ({
         : [...profile.solvedCaseIds, currentCaseDef.id],
     };
 
+    if (isDailyRun) {
+      const today = getUtcDateKey();
+      const alreadyResolvedToday =
+        updatedProfile.dailyChallenge.lastCompletedDateUtc === today;
+      // Streak/counter mutations are idempotent per UTC day: only the first
+      // daily result of the day counts. Replays on the same day are inert.
+      if (!alreadyResolvedToday) {
+        if (scoreBreakdown.tier !== 'Misdiagnosed') {
+          const last = updatedProfile.dailyChallenge.lastCompletedDateUtc;
+          const continued = last !== null && utcDateDiffInDays(last, today) === 1;
+          const nextStreak = continued ? updatedProfile.dailyChallenge.currentStreak + 1 : 1;
+          updatedProfile.dailyChallenge = {
+            lastCompletedDateUtc: today,
+            lastCompletedCaseId: currentCaseDef.id,
+            currentStreak: nextStreak,
+            bestStreak: Math.max(updatedProfile.dailyChallenge.bestStreak, nextStreak),
+            totalCompleted: updatedProfile.dailyChallenge.totalCompleted + 1,
+          };
+        } else {
+          // First daily attempt today was a misdiagnosis — break the streak.
+          updatedProfile.dailyChallenge = {
+            ...updatedProfile.dailyChallenge,
+            currentStreak: 0,
+          };
+        }
+      }
+    }
+
     saveProfile(updatedProfile);
 
     set({
@@ -345,6 +442,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       profile: updatedProfile,
       view: 'debrief',
       showDiagnosisForm: false,
+      dailyRunCaseId: null,
     });
 
     return debrief;
@@ -371,6 +469,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       terminalHistory: [],
       activeTool: 'terminal',
       showDiagnosisForm: false,
+      sandboxRunCaseId: null,
+      dailyRunCaseId: null,
     });
   },
 
@@ -383,6 +483,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentCaseState: null,
       terminalHistory: [],
       showDiagnosisForm: false,
+      sandboxRunCaseId: null,
+      dailyRunCaseId: null,
     });
   },
 
