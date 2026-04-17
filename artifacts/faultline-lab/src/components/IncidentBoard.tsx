@@ -271,7 +271,14 @@ export default function IncidentBoard() {
     <div className="min-h-screen bg-[#0a0e14]">
       <header className="border-b border-zinc-800/60 px-4 sm:px-6 py-3 sm:py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo.png"
+              alt=""
+              aria-hidden="true"
+              className="h-9 sm:h-10 w-auto select-none"
+              draggable={false}
+            />
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
             <h1 className="font-mono text-lg font-bold text-cyan-400 tracking-wider uppercase">
               Faultline Lab

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
+import logoUrl from '@assets/faultlinelogotrans_1776394938786.png';
 
 const bootLines = [
   { text: 'FAULTLINE LAB v1.0.0', delay: 0 },
@@ -36,6 +37,19 @@ export default function BootScreen() {
   return (
     <div className="fixed inset-0 bg-[#0a0e14] flex items-center justify-center">
       <div className="max-w-2xl w-full px-8">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex justify-center mb-6"
+        >
+          <img
+            src={logoUrl}
+            alt="Faultline Lab"
+            className="h-28 sm:h-36 w-auto drop-shadow-[0_0_32px_rgba(34,211,238,0.2)] select-none"
+            draggable={false}
+          />
+        </motion.div>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

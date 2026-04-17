@@ -2,13 +2,22 @@ import { SignIn, SignUp } from '@clerk/react';
 import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { ArrowLeft } from 'lucide-react';
+import logoUrl from '@assets/faultlinelogotrans_1776394938786.png';
+import heroUrl from '@assets/faultlinelabhero_1776394938788.png';
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const setView = useAppStore(s => s.setView);
 
   return (
-    <div className="min-h-screen bg-[#0a0e14] flex flex-col items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-[#0a0e14] flex flex-col items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        backgroundImage: `linear-gradient(rgba(10,14,20,0.88), rgba(10,14,20,0.96)), url(${heroUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       <button
         onClick={() => setView('incident-board')}
         className="absolute top-4 left-4 flex items-center gap-2 text-zinc-400 hover:text-cyan-400 transition-colors"
@@ -17,9 +26,14 @@ export default function AuthScreen() {
         <span className="text-sm font-mono">Back</span>
       </button>
 
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-mono font-bold text-cyan-400 tracking-wider">FAULTLINE LAB</h1>
-        <p className="text-zinc-500 text-sm mt-2">
+      <div className="mb-8 text-center flex flex-col items-center">
+        <img
+          src={logoUrl}
+          alt="Faultline Lab"
+          className="h-32 sm:h-40 w-auto mb-2 drop-shadow-[0_0_24px_rgba(34,211,238,0.25)] select-none"
+          draggable={false}
+        />
+        <p className="text-zinc-400 text-sm mt-1">
           {mode === 'sign-in' ? 'Sign in to sync your progress' : 'Create your investigator account'}
         </p>
       </div>
