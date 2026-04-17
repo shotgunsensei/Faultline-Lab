@@ -16,3 +16,4 @@ export {
 } from './helpers';
 export { validateDraft } from './validate';
 export { createTemplate, type DomainTemplate, type TemplateOpts } from './templates';
+export { runAuthoringSelfTest } from './__selfTest';

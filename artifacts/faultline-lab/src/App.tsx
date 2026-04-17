@@ -14,9 +14,11 @@ import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { UpgradePromptProvider } from '@/components/UpgradePrompt';
 import { resetEntitlements } from '@/lib/entitlements';
 import { logCatalogValidation } from '@/data/caseCatalog';
+import { runAuthoringSelfTest } from '@/data/cases/authoring';
 import { Toaster } from 'sonner';
 
 logCatalogValidation();
+runAuthoringSelfTest();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
