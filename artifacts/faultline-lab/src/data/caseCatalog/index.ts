@@ -38,3 +38,5 @@ export {
   logCatalogValidation,
   type CatalogValidationIssue,
 } from './validation';
+
+export { resolveCaseDefinition, resolveCaseDefinitionByEntryId } from './resolver';

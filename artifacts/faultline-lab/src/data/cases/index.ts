@@ -4,12 +4,20 @@ import { automotiveCase } from './automotive-case';
 import { electronicsSensorCase } from './electronics-sensor-case';
 import type { CaseDefinition } from '@/types';
 
-export const allCases: CaseDefinition[] = [
+export const CASE_DEFINITIONS = {
   windowsAdCase,
   networkingVpnCase,
   automotiveCase,
   electronicsSensorCase,
-];
+} as const satisfies Record<string, CaseDefinition>;
+
+export type CaseImplementationKey = keyof typeof CASE_DEFINITIONS;
+
+export const allCases: CaseDefinition[] = Object.values(CASE_DEFINITIONS);
+
+export function getCaseByImplementationKey(key: CaseImplementationKey): CaseDefinition {
+  return CASE_DEFINITIONS[key];
+}
 
 export function getCaseById(id: string): CaseDefinition | undefined {
   return allCases.find(c => c.id === id);

@@ -1,4 +1,5 @@
 import type { CaseCategory, Difficulty } from '@/types';
+import type { CaseImplementationKey } from '@/data/cases';
 
 export type CaseSourceType = 'starter' | 'pack';
 
@@ -26,7 +27,7 @@ export interface CaseCatalogEntry {
   previewSymptoms: string[];
   previewSystems: string[];
   redHerringLevel: RedHerringLevel;
-  implementationRef?: string;
+  implementationRef?: CaseImplementationKey;
   definitionRef?: string;
   tags: string[];
   isStarter: boolean;

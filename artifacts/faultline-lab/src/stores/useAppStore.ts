@@ -29,7 +29,7 @@ import {
   evaluateDiagnosis,
   generateDebrief,
 } from '@/lib/simulation';
-import { getCaseById } from '@/data/cases';
+import { resolveCaseDefinitionByEntryId } from '@/data/caseCatalog';
 
 interface TerminalEntry {
   type: 'input' | 'output';
@@ -116,7 +116,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   }),
 
   startCase: (caseId) => {
-    const caseDef = getCaseById(caseId);
+    const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
 
     const savedStates = loadCaseStates();
@@ -152,7 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resumeCase: (caseId) => {
-    const caseDef = getCaseById(caseId);
+    const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
 
     const savedStates = loadCaseStates();
@@ -356,7 +356,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ showDiagnosisForm: !state.showDiagnosisForm })),
 
   restartCase: (caseId) => {
-    const caseDef = getCaseById(caseId);
+    const caseDef = resolveCaseDefinitionByEntryId(caseId);
     if (!caseDef) return;
 
     const newState = createCaseState(caseId);
@@ -408,7 +408,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (currentCaseId) {
       const savedStates = loadCaseStates();
       const state = savedStates[currentCaseId];
-      const caseDef = getCaseById(currentCaseId);
+      const caseDef = resolveCaseDefinitionByEntryId(currentCaseId);
 
       if (state && caseDef && state.status === 'active') {
         set({
