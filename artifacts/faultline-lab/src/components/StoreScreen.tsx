@@ -3,6 +3,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import {
   CATALOG,
   formatPrice,
+  getCaseCountLabel,
   getProductsBySection,
   type CatalogProduct,
 } from '@/data/catalog';
@@ -231,16 +232,26 @@ function ProductDetail({
       }
       throw new Error('No checkout URL returned');
     } catch (err) {
-      if (import.meta.env.DEV) {
+      // Mock-grant only when explicitly opted in (VITE_MOCK_BILLING=1) AND in a
+      // dev build. This prevents accidental local grants when Stripe is
+      // genuinely configured but a transient checkout error occurs, and ensures
+      // production builds never short-circuit billing.
+      const mockBillingEnabled =
+        import.meta.env.DEV && import.meta.env.VITE_MOCK_BILLING === '1';
+      if (mockBillingEnabled) {
         addOwnedProduct(product.id);
-        toast.success(`${product.name} unlocked (dev)`, {
-          description: 'Stripe is not configured — granted locally for development.',
+        toast.success(`${product.name} unlocked (mock billing)`, {
+          description:
+            'VITE_MOCK_BILLING=1 — granted locally without contacting Stripe.',
         });
         onPurchased();
         onClose();
       } else {
         toast.error('Checkout unavailable', {
-          description: 'This product is not available for purchase right now.',
+          description:
+            err instanceof Error && err.message
+              ? err.message
+              : 'This product is not available for purchase right now.',
         });
       }
     } finally {
@@ -323,21 +334,25 @@ function ProductDetail({
             </Block>
           )}
 
-          {product.includedCaseIds && product.includedCaseIds.length > 0 && (
-            <Block label="Included cases">
-              <p className="text-sm text-zinc-400">
-                {product.includedCaseIds.length} diagnostic scenarios
-              </p>
-            </Block>
-          )}
-
-          {product.caseCount && (!product.includedCaseIds || product.includedCaseIds.length === 0) && (
-            <Block label="Pack contents">
-              <p className="text-sm text-zinc-400">
-                {product.caseCount} cases planned. Cases drop in as the pack ships.
-              </p>
-            </Block>
-          )}
+          {(() => {
+            const label = getCaseCountLabel(product);
+            if (!label) return null;
+            const ready = product.includedCaseIds?.length ?? 0;
+            const planned = product.caseCount ?? 0;
+            const isPartial = planned > 0 && ready < planned;
+            return (
+              <Block label={ready > 0 ? 'Pack contents' : 'Pack roadmap'}>
+                <p className="text-sm text-zinc-400">
+                  {label}
+                  {isPartial && (
+                    <span className="block text-[11px] font-mono text-zinc-500 mt-1">
+                      Remaining cases drop in as the pack ships.
+                    </span>
+                  )}
+                </p>
+              </Block>
+            );
+          })()}
 
           {includedItems.length > 0 && (
             <Block label="Bundle contents">

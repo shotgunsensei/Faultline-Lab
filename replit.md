@@ -50,12 +50,26 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 - `scripts/src/seed-products.ts` — Script to create Stripe products from catalog
 
 ### Entitlement System
-- `FREE_CASE_IDS`: ['windows-ad-kerberos', 'automotive-alternator'] — always accessible
+- `FREE_CASE_IDS`: the four built-in starter case IDs (`case-windows-ad-001`,
+  `case-networking-vpn-001`, `case-automotive-001`, `case-electronics-001`).
+  As real pack-exclusive cases are authored, they go into the corresponding
+  pack's `includedCaseIds` instead of this list.
 - `base-free` product owned by all users
-- Pro subscription ($9.99/mo, $79.99/yr) grants full access
+- Pro subscription ($8.99/mo, $79/yr) grants every case + Pro features
 - Content packs, feature upgrades, and bundles are `coming-soon` in catalog
-- `isCaseAccessible()` checks free IDs, owned packs, Pro status, and bundle contents
+- `isCaseAccessible()` is **fail-closed**: a case is accessible only if it's
+  in `FREE_CASE_IDS`, the user has Pro, or it's listed in `includedCaseIds`
+  on a product the user owns (directly or via bundle). Unknown / unmapped
+  cases are locked.
+- `getReadyCaseCount(product)` and `getCaseCountLabel(product)` derive
+  case-count copy from the actual `includedCaseIds.length`. Storefront shows
+  honest copy like "1 of 5 ready" or "5 cases planned" instead of advertising
+  inventory that doesn't exist.
 - Locked cases show Lock icon with amber styling on IncidentBoard, redirect to Store
+- **Mock billing**: the dev-mode local-grant fallback in `StoreScreen` only
+  fires when both `import.meta.env.DEV` *and* `VITE_MOCK_BILLING=1`. It never
+  runs in production builds, and it no longer fires on transient checkout
+  errors when Stripe is genuinely configured.
 
 ### Cloud Sync
 - CloudSyncProvider wraps app content when Clerk is available

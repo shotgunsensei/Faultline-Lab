@@ -129,21 +129,13 @@ function getAllCurrentCaseIds(): string[] {
 }
 
 export function isCaseAccessible(caseId: string): boolean {
+  // 1. Explicit free starter cases.
   if (FREE_CASE_IDS.includes(caseId)) return true;
 
-  const currentCaseIds = getAllCurrentCaseIds();
-  if (currentCaseIds.includes(caseId)) {
-    const hasCatalogPack = CATALOG.some(
-      (p) =>
-        p.status === 'available' &&
-        p.includedCaseIds?.includes(caseId) &&
-        !FREE_CASE_IDS.includes(caseId)
-    );
-    if (!hasCatalogPack) return true;
-  }
-
+  // 2. Pro subscription unlocks every case.
   if (currentEntitlements.isProUser) return true;
 
+  // 3. Owned content packs / bundles that include this case.
   for (const ownedId of currentEntitlements.ownedProductIds) {
     const product = CATALOG.find((p) => p.id === ownedId);
     if (product?.includedCaseIds?.includes(caseId)) return true;
@@ -156,7 +148,18 @@ export function isCaseAccessible(caseId: string): boolean {
     }
   }
 
+  // Fail-closed: an unknown case (not free, not in any owned pack/bundle, no Pro)
+  // is locked. This prevents new cases from accidentally shipping as free just
+  // because someone forgot to wire them into a catalog pack.
   return false;
+}
+
+/**
+ * True if `caseId` exists in the bundled case registry. Useful for distinguishing
+ * "case is locked" vs. "case ID is wrong / no longer exists".
+ */
+export function caseExists(caseId: string): boolean {
+  return getAllCurrentCaseIds().includes(caseId);
 }
 
 export function hasFeature(featureId: string): boolean {
