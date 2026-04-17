@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { allCases, categoryLabels, difficultyColors } from '@/data/cases';
-import { isCaseAccessible, getRequiredProductForCase } from '@/lib/entitlements';
+import { isCaseAccessible, getRequiredProductForCase, getPackForCase, getEntitlements, subscribeEntitlements } from '@/lib/entitlements';
+import { useUpgradePrompt } from './UpgradePrompt';
+import { useSyncExternalStore } from 'react';
+import { CATALOG, FREE_CASE_IDS } from '@/data/catalog';
 import type { CaseDefinition } from '@/types';
 import {
   Monitor,
@@ -39,10 +42,20 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
   const bestScore = useAppStore(s => s.getCaseScore(caseDef.id));
   const accessible = isCaseAccessible(caseDef.id);
   const requiredProduct = !accessible ? getRequiredProductForCase(caseDef.id) : null;
+  const sourcePack = !FREE_CASE_IDS.includes(caseDef.id) ? getPackForCase(caseDef.id) : null;
+  const { prompt } = useUpgradePrompt();
 
   const handleClick = () => {
     if (!accessible) {
-      setView('store');
+      if (requiredProduct) {
+        prompt({
+          productId: requiredProduct.id,
+          contextKey: `case:${caseDef.id}`,
+          reason: `"${caseDef.title}" is part of ${requiredProduct.name}. Unlock it to start the investigation.`,
+        });
+      } else {
+        setView('store');
+      }
       return;
     }
     if (isSolved) {
@@ -121,6 +134,11 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
               {requiredProduct.pricingType === 'free' ? 'Requires upgrade' : `${requiredProduct.name}`}
             </span>
           )}
+          {accessible && sourcePack && (
+            <span className="text-[11px] text-cyan-400/70 font-mono">
+              {sourcePack.name}
+            </span>
+          )}
           {accessible && isSolved && (
             <span
               onClick={handleReplay}
@@ -149,6 +167,7 @@ export default function IncidentBoard() {
   const profile = useAppStore(s => s.profile);
   const setView = useAppStore(s => s.setView);
   const isSignedIn = useAppStore(s => s.isSignedIn);
+  const ent = useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -186,6 +205,14 @@ export default function IncidentBoard() {
               >
                 <LogIn size={14} />
                 <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
+            {ent.isAdmin && (
+              <button
+                onClick={() => setView('admin')}
+                className="px-2.5 py-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 font-mono uppercase tracking-wider"
+              >
+                Admin
               </button>
             )}
             <button

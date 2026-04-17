@@ -9,7 +9,9 @@ import ProfileScreen from '@/components/ProfileScreen';
 import SettingsScreen from '@/components/SettingsScreen';
 import StoreScreen from '@/components/StoreScreen';
 import AuthScreen from '@/components/AuthScreen';
+import AdminPanel from '@/components/AdminPanel';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
+import { UpgradePromptProvider } from '@/components/UpgradePrompt';
 import { resetEntitlements } from '@/lib/entitlements';
 import { Toaster } from 'sonner';
 
@@ -48,6 +50,8 @@ function AppContent() {
         return <SettingsScreen />;
       case 'store':
         return <StoreScreen />;
+      case 'admin':
+        return <AdminPanel />;
       case 'auth':
         return <AuthScreen />;
       default:
@@ -56,21 +60,23 @@ function AppContent() {
   };
 
   return (
-    <CloudSyncProvider>
-      <div className="dark">
-        {renderView()}
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: '#18181b',
-              border: '1px solid #27272a',
-              color: '#e4e4e7',
-            },
-          }}
-        />
-      </div>
-    </CloudSyncProvider>
+    <UpgradePromptProvider>
+      <CloudSyncProvider>
+        <div className="dark">
+          {renderView()}
+          <Toaster
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: '#18181b',
+                border: '1px solid #27272a',
+                color: '#e4e4e7',
+              },
+            }}
+          />
+        </div>
+      </CloudSyncProvider>
+    </UpgradePromptProvider>
   );
 }
 
@@ -90,13 +96,14 @@ function AppContentWithoutClerk() {
       case 'profile': return <ProfileScreen />;
       case 'settings': return <SettingsScreen />;
       case 'store': return <StoreScreen />;
+      case 'admin': return <AdminPanel />;
       case 'auth': return <IncidentBoard />;
       default: return <BootScreen />;
     }
   };
 
   return (
-    <>
+    <UpgradePromptProvider>
       {renderView()}
       <Toaster
         position="bottom-right"
@@ -108,7 +115,7 @@ function AppContentWithoutClerk() {
           },
         }}
       />
-    </>
+    </UpgradePromptProvider>
   );
 }
 

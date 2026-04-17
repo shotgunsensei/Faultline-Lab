@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
-import { usersTable, userProfilesTable } from "@workspace/db";
+import { usersTable, userProfilesTable, catalogOverridesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -82,7 +82,7 @@ router.get("/entitlements", requireAuth, async (req, res) => {
 
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
     if (user.length === 0) {
-      return res.json({ ownedProductIds: ["base-free"], activeSubscription: null, isProUser: false });
+      return res.json({ ownedProductIds: ["base-free"], activeSubscription: null, isProUser: false, isAdmin: false });
     }
 
     const { userEntitlementsTable } = await import("@workspace/db");
@@ -91,14 +91,58 @@ router.get("/entitlements", requireAuth, async (req, res) => {
       .where(eq(userEntitlementsTable.userId, user[0].id));
 
     const activeEntitlements = entitlements.filter(e => e.isActive && !e.revokedAt);
-    const ownedProductIds = ["base-free", ...activeEntitlements.map(e => e.productId)];
-    const activeSubscription = activeEntitlements.find(e => e.entitlementType === "subscription")?.productId || null;
-    const isProUser = ownedProductIds.includes("pro-subscription");
+    const directIds = activeEntitlements.map(e => e.productId);
 
-    return res.json({ ownedProductIds, activeSubscription, isProUser });
+    const BUNDLE_CONTENTS: Record<string, string[]> = {
+      "bundle-master-investigator": [
+        "pro-subscription",
+        "pack-network-ops",
+        "pack-server-graveyard",
+        "pack-garage-diagnostics",
+        "pack-sensor-mesh",
+        "pack-mixed-cascades",
+        "upgrade-advanced-tools",
+        "upgrade-chaos-mode",
+        "upgrade-deep-telemetry",
+        "upgrade-sandbox-pro",
+        "upgrade-pro-analytics",
+      ],
+      "bundle-clinical-systems": [
+        "pack-healthcare-imaging",
+        "upgrade-advanced-tools",
+        "upgrade-deep-telemetry",
+      ],
+    };
+
+    const expanded = new Set<string>(directIds);
+    for (const id of directIds) {
+      const children = BUNDLE_CONTENTS[id];
+      if (children) for (const c of children) expanded.add(c);
+    }
+
+    const ownedProductIds = ["base-free", ...Array.from(expanded)];
+    const activeSubscription =
+      activeEntitlements.find(e => e.entitlementType === "subscription")?.productId ||
+      (expanded.has("pro-subscription") ? "pro-subscription" : null);
+    const isProUser = expanded.has("pro-subscription");
+    const isAdmin = !!user[0].isAdmin;
+
+    return res.json({ ownedProductIds, activeSubscription, isProUser, isAdmin });
   } catch (err) {
     console.error("Failed to load entitlements:", err);
     return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/catalog/overrides", async (_req, res) => {
+  try {
+    const rows = await db.select().from(catalogOverridesTable);
+    return res.json({
+      overrides: rows.map((r) => ({ productId: r.productId, ...(r.overrides || {}) })),
+    });
+  } catch (err) {
+    console.error("Failed to load public catalog overrides:", err);
+    return res.json({ overrides: [] });
   }
 });
 

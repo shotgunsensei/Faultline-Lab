@@ -23,8 +23,30 @@ import {
   Package,
   Lightbulb,
   Activity,
+  Network,
+  Gauge,
+  Zap,
+  FlaskConical,
+  BarChart3,
+  Lock,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
+import {
+  hasFeature,
+  getRequiredProductForFeature,
+  getEntitlements,
+  subscribeEntitlements,
+} from '@/lib/entitlements';
+import { useUpgradePrompt } from './UpgradePrompt';
+import { toast } from 'sonner';
+
+const premiumTools = [
+  { id: 'wireshark-panel', label: 'Wireshark', icon: Network },
+  { id: 'deep-telemetry', label: 'Deep Telemetry', icon: Gauge },
+  { id: 'chaos-mode', label: 'Chaos Mode', icon: Zap },
+  { id: 'sandbox-pro', label: 'Sandbox', icon: FlaskConical },
+  { id: 'pro-analytics', label: 'Analytics', icon: BarChart3 },
+];
 
 const toolTabs = [
   { id: 'terminal', label: 'Terminal', icon: Terminal },
@@ -43,7 +65,30 @@ export default function InvestigationWorkspace() {
   const currentCaseState = useAppStore(s => s.currentCaseState);
   const activeTool = useAppStore(s => s.activeTool);
   const setActiveTool = useAppStore(s => s.setActiveTool);
+  const trackToolUsage = useAppStore(s => s.trackToolUsage);
   const showDiagnosisForm = useAppStore(s => s.showDiagnosisForm);
+  useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
+  const { prompt } = useUpgradePrompt();
+
+  useEffect(() => {
+    if (activeTool) trackToolUsage(activeTool);
+  }, [activeTool, trackToolUsage]);
+
+  const handlePremiumTool = (featureId: string, label: string) => {
+    trackToolUsage(featureId);
+    if (hasFeature(featureId)) {
+      toast.success(`${label} unlocked — opening soon.`);
+      return;
+    }
+    const required = getRequiredProductForFeature(featureId);
+    if (required) {
+      prompt({
+        productId: required.id,
+        contextKey: `feature:${featureId}`,
+        reason: `${label} is part of ${required.name}. Unlock it to use this tool during investigations.`,
+      });
+    }
+  };
   const toggleDiagnosisForm = useAppStore(s => s.toggleDiagnosisForm);
   const exitCase = useAppStore(s => s.exitCase);
   const [elapsed, setElapsed] = useState('00:00');
@@ -178,6 +223,28 @@ export default function InvestigationWorkspace() {
                 </button>
               );
             })}
+
+            <div className="hidden md:flex items-center gap-1 ml-2 pl-2 border-l border-zinc-800/50">
+              {premiumTools.map((tool) => {
+                const Icon = tool.icon;
+                const unlocked = hasFeature(tool.id);
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => handlePremiumTool(tool.id, tool.label)}
+                    className={`flex items-center gap-1 px-2 py-1.5 text-xs font-mono rounded border transition-colors ${
+                      unlocked
+                        ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10'
+                        : 'border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700/60'
+                    }`}
+                    title={unlocked ? `${tool.label} (unlocked)` : `${tool.label} (upgrade to unlock)`}
+                  >
+                    {unlocked ? <Icon size={11} /> : <Lock size={11} />}
+                    <span>{tool.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             <div className="flex-1" />
 

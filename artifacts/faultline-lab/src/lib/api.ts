@@ -34,3 +34,57 @@ export async function saveProfileToCloud(data: {
 export async function fetchEntitlements() {
   return apiFetch('/entitlements');
 }
+
+export async function startStripeCheckout(
+  catalogProductId: string,
+  interval?: 'month' | 'year'
+): Promise<{ url: string | null }> {
+  return apiFetch('/stripe/checkout-by-catalog', {
+    method: 'POST',
+    body: JSON.stringify({ catalogProductId, interval }),
+  });
+}
+
+export async function adminFetchUsers() {
+  return apiFetch('/admin/users');
+}
+
+export async function adminFetchUserEntitlements(userId: string) {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/entitlements`);
+}
+
+export async function adminGrantEntitlement(
+  userId: string,
+  productId: string,
+  source: string = 'admin-grant'
+) {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/entitlements`, {
+    method: 'POST',
+    body: JSON.stringify({ productId, source }),
+  });
+}
+
+export async function fetchCatalogOverrides() {
+  return apiFetch('/catalog/overrides');
+}
+
+export async function adminFetchCatalogOverrides() {
+  return apiFetch('/admin/catalog/overrides');
+}
+
+export async function adminSaveCatalogOverride(
+  productId: string,
+  overrides: Record<string, unknown>
+) {
+  return apiFetch(`/admin/catalog/overrides/${encodeURIComponent(productId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(overrides),
+  });
+}
+
+export async function adminRevokeEntitlement(userId: string, entitlementId: string) {
+  return apiFetch(
+    `/admin/users/${encodeURIComponent(userId)}/entitlements/${encodeURIComponent(entitlementId)}`,
+    { method: 'DELETE' }
+  );
+}

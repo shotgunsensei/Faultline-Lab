@@ -196,7 +196,8 @@ export type AppView =
   | 'profile'
   | 'settings'
   | 'store'
-  | 'auth';
+  | 'auth'
+  | 'admin';
 
 export interface AuthUser {
   id: string;

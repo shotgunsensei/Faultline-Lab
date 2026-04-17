@@ -1,8 +1,13 @@
 import { useAppStore } from '@/stores/useAppStore';
-import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2, LogOut } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2, LogOut, Crown, ShieldCheck } from 'lucide-react';
 import { clearAllData } from '@/lib/persistence';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useClerk } from '@clerk/react';
+import {
+  getCurrentPlanLabel,
+  getEntitlements,
+  subscribeEntitlements,
+} from '@/lib/entitlements';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -24,6 +29,11 @@ export default function SettingsScreen() {
   const setView = useAppStore(s => s.setView);
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const [confirmReset, setConfirmReset] = useState(false);
+  const ent = useSyncExternalStore(
+    (cb) => subscribeEntitlements(cb),
+    () => getEntitlements()
+  );
+  const planLabel = getCurrentPlanLabel();
 
   const handleReset = () => {
     if (!confirmReset) {
@@ -52,6 +62,44 @@ export default function SettingsScreen() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4 pb-20 sm:pb-8">
+        <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Crown size={16} className={ent.isProUser ? 'text-amber-400' : 'text-zinc-500'} />
+              <div>
+                <p className="text-sm text-zinc-200">Current plan</p>
+                <p className="text-xs text-zinc-500">{planLabel}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setView('store')}
+              className="px-3 py-1.5 rounded text-xs font-mono uppercase bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+            >
+              {ent.isProUser ? 'Manage' : 'Upgrade'}
+            </button>
+          </div>
+        </div>
+
+        {ent.isAdmin && (
+          <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={16} className="text-emerald-400" />
+                <div>
+                  <p className="text-sm text-zinc-200">Admin tools</p>
+                  <p className="text-xs text-zinc-500">Catalog management & user entitlements</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setView('admin')}
+                className="px-3 py-1.5 rounded text-xs font-mono uppercase bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+              >
+                Open
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

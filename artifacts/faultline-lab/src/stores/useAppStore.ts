@@ -50,7 +50,9 @@ interface AppState {
   showDiagnosisForm: boolean;
   authUser: AuthUser | null;
   isSignedIn: boolean;
+  toolUsageSignals: Record<string, number>;
 
+  trackToolUsage: (signal: string) => void;
   setView: (view: AppView) => void;
   setAuthUser: (user: AuthUser | null) => void;
   startCase: (caseId: string) => void;
@@ -83,6 +85,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   showDiagnosisForm: false,
   authUser: null,
   isSignedIn: false,
+  toolUsageSignals: {},
+
+  trackToolUsage: (signal) =>
+    set((state) => ({
+      toolUsageSignals: {
+        ...state.toolUsageSignals,
+        [signal]: (state.toolUsageSignals[signal] || 0) + 1,
+      },
+    })),
 
   setView: (view) => set({ view }),
 

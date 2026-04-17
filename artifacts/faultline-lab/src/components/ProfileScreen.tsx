@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { allCases, categoryLabels } from '@/data/cases';
+import { getOwnedProducts, subscribeEntitlements, getEntitlements, getCurrentPlanLabel } from '@/lib/entitlements';
+import { useSyncExternalStore } from 'react';
 import {
   ArrowLeft,
   User,
@@ -11,10 +13,14 @@ import {
   Award,
   CheckCircle,
   LogIn,
-  LogOut,
   Cloud,
   CloudOff,
   Pencil,
+  Package,
+  Crown,
+  Zap,
+  Layers,
+  ShoppingBag,
 } from 'lucide-react';
 
 export default function ProfileScreen() {
@@ -26,6 +32,12 @@ export default function ProfileScreen() {
   const authUser = useAppStore(s => s.authUser);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
+  const ent = useSyncExternalStore(
+    (cb) => subscribeEntitlements(cb),
+    () => getEntitlements()
+  );
+  const owned = getOwnedProducts().filter(p => p.id !== 'base-free');
+  const planLabel = getCurrentPlanLabel();
 
   const handleSaveName = () => {
     if (nameInput.trim()) {
@@ -104,6 +116,48 @@ export default function ProfileScreen() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="mb-6 rounded-xl border border-zinc-800/50 bg-[#111822] p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <div className="flex items-center gap-2">
+                <Crown size={16} className={ent.isProUser ? 'text-amber-400' : 'text-zinc-500'} />
+                <span className="text-sm font-semibold text-zinc-100">{planLabel}</span>
+              </div>
+              <button
+                onClick={() => setView('store')}
+                className="text-[11px] font-mono uppercase tracking-wider text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              >
+                <ShoppingBag size={12} /> Manage
+              </button>
+            </div>
+            {owned.length === 0 ? (
+              <p className="text-xs text-zinc-500">
+                You're on the Free Tier. Visit the store to unlock packs, upgrades, or Pro.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {owned.map((p) => {
+                  const Icon =
+                    p.entitlementType === 'subscription'
+                      ? Crown
+                      : p.entitlementType === 'feature-upgrade'
+                        ? Zap
+                        : p.entitlementType === 'bundle'
+                          ? Layers
+                          : Package;
+                  return (
+                    <span
+                      key={p.id}
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-800/60 border border-zinc-700/50 rounded-full text-xs text-zinc-200"
+                    >
+                      <Icon size={11} className="text-cyan-400" />
+                      {p.name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {!isSignedIn && (

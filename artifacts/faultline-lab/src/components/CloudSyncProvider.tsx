@@ -1,15 +1,28 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { fetchProfile, saveProfileToCloud, fetchEntitlements } from '@/lib/api';
+import { fetchProfile, saveProfileToCloud, fetchEntitlements, fetchCatalogOverrides } from '@/lib/api';
 import { setEntitlements } from '@/lib/entitlements';
+import { applyCatalogOverrides } from '@/data/catalog';
 import { loadCaseStates, saveCaseStates } from '@/lib/persistence';
+import { useUpgradePrompt } from './UpgradePrompt';
 
 export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const profile = useAppStore(s => s.profile);
   const settings = useAppStore(s => s.settings);
   const syncedRef = useRef(false);
+  const overridesLoadedRef = useRef(false);
+  const cloudPromptShownRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { prompt } = useUpgradePrompt();
+
+  useEffect(() => {
+    if (overridesLoadedRef.current) return;
+    overridesLoadedRef.current = true;
+    fetchCatalogOverrides()
+      .then((r) => applyCatalogOverrides(r?.overrides || []))
+      .catch(() => {});
+  }, []);
 
   const syncFromCloud = useCallback(async () => {
     if (syncedRef.current) return;
@@ -21,6 +34,17 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
 
       if (entitlementData) {
         setEntitlements(entitlementData);
+        if (!entitlementData.isProUser && !cloudPromptShownRef.current) {
+          cloudPromptShownRef.current = true;
+          setTimeout(() => {
+            prompt({
+              productId: 'pro-subscription',
+              contextKey: 'cloud-sync-after-signin',
+              reason:
+                "You're signed in. Pro Investigator adds cloud sync across devices, daily challenges, and the full archive.",
+            });
+          }, 1500);
+        }
       }
 
       if (profileData?.profile) {
