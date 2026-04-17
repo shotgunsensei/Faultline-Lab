@@ -442,6 +442,22 @@ export type CatalogOverride = {
 
 const catalogOverrideListeners = new Set<() => void>();
 
+const ORIGINAL_CATALOG_SNAPSHOT: Record<
+  string,
+  Pick<CatalogProduct, 'status' | 'featured' | 'shortDescription' | 'longDescription' | 'tags'>
+> = Object.fromEntries(
+  CATALOG.map((p) => [
+    p.id,
+    {
+      status: p.status,
+      featured: p.featured,
+      shortDescription: p.shortDescription,
+      longDescription: p.longDescription,
+      tags: [...p.tags],
+    },
+  ])
+);
+
 export function applyCatalogOverrides(overrides: CatalogOverride[]) {
   for (const o of overrides) {
     const product = CATALOG.find((p) => p.id === o.productId);
@@ -453,6 +469,19 @@ export function applyCatalogOverrides(overrides: CatalogOverride[]) {
     if (o.tags !== undefined) product.tags = o.tags;
   }
   catalogOverrideListeners.forEach((cb) => cb());
+}
+
+export function revertCatalogProduct(productId: string): boolean {
+  const product = CATALOG.find((p) => p.id === productId);
+  const original = ORIGINAL_CATALOG_SNAPSHOT[productId];
+  if (!product || !original) return false;
+  product.status = original.status;
+  product.featured = original.featured;
+  product.shortDescription = original.shortDescription;
+  product.longDescription = original.longDescription;
+  product.tags = [...original.tags];
+  catalogOverrideListeners.forEach((cb) => cb());
+  return true;
 }
 
 export function subscribeCatalog(cb: () => void): () => void {

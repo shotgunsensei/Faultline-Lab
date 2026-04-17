@@ -12,6 +12,7 @@ export const catalogOverridesTable = pgTable("catalog_overrides", {
   productId: text("product_id").primaryKey(),
   overrides: jsonb("overrides").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedByUserId: text("updated_by_user_id"),
 });
 
 export type CatalogOverride = typeof catalogOverridesTable.$inferSelect;

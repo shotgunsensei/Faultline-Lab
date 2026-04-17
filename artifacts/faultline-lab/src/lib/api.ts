@@ -72,13 +72,33 @@ export async function adminFetchCatalogOverrides() {
   return apiFetch('/admin/catalog/overrides');
 }
 
+export type CatalogOverridePayload = {
+  status?: 'available' | 'coming-soon' | 'disabled';
+  featured?: boolean;
+  shortDescription?: string;
+  longDescription?: string;
+  tags?: string[];
+};
+
+export type AdminSaveCatalogOverrideResponse = {
+  success: boolean;
+  updatedAt: string;
+  updatedByUserId: string | null;
+};
+
 export async function adminSaveCatalogOverride(
   productId: string,
-  overrides: Record<string, unknown>
-) {
+  overrides: CatalogOverridePayload
+): Promise<AdminSaveCatalogOverrideResponse> {
   return apiFetch(`/admin/catalog/overrides/${encodeURIComponent(productId)}`, {
     method: 'PUT',
     body: JSON.stringify(overrides),
+  }) as Promise<AdminSaveCatalogOverrideResponse>;
+}
+
+export async function adminRevertCatalogOverride(productId: string) {
+  return apiFetch(`/admin/catalog/overrides/${encodeURIComponent(productId)}`, {
+    method: 'DELETE',
   });
 }
 

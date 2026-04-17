@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { CATALOG, formatPrice, applyCatalogOverrides, subscribeCatalog, type CatalogProduct } from '@/data/catalog';
+import { CATALOG, formatPrice, applyCatalogOverrides, revertCatalogProduct, subscribeCatalog, type CatalogProduct } from '@/data/catalog';
 import {
   addOwnedProduct,
   getEntitlements,
@@ -14,6 +14,8 @@ import {
   adminRevokeEntitlement,
   adminFetchCatalogOverrides,
   adminSaveCatalogOverride,
+  adminRevertCatalogOverride,
+  type CatalogOverridePayload,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -31,15 +33,39 @@ import {
   Save,
   X,
   Tag,
+  Undo2,
 } from 'lucide-react';
 
-type CatalogOverride = {
-  status?: 'available' | 'coming-soon' | 'disabled';
-  featured?: boolean;
-  shortDescription?: string;
-  longDescription?: string;
-  tags?: string[];
+type CatalogOverride = CatalogOverridePayload;
+
+type CatalogOverrideEditor = {
+  id: string;
+  displayName: string | null;
+  email: string | null;
 };
+
+type CatalogOverrideMeta = {
+  updatedAt: string | null;
+  editor: CatalogOverrideEditor | null;
+};
+
+function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const sec = Math.max(1, Math.round(diffMs / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  const mo = Math.round(day / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.round(mo / 12)}y ago`;
+}
 
 interface AdminUser {
   id: string;
@@ -66,6 +92,7 @@ export default function AdminPanel() {
   );
   const [tab, setTab] = useState<'catalog' | 'users'>('catalog');
   const [overrides, setOverrides] = useState<Record<string, CatalogOverride>>({});
+  const [overrideMeta, setOverrideMeta] = useState<Record<string, CatalogOverrideMeta>>({});
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<CatalogOverride>({});
   useSyncExternalStore(
@@ -75,13 +102,38 @@ export default function AdminPanel() {
 
   useEffect(() => {
     adminFetchCatalogOverrides()
-      .then((r) => {
+      .then((r: { overrides?: Array<Record<string, unknown>> }) => {
         const map: Record<string, CatalogOverride> = {};
-        for (const o of r.overrides || []) {
-          const { productId, ...rest } = o;
-          map[productId] = rest;
+        const metaMap: Record<string, CatalogOverrideMeta> = {};
+        for (const raw of r.overrides || []) {
+          const productId = String(raw.productId || '');
+          if (!productId) continue;
+          const override: CatalogOverride = {};
+          if (raw.status === 'available' || raw.status === 'coming-soon' || raw.status === 'disabled') {
+            override.status = raw.status;
+          }
+          if (typeof raw.featured === 'boolean') override.featured = raw.featured;
+          if (typeof raw.shortDescription === 'string') override.shortDescription = raw.shortDescription;
+          if (typeof raw.longDescription === 'string') override.longDescription = raw.longDescription;
+          if (Array.isArray(raw.tags)) override.tags = raw.tags.filter((t): t is string => typeof t === 'string');
+          map[productId] = override;
+          const editorRaw = raw.editor as
+            | { id?: unknown; displayName?: unknown; email?: unknown }
+            | null
+            | undefined;
+          metaMap[productId] = {
+            updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
+            editor: editorRaw && typeof editorRaw.id === 'string'
+              ? {
+                  id: editorRaw.id,
+                  displayName: typeof editorRaw.displayName === 'string' ? editorRaw.displayName : null,
+                  email: typeof editorRaw.email === 'string' ? editorRaw.email : null,
+                }
+              : null,
+          };
         }
         setOverrides(map);
+        setOverrideMeta(metaMap);
       })
       .catch(() => {});
   }, []);
@@ -127,14 +179,47 @@ export default function AdminPanel() {
   }
 
   const updateOverride = async (id: string, patch: CatalogOverride) => {
-    const merged = { ...overrides[id], ...patch };
-    const next = { ...overrides, [id]: merged };
-    setOverrides(next);
+    const prev = overrides[id] || {};
+    const merged: CatalogOverride = { ...prev, ...patch };
+    setOverrides({ ...overrides, [id]: merged });
     applyCatalogOverrides([{ productId: id, ...merged }]);
     try {
-      await adminSaveCatalogOverride(id, merged);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to save catalog override');
+      const res = await adminSaveCatalogOverride(id, merged);
+      setOverrideMeta((cur) => ({
+        ...cur,
+        [id]: {
+          updatedAt: res.updatedAt,
+          editor: {
+            id: res.updatedByUserId ?? 'me',
+            displayName: 'You',
+            email: null,
+          },
+        },
+      }));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to save catalog override';
+      toast.error(message);
+    }
+  };
+
+  const revert = async (id: string) => {
+    try {
+      await adminRevertCatalogOverride(id);
+      revertCatalogProduct(id);
+      setOverrides((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
+      setOverrideMeta((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
+      toast.success('Reverted to original values.');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to revert catalog entry.';
+      toast.error(message);
     }
   };
 
@@ -293,8 +378,29 @@ export default function AdminPanel() {
                       >
                         {isEditing ? <X size={14} /> : <Pencil size={14} />}
                       </button>
+                      {overrides[p.id] && (
+                        <button
+                          title="Revert to original"
+                          onClick={() => revert(p.id)}
+                          className="p-1.5 rounded hover:bg-zinc-800 text-amber-400"
+                        >
+                          <Undo2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
+                  {overrideMeta[p.id]?.updatedAt && (
+                    <p className="text-[11px] text-zinc-500 font-mono mt-1">
+                      edited by{' '}
+                      <span className="text-zinc-300">
+                        {overrideMeta[p.id]?.editor?.displayName ||
+                          overrideMeta[p.id]?.editor?.email ||
+                          overrideMeta[p.id]?.editor?.id ||
+                          'unknown'}
+                      </span>{' '}
+                      · {formatRelativeTime(overrideMeta[p.id]?.updatedAt)}
+                    </p>
+                  )}
                   {isEditing && (
                     <div className="mt-3 space-y-2">
                       <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500">

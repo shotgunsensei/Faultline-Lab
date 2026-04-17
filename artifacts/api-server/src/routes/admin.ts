@@ -150,9 +150,31 @@ router.delete(
 
 router.get("/admin/catalog/overrides", requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const rows = await db.select().from(catalogOverridesTable);
+    const rows = await db
+      .select({
+        productId: catalogOverridesTable.productId,
+        overrides: catalogOverridesTable.overrides,
+        updatedAt: catalogOverridesTable.updatedAt,
+        updatedByUserId: catalogOverridesTable.updatedByUserId,
+        editorEmail: usersTable.email,
+        editorDisplayName: usersTable.displayName,
+      })
+      .from(catalogOverridesTable)
+      .leftJoin(usersTable, eq(usersTable.id, catalogOverridesTable.updatedByUserId));
     return res.json({
-      overrides: rows.map((r) => ({ productId: r.productId, ...(r.overrides || {}) })),
+      overrides: rows.map((r) => ({
+        productId: r.productId,
+        ...((r.overrides as Record<string, unknown>) || {}),
+        updatedAt: r.updatedAt?.toISOString?.() ?? null,
+        updatedByUserId: r.updatedByUserId,
+        editor: r.updatedByUserId
+          ? {
+              id: r.updatedByUserId,
+              displayName: r.editorDisplayName,
+              email: r.editorEmail,
+            }
+          : null,
+      })),
     });
   } catch (err) {
     console.error("Failed to load catalog overrides:", err);
@@ -164,24 +186,53 @@ router.put("/admin/catalog/overrides/:productId", requireAuth, requireAdmin, asy
   try {
     const productId = getParam(req, "productId");
     const overrides = req.body || {};
+    const adminUser = (req as any).adminUser as { id: string };
     const existing = await db
       .select()
       .from(catalogOverridesTable)
       .where(eq(catalogOverridesTable.productId, productId))
       .limit(1);
+    const now = new Date();
     if (existing.length === 0) {
-      await db.insert(catalogOverridesTable).values({ productId, overrides });
+      await db.insert(catalogOverridesTable).values({
+        productId,
+        overrides,
+        updatedAt: now,
+        updatedByUserId: adminUser.id,
+      });
     } else {
       await db
         .update(catalogOverridesTable)
-        .set({ overrides, updatedAt: new Date() })
+        .set({ overrides, updatedAt: now, updatedByUserId: adminUser.id })
         .where(eq(catalogOverridesTable.productId, productId));
     }
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      updatedAt: now.toISOString(),
+      updatedByUserId: adminUser.id,
+    });
   } catch (err) {
     console.error("Failed to save catalog override:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.delete(
+  "/admin/catalog/overrides/:productId",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const productId = getParam(req, "productId");
+      await db
+        .delete(catalogOverridesTable)
+        .where(eq(catalogOverridesTable.productId, productId));
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to revert catalog override:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;
