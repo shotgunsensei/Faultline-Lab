@@ -1,7 +1,7 @@
 import { CATALOG, type CatalogProduct } from '@/data/catalog';
 import { allCases } from '@/data/cases';
 import { hasEntitlement } from '@/lib/entitlements';
-import type { InvestigatorProfile } from '@/types';
+import type { CaseDefinition, InvestigatorProfile } from '@/types';
 
 export interface RecommendationReason {
   product: CatalogProduct;
@@ -116,4 +116,33 @@ export function recommendProducts(
     .filter((r) => r.product.status !== 'disabled')
     .sort((a, b) => b.weight - a.weight)
     .slice(0, limit);
+}
+
+export function recommendForCase(
+  solvedCase: CaseDefinition,
+  profile: InvestigatorProfile,
+  toolUsage: Record<string, number> = {},
+  limit = 2
+): RecommendationReason[] {
+  const base = recommendProducts(profile, toolUsage, 8);
+  const boosted: RecommendationReason[] = [];
+
+  const categoryProductId = CATEGORY_TO_PRODUCT[solvedCase.category];
+  if (categoryProductId && !hasEntitlement(categoryProductId)) {
+    const product = CATALOG.find((p) => p.id === categoryProductId);
+    if (product && product.status !== 'disabled') {
+      boosted.push({
+        product,
+        reason: `You just cracked a ${solvedCase.category.replace('-', ' ')} case — more like it inside.`,
+        weight: 100,
+      });
+    }
+  }
+
+  for (const r of base) {
+    if (boosted.find((b) => b.product.id === r.product.id)) continue;
+    boosted.push(r);
+  }
+
+  return boosted.slice(0, limit);
 }

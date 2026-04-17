@@ -51,9 +51,12 @@ interface AppState {
   authUser: AuthUser | null;
   isSignedIn: boolean;
   toolUsageSignals: Record<string, number>;
+  pendingStoreProduct: { productId: string; reason: string } | null;
 
   trackToolUsage: (signal: string) => void;
   setView: (view: AppView) => void;
+  openStoreWithProduct: (productId: string, reason: string) => void;
+  consumePendingStoreProduct: () => { productId: string; reason: string } | null;
   setAuthUser: (user: AuthUser | null) => void;
   startCase: (caseId: string) => void;
   resumeCase: (caseId: string) => void;
@@ -86,6 +89,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   authUser: null,
   isSignedIn: false,
   toolUsageSignals: {},
+  pendingStoreProduct: null,
+
+  openStoreWithProduct: (productId, reason) =>
+    set({ pendingStoreProduct: { productId, reason }, view: 'store' }),
+
+  consumePendingStoreProduct: () => {
+    const pending = get().pendingStoreProduct;
+    if (pending) set({ pendingStoreProduct: null });
+    return pending;
+  },
 
   trackToolUsage: (signal) =>
     set((state) => ({

@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   CATALOG,
@@ -179,10 +179,12 @@ function ProductDetail({
   product,
   onClose,
   onPurchased,
+  reason,
 }: {
   product: CatalogProduct;
   onClose: () => void;
   onPurchased: () => void;
+  reason?: string;
 }) {
   const status = getProductOwnershipStatus(product.id);
   const isOwned = status === 'owned';
@@ -293,6 +295,13 @@ function ProductDetail({
               &times;
             </button>
           </div>
+
+          {reason && (
+            <div className="mb-4 rounded-lg border border-cyan-700/40 bg-cyan-950/20 p-3 flex items-start gap-2">
+              <Wand2 className="w-3.5 h-3.5 text-cyan-300 mt-0.5 shrink-0" />
+              <p className="text-xs text-cyan-200 leading-relaxed">{reason}</p>
+            </div>
+          )}
 
           <p className="text-zinc-300 text-sm leading-relaxed mb-3">{product.longDescription}</p>
           {product.valueProposition && (
@@ -483,7 +492,30 @@ export default function StoreScreen() {
   const profile = useAppStore((s) => s.profile);
   const toolUsageSignals = useAppStore((s) => s.toolUsageSignals);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string | undefined>(undefined);
+  const consumePendingStoreProduct = useAppStore((s) => s.consumePendingStoreProduct);
+  const pendingStoreProduct = useAppStore((s) => s.pendingStoreProduct);
   useEntitlementsTick();
+
+  useEffect(() => {
+    if (!pendingStoreProduct) return;
+    const pending = consumePendingStoreProduct();
+    if (!pending) return;
+    const product = CATALOG.find((p) => p.id === pending.productId);
+    if (product) {
+      setSelectedProduct(product);
+      setSelectedReason(pending.reason);
+    }
+  }, [pendingStoreProduct, consumePendingStoreProduct]);
+
+  const openProduct = (p: CatalogProduct) => {
+    setSelectedProduct(p);
+    setSelectedReason(undefined);
+  };
+  const closeProduct = () => {
+    setSelectedProduct(null);
+    setSelectedReason(undefined);
+  };
 
   const featured = CATALOG.filter((p) => p.featured && p.status !== 'disabled');
   const plans = getProductsBySection('plan');
@@ -519,7 +551,7 @@ export default function StoreScreen() {
               return (
                 <button
                   key={p.id}
-                  onClick={() => setSelectedProduct(p)}
+                  onClick={() => openProduct(p)}
                   className="text-left rounded-2xl border border-cyan-700/30 bg-gradient-to-br from-cyan-950/40 via-zinc-900/60 to-zinc-900/30 p-6 hover:border-cyan-500/50 transition-colors group"
                 >
                   <div className="flex items-center gap-3 mb-2">
@@ -560,7 +592,7 @@ export default function StoreScreen() {
                 <ProductCard
                   key={r.product.id}
                   product={r.product}
-                  onSelect={setSelectedProduct}
+                  onSelect={openProduct}
                   reason={r.reason}
                 />
               ))}
@@ -577,7 +609,7 @@ export default function StoreScreen() {
             />
             <div className="grid gap-3 sm:grid-cols-2">
               {owned.map((p) => (
-                <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+                <ProductCard key={p.id} product={p} onSelect={openProduct} />
               ))}
             </div>
           </section>
@@ -587,7 +619,7 @@ export default function StoreScreen() {
           <SectionHeader icon={<Crown className="w-4 h-4 text-amber-400" />} label="Subscription plans" />
           <div className="grid gap-3">
             {plans.map((p) => (
-              <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+              <ProductCard key={p.id} product={p} onSelect={openProduct} />
             ))}
           </div>
         </section>
@@ -599,7 +631,7 @@ export default function StoreScreen() {
           />
           <div className="grid gap-3 sm:grid-cols-2">
             {packs.map((p) => (
-              <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+              <ProductCard key={p.id} product={p} onSelect={openProduct} />
             ))}
           </div>
         </section>
@@ -608,7 +640,7 @@ export default function StoreScreen() {
           <SectionHeader icon={<Zap className="w-4 h-4 text-violet-400" />} label="Feature upgrades" />
           <div className="grid gap-3 sm:grid-cols-2">
             {upgrades.map((p) => (
-              <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+              <ProductCard key={p.id} product={p} onSelect={openProduct} />
             ))}
           </div>
         </section>
@@ -618,7 +650,7 @@ export default function StoreScreen() {
             <SectionHeader icon={<Star className="w-4 h-4 text-purple-400" />} label="Bundles" />
             <div className="grid gap-3">
               {bundles.map((p) => (
-                <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+                <ProductCard key={p.id} product={p} onSelect={openProduct} />
               ))}
             </div>
           </section>
@@ -633,7 +665,7 @@ export default function StoreScreen() {
             />
             <div className="grid gap-3 sm:grid-cols-2">
               {specialty.map((p) => (
-                <ProductCard key={p.id} product={p} onSelect={setSelectedProduct} />
+                <ProductCard key={p.id} product={p} onSelect={openProduct} />
               ))}
             </div>
           </section>
@@ -643,8 +675,9 @@ export default function StoreScreen() {
       {selectedProduct && (
         <ProductDetail
           product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onPurchased={() => setSelectedProduct(null)}
+          onClose={closeProduct}
+          onPurchased={closeProduct}
+          reason={selectedReason}
         />
       )}
     </div>
