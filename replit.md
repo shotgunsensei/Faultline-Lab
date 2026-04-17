@@ -30,7 +30,9 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 
 ### Key Directories
 - `artifacts/faultline-lab/src/types/` — TypeScript domain model
-- `artifacts/faultline-lab/src/data/cases/` — Handcrafted case definitions (4 MVP cases)
+- `artifacts/faultline-lab/src/data/cases/` — Handcrafted case definitions (4 MVP cases) + typed `registry.ts` (`CASE_DEFINITIONS` map)
+- `artifacts/faultline-lab/src/data/cases/authoring/` — Case Authoring Framework (schema, helpers, validation, per-domain templates)
+- `artifacts/faultline-lab/src/data/caseCatalog/` — Catalog spine: 56 entries with status/access/source-product mapping, validation, and selectors
 - `artifacts/faultline-lab/src/data/catalog.ts` — Product catalog (14 products: tiers, packs, upgrades, bundles)
 - `artifacts/faultline-lab/src/lib/simulation.ts` — Simulation engine
 - `artifacts/faultline-lab/src/lib/persistence.ts` — localStorage persistence layer
@@ -79,6 +81,40 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 
 ### Case Structure
 Each case has terminal commands, event logs, ticket history, evidence items, 4-tier hints, root cause evaluation, score breakdown, and full debrief.
+
+### Case Catalog
+- `data/caseCatalog/entries.ts` is the single source of truth for every case the app advertises (56 entries: 4 playable, 52 planned).
+- Each `CaseCatalogEntry` carries `sourceProductId`, `requiredEntitlements`, `status` (`playable` / `planned`), `accessModel`, and preview metadata used by IncidentBoard, StoreScreen, and ProfileScreen.
+- `data/caseCatalog/validation.ts` runs at app boot (via `App.tsx`) and asserts FREE_CASE_IDS ↔ `isStarter` sync, product-case derivation invariants, and that every playable entry resolves to a `CaseDefinition`.
+- `data/cases/registry.ts` exports `CASE_DEFINITIONS`, the typed map keyed by case id that resolves catalog entries to runnable game logic.
+
+### Case Authoring Framework
+The framework lives at `data/cases/authoring/` and is the supported way to add new cases.
+
+- `schema.ts` defines `CaseDraft` (author-facing shape — like `CaseDefinition` but with author-time defaults) and `AuthoringIssue` / `AuthoringResult` (validator output).
+- `helpers.ts` exports composition helpers (`symptom`, `rootCause`, `evidence`, `command`, `eventLog`, `ticket`, `hintLadder`) plus `composeCase(draft)` which validates and lifts a draft into a `CaseDefinition` (or throws with actionable issues).
+- `validate.ts` enforces: required identity fields, ≥2 symptoms, ≥4 evidence items, exactly 4 hint tiers with strictly increasing penalties, all `revealsEvidence` ids point at real evidence, every clue/critical evidence is reachable from at least one command/event/ticket, tool variety on advanced/expert cases, `maxScore === 100`.
+- `templates.ts` exports `createTemplate(domain, opts)` for seven domains: `windows-ad`, `networking`, `servers`, `automotive`, `electronics`, `mixed`, `healthcare-imaging`. Each template returns a draft that already passes the validator with placeholder content so authors get green-on-load.
+
+#### How to add a new case
+1. Pick a catalog entry from `data/caseCatalog/entries.ts` (or add one) and note its `id` and `sourceProductId`.
+2. Create a new file under `data/cases/`, e.g. `data/cases/networking-bgp-flap-case.ts`.
+3. Start from a template:
+   ```ts
+   import { composeCase, createTemplate } from './authoring';
+
+   const draft = createTemplate('networking', {
+     id: 'case-networking-bgp-flap-001',
+     slug: 'bgp-flap',
+     title: 'Phantom BGP Flap',
+     difficulty: 'advanced',
+   });
+   // Replace placeholder content on draft.symptoms / evidence / commands / etc.
+   export const bgpFlapCase = composeCase(draft);
+   ```
+4. Register the case in `data/cases/registry.ts` so the engine can resolve it.
+5. Update the catalog entry's `status` from `planned` → `playable` and set `implementationRef` to the case id.
+6. The boot-time validator in `App.tsx` will fail loudly if anything is misaligned.
 
 ### MVP Cases
 1. **Domain Authentication Failure** (Windows/AD) — Kerberos time skew

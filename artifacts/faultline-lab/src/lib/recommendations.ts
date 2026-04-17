@@ -1,5 +1,5 @@
 import { CATALOG, type CatalogProduct } from '@/data/catalog';
-import { allCases } from '@/data/cases';
+import { getCaseEntryById } from '@/data/caseCatalog';
 import { hasEntitlement } from '@/lib/entitlements';
 import type { CaseDefinition, InvestigatorProfile } from '@/types';
 
@@ -28,9 +28,9 @@ const CATEGORY_TO_PRODUCT: Record<string, string> = {
 export function buildSignals(profile: InvestigatorProfile, toolUsage: Record<string, number> = {}): BehaviorSignals {
   const solvedByCategory: Record<string, number> = {};
   for (const id of profile.solvedCaseIds) {
-    const c = allCases.find((x) => x.id === id);
-    if (!c) continue;
-    solvedByCategory[c.category] = (solvedByCategory[c.category] || 0) + 1;
+    const entry = getCaseEntryById(id);
+    if (!entry) continue;
+    solvedByCategory[entry.category] = (solvedByCategory[entry.category] || 0) + 1;
   }
   return {
     solvedByCategory,
