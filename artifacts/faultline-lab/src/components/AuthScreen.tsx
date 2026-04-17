@@ -41,6 +41,8 @@ export default function AuthScreen() {
       <div className="w-full max-w-md">
         {mode === 'sign-in' ? (
           <SignIn
+            routing="virtual"
+            signUpUrl="#sign-up"
             appearance={{
               elements: {
                 rootBox: 'w-full',
@@ -59,6 +61,8 @@ export default function AuthScreen() {
           />
         ) : (
           <SignUp
+            routing="virtual"
+            signInUrl="#sign-in"
             appearance={{
               elements: {
                 rootBox: 'w-full',
