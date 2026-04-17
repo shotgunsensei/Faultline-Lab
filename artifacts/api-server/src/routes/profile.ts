@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
-import { usersTable, userProfilesTable, catalogOverridesTable } from "@workspace/db";
+import { usersTable, userProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import {
+  getCatalogOverridesVersion,
+  loadCatalogOverridesPayload,
+  onCatalogOverridesChanged,
+} from "../lib/catalogEvents";
 
 const router = Router();
 
@@ -136,14 +141,61 @@ router.get("/entitlements", requireAuth, async (req, res) => {
 
 router.get("/catalog/overrides", async (_req, res) => {
   try {
-    const rows = await db.select().from(catalogOverridesTable);
-    return res.json({
-      overrides: rows.map((r) => ({ productId: r.productId, ...(r.overrides || {}) })),
-    });
+    const payload = await loadCatalogOverridesPayload();
+    return res.json(payload);
   } catch (err) {
     console.error("Failed to load public catalog overrides:", err);
-    return res.json({ overrides: [] });
+    return res.json({ overrides: [], version: getCatalogOverridesVersion() });
   }
+});
+
+router.get("/catalog/overrides/stream", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  const write = (event: string, data: unknown) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  res.write("retry: 5000\n\n");
+
+  try {
+    const initial = await loadCatalogOverridesPayload();
+    write("overrides", initial);
+  } catch (err) {
+    console.warn("SSE initial overrides load failed:", err);
+  }
+
+  let lastSentVersion = getCatalogOverridesVersion();
+  const unsubscribe = onCatalogOverridesChanged(async (version) => {
+    if (version === lastSentVersion) return;
+    try {
+      const payload = await loadCatalogOverridesPayload();
+      lastSentVersion = payload.version;
+      write("overrides", payload);
+    } catch (err) {
+      console.warn("SSE overrides push failed:", err);
+    }
+  });
+
+  const heartbeat = setInterval(() => {
+    res.write(`: ping ${Date.now()}\n\n`);
+  }, 25000);
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+    try {
+      res.end();
+    } catch {}
+  };
+
+  req.on("close", cleanup);
+  req.on("error", cleanup);
 });
 
 export default router;

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { fetchProfile, saveProfileToCloud, fetchEntitlements, fetchCatalogOverrides } from '@/lib/api';
+import {
+  fetchProfile,
+  saveProfileToCloud,
+  fetchEntitlements,
+  fetchCatalogOverrides,
+  getCatalogOverridesStreamUrl,
+} from '@/lib/api';
 import { setEntitlements } from '@/lib/entitlements';
 import { applyCatalogOverrides } from '@/data/catalog';
 import { loadCaseStates, saveCaseStates } from '@/lib/persistence';
@@ -19,9 +25,68 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (overridesLoadedRef.current) return;
     overridesLoadedRef.current = true;
+
+    let lastVersion = -1;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let eventSource: EventSource | null = null;
+    let cancelled = false;
+
+    const applyPayload = (payload: { overrides?: unknown; version?: number } | null) => {
+      if (!payload) return;
+      const version = typeof payload.version === 'number' ? payload.version : Date.now();
+      if (version === lastVersion) return;
+      lastVersion = version;
+      applyCatalogOverrides((payload.overrides as Parameters<typeof applyCatalogOverrides>[0]) || []);
+    };
+
+    const startPolling = () => {
+      if (pollTimer || cancelled) return;
+      pollTimer = setInterval(() => {
+        fetchCatalogOverrides()
+          .then(applyPayload)
+          .catch(() => {});
+      }, 5000);
+    };
+
+    const stopPolling = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
     fetchCatalogOverrides()
-      .then((r) => applyCatalogOverrides(r?.overrides || []))
+      .then(applyPayload)
       .catch(() => {});
+
+    if (typeof window !== 'undefined' && typeof window.EventSource !== 'undefined') {
+      try {
+        const es = new EventSource(getCatalogOverridesStreamUrl(), { withCredentials: true });
+        eventSource = es;
+        es.addEventListener('overrides', (ev) => {
+          stopPolling();
+          try {
+            applyPayload(JSON.parse((ev as MessageEvent).data));
+          } catch {}
+        });
+        es.onerror = () => {
+          startPolling();
+        };
+      } catch {
+        startPolling();
+      }
+    } else {
+      startPolling();
+    }
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
   }, []);
 
   const syncFromCloud = useCallback(async () => {

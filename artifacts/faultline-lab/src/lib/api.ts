@@ -68,6 +68,10 @@ export async function fetchCatalogOverrides() {
   return apiFetch('/catalog/overrides');
 }
 
+export function getCatalogOverridesStreamUrl(): string {
+  return `${API_BASE}/catalog/overrides/stream`;
+}
+
 export async function adminFetchCatalogOverrides() {
   return apiFetch('/admin/catalog/overrides');
 }

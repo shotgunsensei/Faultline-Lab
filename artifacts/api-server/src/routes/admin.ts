@@ -3,6 +3,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { db, usersTable, userEntitlementsTable, catalogOverridesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { grantEntitlementFromCheckout } from "../lib/grantEntitlement";
+import { notifyCatalogOverridesChanged } from "../lib/catalogEvents";
 
 const router: IRouter = Router();
 
@@ -206,6 +207,7 @@ router.put("/admin/catalog/overrides/:productId", requireAuth, requireAdmin, asy
         .set({ overrides, updatedAt: now, updatedByUserId: adminUser.id })
         .where(eq(catalogOverridesTable.productId, productId));
     }
+    notifyCatalogOverridesChanged();
     return res.json({
       success: true,
       updatedAt: now.toISOString(),
