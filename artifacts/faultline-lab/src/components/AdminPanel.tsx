@@ -344,8 +344,8 @@ export default function AdminPanel() {
               );
             })}
             <p className="text-[11px] text-zinc-600 mt-3">
-              Catalog overrides are stored locally and applied on top of the static catalog. Use them to
-              preview promo states or wording before shipping.
+              Catalog overrides are saved to the server and applied for every user on load. Edits to
+              status, featured flag, copy, and tags take effect immediately across all sessions.
             </p>
           </div>
         )}
