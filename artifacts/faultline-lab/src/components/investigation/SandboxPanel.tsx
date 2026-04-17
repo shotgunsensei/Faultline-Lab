@@ -1,45 +1,16 @@
 import { useEffect, useState } from 'react';
-import { FlaskConical, Plus, Trash2, Save, Copy } from 'lucide-react';
+import { FlaskConical, Plus, Trash2, Save, Copy, Play } from 'lucide-react';
+import {
+  loadSandboxScenarios,
+  persistSandboxScenarios,
+  type SandboxScenario,
+} from '@/lib/sandboxScenarios';
+import { useAppStore } from '@/stores/useAppStore';
 
-interface SandboxCommand {
-  command: string;
-  output: string;
-}
+export type { SandboxScenario } from '@/lib/sandboxScenarios';
 
-interface SandboxEvidence {
-  title: string;
-  description: string;
-}
-
-export interface SandboxScenario {
-  id: string;
-  title: string;
-  briefing: string;
-  rootCause: string;
-  commands: SandboxCommand[];
-  evidence: SandboxEvidence[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-const STORAGE_KEY = 'faultline-lab-sandbox-scenarios';
-
-function load(): SandboxScenario[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as SandboxScenario[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function persist(list: SandboxScenario[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    /* ignore */
-  }
-}
+const load = loadSandboxScenarios;
+const persist = persistSandboxScenarios;
 
 function blank(): SandboxScenario {
   const now = Date.now();
@@ -58,6 +29,14 @@ function blank(): SandboxScenario {
 export default function SandboxPanel() {
   const [scenarios, setScenarios] = useState<SandboxScenario[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const startSandboxRun = useAppStore((s) => s.startSandboxRun);
+
+  const playScenario = (s: SandboxScenario) => {
+    // Persist the very latest edits before launching so the runner picks up
+    // exactly what the author sees on screen.
+    persist(scenarios);
+    startSandboxRun(s.id);
+  };
 
   useEffect(() => {
     const list = load();
@@ -127,18 +106,33 @@ export default function SandboxPanel() {
             </div>
           )}
           {scenarios.map((s) => (
-            <button
+            <div
               key={s.id}
-              onClick={() => setActiveId(s.id)}
-              className={`w-full text-left px-3 py-2 border-b border-zinc-900/50 ${
+              className={`flex items-stretch border-b border-zinc-900/50 ${
                 activeId === s.id ? 'bg-fuchsia-500/10' : 'hover:bg-zinc-800/30'
               }`}
             >
-              <div className="text-sm text-zinc-200 truncate">{s.title || 'Untitled'}</div>
-              <div className="text-[10px] font-mono text-zinc-500">
-                {s.commands.length} cmd · {s.evidence.length} evidence
-              </div>
-            </button>
+              <button
+                onClick={() => setActiveId(s.id)}
+                className="flex-1 text-left px-3 py-2 min-w-0"
+              >
+                <div className="text-sm text-zinc-200 truncate">{s.title || 'Untitled'}</div>
+                <div className="text-[10px] font-mono text-zinc-500">
+                  {s.commands.length} cmd · {s.evidence.length} evidence
+                </div>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playScenario(s);
+                }}
+                title="Play this scenario"
+                aria-label={`Play ${s.title || 'scenario'}`}
+                className="px-2 text-fuchsia-300 hover:text-fuchsia-200 hover:bg-fuchsia-500/10"
+              >
+                <Play size={14} />
+              </button>
+            </div>
           ))}
         </aside>
 
@@ -256,6 +250,12 @@ export default function SandboxPanel() {
               </Section>
 
               <div className="flex gap-2 pt-2 border-t border-zinc-800/50">
+                <button
+                  onClick={() => playScenario(active)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-fuchsia-100 border border-fuchsia-500/50 bg-fuchsia-500/10 rounded hover:bg-fuchsia-500/20"
+                >
+                  <Play size={12} /> Play scenario
+                </button>
                 <button
                   onClick={() => duplicate(active)}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs text-zinc-200 border border-zinc-800/60 rounded hover:border-zinc-700"

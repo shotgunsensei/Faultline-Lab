@@ -7,6 +7,11 @@ import { useSyncExternalStore } from 'react';
 import { getAllCaseEntries } from '@/data/caseCatalog';
 import type { CaseCatalogEntry } from '@/data/caseCatalog';
 import {
+  getSandboxAuthoredEntries,
+  subscribeSandboxScenarios,
+  isAuthoredEntry,
+} from '@/lib/sandboxScenarios';
+import {
   Monitor,
   Network,
   Car,
@@ -27,6 +32,28 @@ import {
   FlaskConical,
 } from 'lucide-react';
 
+// Cache the authored-entries snapshot so useSyncExternalStore sees a stable
+// reference between renders. The cached value is only refreshed when the
+// underlying scenarios actually change (subscriber callback fires + content
+// differs from the previous snapshot).
+let cachedAuthoredEntriesSnapshot: CaseCatalogEntry[] = getSandboxAuthoredEntries();
+let cachedAuthoredEntriesKey = JSON.stringify(
+  cachedAuthoredEntriesSnapshot.map((e) => [e.id, e.sortOrder, e.title])
+);
+function getAuthoredEntriesSnapshot(): CaseCatalogEntry[] {
+  const fresh = getSandboxAuthoredEntries();
+  const key = JSON.stringify(fresh.map((e) => [e.id, e.sortOrder, e.title]));
+  if (key !== cachedAuthoredEntriesKey) {
+    cachedAuthoredEntriesSnapshot = fresh;
+    cachedAuthoredEntriesKey = key;
+  }
+  return cachedAuthoredEntriesSnapshot;
+}
+const EMPTY_AUTHORED_ENTRIES: CaseCatalogEntry[] = [];
+function getAuthoredEntriesServerSnapshot(): CaseCatalogEntry[] {
+  return EMPTY_AUTHORED_ENTRIES;
+}
+
 const categoryIconMap: Record<string, React.ReactNode> = {
   'windows-ad': <Monitor size={20} />,
   networking: <Network size={20} />,
@@ -38,12 +65,16 @@ const categoryIconMap: Record<string, React.ReactNode> = {
 
 function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
   const startCase = useAppStore(s => s.startCase);
+  const startSandboxRun = useAppStore(s => s.startSandboxRun);
   const resumeCase = useAppStore(s => s.resumeCase);
   const restartCase = useAppStore(s => s.restartCase);
   const setView = useAppStore(s => s.setView);
   const isSolved = useAppStore(s => s.isCaseSolved(entry.id));
   const bestScore = useAppStore(s => s.getCaseScore(entry.id));
-  const accessible = isCaseAccessible(entry.id);
+  const authored = isAuthoredEntry(entry);
+  // Author-built scenarios bypass entitlement gates entirely — they are the
+  // user's own content and should always be runnable for them.
+  const accessible = authored ? true : isCaseAccessible(entry.id);
   const isPlanned = entry.status === 'planned';
   const isPlayable = entry.status === 'playable' && accessible;
   const requiredProduct = !accessible ? getRequiredProductForCase(entry.id) : null;
@@ -74,6 +105,12 @@ function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
       } else {
         setView('store');
       }
+      return;
+    }
+    if (authored) {
+      // Sandbox-authored runs are ephemeral so playtesting never pollutes
+      // the author's profile, scores, or streaks.
+      startSandboxRun(entry.id);
       return;
     }
     if (isSolved) {
@@ -107,7 +144,13 @@ function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
       whileTap={{ scale: 0.98 }}
       className={`w-full text-left bg-[#111822] border rounded-lg p-5 transition-all duration-300 group relative overflow-hidden ${cardBorderClass}`}
     >
-      {isSolved && isPlayable && (
+      {authored && (
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 text-[10px] text-fuchsia-300 font-mono uppercase tracking-wider">
+          <FlaskConical size={12} />
+          Sandbox
+        </div>
+      )}
+      {!authored && isSolved && isPlayable && (
         <div className="absolute top-3 right-3">
           <CheckCircle size={18} className="text-emerald-400" />
         </div>
@@ -214,9 +257,15 @@ export default function IncidentBoard() {
   const setView = useAppStore(s => s.setView);
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const ent = useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
-  const entries = getAllCaseEntries();
-  const playableCount = entries.filter((e) => e.status === 'playable').length;
-  const plannedCount = entries.filter((e) => e.status === 'planned').length;
+  const authoredEntries = useSyncExternalStore(
+    subscribeSandboxScenarios,
+    getAuthoredEntriesSnapshot,
+    getAuthoredEntriesServerSnapshot
+  );
+  const catalogEntries = getAllCaseEntries();
+  const playableCount = catalogEntries.filter((e) => e.status === 'playable').length;
+  const plannedCount = catalogEntries.filter((e) => e.status === 'planned').length;
+  const authoredCount = authoredEntries.length;
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -319,10 +368,42 @@ export default function IncidentBoard() {
                 {plannedCount} in development
               </div>
             )}
+            {authoredCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-fuchsia-500/10 border border-fuchsia-500/20 rounded text-xs text-fuchsia-300 font-mono">
+                <FlaskConical size={12} />
+                {authoredCount} sandbox-authored
+              </div>
+            )}
           </div>
 
+          {authoredCount > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <FlaskConical size={14} className="text-fuchsia-400" />
+                <h3 className="text-sm font-mono text-fuchsia-300 uppercase tracking-wider">
+                  Your Sandbox Cases
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  Authored locally · ephemeral runs
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {authoredEntries.map((entry) => (
+                  <CaseCard key={entry.id} entry={entry} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {authoredCount > 0 && (
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-sm font-mono text-zinc-400 uppercase tracking-wider">
+                Catalog
+              </h3>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {entries.map((entry) => (
+            {catalogEntries.map((entry) => (
               <CaseCard key={entry.id} entry={entry} />
             ))}
           </div>
