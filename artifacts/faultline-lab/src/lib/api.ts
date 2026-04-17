@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, '') + '/../api-server/api';
+const API_BASE = '/api';
 
 async function apiFetch(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
