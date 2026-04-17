@@ -3,12 +3,12 @@ import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
 import { usersTable, userProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import crypto from "crypto";
 import {
   getCatalogOverridesVersion,
   loadCatalogOverridesPayload,
   onCatalogOverridesChanged,
 } from "../lib/catalogEvents";
+import { ensureUserRow } from "../lib/userSync";
 
 const router = Router();
 
@@ -42,17 +42,8 @@ router.put("/profile", requireAuth, async (req, res) => {
     const clerkId = (req as any).userId as string;
     const { profile, settings, caseStates } = req.body;
 
-    let user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
-    if (user.length === 0) {
-      const id = crypto.randomUUID();
-      await db.insert(usersTable).values({
-        id,
-        clerkId,
-        email: null,
-        displayName: profile?.name || "Investigator",
-      });
-      user = [{ id, clerkId, email: null, displayName: profile?.name || "Investigator", avatarUrl: null, stripeCustomerId: null, stripeSubscriptionId: null, isAdmin: false, createdAt: new Date(), updatedAt: new Date() }];
-    }
+    const userRow = await ensureUserRow(clerkId);
+    const user = [userRow];
 
     const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, user[0].id)).limit(1);
 
@@ -85,10 +76,8 @@ router.get("/entitlements", requireAuth, async (req, res) => {
   try {
     const clerkId = (req as any).userId as string;
 
-    const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
-    if (user.length === 0) {
-      return res.json({ ownedProductIds: ["base-free"], activeSubscription: null, isProUser: false, isAdmin: false });
-    }
+    const userRow = await ensureUserRow(clerkId);
+    const user = [userRow];
 
     const { userEntitlementsTable } = await import("@workspace/db");
     const entitlements = await db.select()
@@ -131,8 +120,9 @@ router.get("/entitlements", requireAuth, async (req, res) => {
       (expanded.has("pro-subscription") ? "pro-subscription" : null);
     const isProUser = expanded.has("pro-subscription");
     const isAdmin = !!user[0].isAdmin;
+    const isSuperAdmin = !!user[0].isSuperAdmin;
 
-    return res.json({ ownedProductIds, activeSubscription, isProUser, isAdmin });
+    return res.json({ ownedProductIds, activeSubscription, isProUser, isAdmin, isSuperAdmin });
   } catch (err) {
     console.error("Failed to load entitlements:", err);
     return res.status(500).json({ error: "Internal server error" });

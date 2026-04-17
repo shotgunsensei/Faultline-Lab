@@ -18,6 +18,20 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction): Pr
   next();
 }
 
+async function requireSuperAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const adminUser = (req as any).adminUser as
+    | { isAdmin?: boolean; isSuperAdmin?: boolean }
+    | undefined;
+  // Defensive: require BOTH flags. Mutation logic guarantees super => admin,
+  // but a manual DB edit or future schema change shouldn't be able to bypass
+  // requireAdmin while still passing requireSuperAdmin.
+  if (!adminUser || !adminUser.isAdmin || !adminUser.isSuperAdmin) {
+    res.status(403).json({ error: "Super admin only" });
+    return;
+  }
+  next();
+}
+
 function getParam(req: Request, key: string): string {
   const v = (req.params as any)[key];
   return Array.isArray(v) ? String(v[0]) : String(v);
@@ -33,6 +47,7 @@ router.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
         email: u.email,
         displayName: u.displayName,
         isAdmin: !!u.isAdmin,
+        isSuperAdmin: !!u.isSuperAdmin,
       })),
     });
   } catch (err) {
@@ -232,6 +247,94 @@ router.delete(
       return res.json({ success: true });
     } catch (err) {
       console.error("Failed to revert catalog override:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.patch(
+  "/admin/users/:userId/role",
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req, res) => {
+    try {
+      const userId = getParam(req, "userId");
+      const adminUser = (req as any).adminUser as { id: string };
+      const body = (req.body || {}) as { isAdmin?: unknown; isSuperAdmin?: unknown };
+
+      const target = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      if (target.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const updates: { isAdmin?: boolean; isSuperAdmin?: boolean; updatedAt?: Date } = {};
+      if (typeof body.isAdmin === "boolean") updates.isAdmin = body.isAdmin;
+      if (typeof body.isSuperAdmin === "boolean") updates.isSuperAdmin = body.isSuperAdmin;
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: "Nothing to update" });
+      }
+
+      // Self-protection: a super admin can't demote themselves (would lock
+      // themselves out of this very endpoint). They can demote other admins.
+      if (target[0].id === adminUser.id) {
+        if (updates.isAdmin === false || updates.isSuperAdmin === false) {
+          return res
+            .status(400)
+            .json({ error: "You cannot demote yourself; ask another super admin to do it." });
+        }
+      }
+
+      // Granting super-admin implies admin.
+      if (updates.isSuperAdmin === true) updates.isAdmin = true;
+      // Revoking admin implies revoking super-admin (can't be super without admin).
+      if (updates.isAdmin === false) updates.isSuperAdmin = false;
+
+      updates.updatedAt = new Date();
+      await db.update(usersTable).set(updates).where(eq(usersTable.id, userId));
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to update user role:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.delete(
+  "/admin/users/:userId",
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  async (req, res) => {
+    try {
+      const userId = getParam(req, "userId");
+      const adminUser = (req as any).adminUser as { id: string };
+
+      if (userId === adminUser.id) {
+        return res.status(400).json({ error: "You cannot delete yourself." });
+      }
+
+      const target = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+      if (target.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Cascade deletes (user_profiles, user_entitlements, purchases) are
+      // handled by the FK constraints in lib/db/src/schema/users.ts.
+      await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to delete user:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   },

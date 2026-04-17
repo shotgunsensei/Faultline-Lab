@@ -112,3 +112,19 @@ export async function adminRevokeEntitlement(userId: string, entitlementId: stri
     { method: 'DELETE' }
   );
 }
+
+export async function adminUpdateUserRole(
+  userId: string,
+  patch: { isAdmin?: boolean; isSuperAdmin?: boolean }
+): Promise<{ success: boolean }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function adminDeleteUser(userId: string): Promise<{ success: boolean }> {
+  return apiFetch(`/admin/users/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  });
+}

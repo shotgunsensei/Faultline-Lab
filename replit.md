@@ -73,6 +73,30 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
   runs in production builds, and it no longer fires on transient checkout
   errors when Stripe is genuinely configured.
 
+### Admin & Super Admin
+- Two roles on the `users` table: `is_admin` (catalog overrides + entitlement
+  grants/revokes) and `is_super_admin` (everything admin can do, plus
+  promote/demote other users and delete users).
+- Bootstrap: emails listed in `BOOTSTRAP_SUPER_ADMIN_EMAILS` (hardcoded in
+  `artifacts/api-server/src/lib/userSync.ts`) are auto-promoted to super admin
+  on row creation OR on the first request where their email becomes known
+  (Clerk lookup) AND they have never been promoted before. After that the
+  role is fully mutable — a super admin can demote a bootstrap account and
+  the demotion will stick. To add another bootstrap email, edit that constant
+  and redeploy. Existing super admins can also promote others through the UI
+  with no code change.
+- The user row + email + role bootstrap runs lazily inside `ensureUserRow()`
+  on every `/api/profile` PUT and `/api/entitlements` GET. Email is fetched
+  from Clerk via `clerkClient.users.getUser`. If the Clerk lookup fails the
+  request still succeeds (with email still null) — bootstrap retries on the
+  next request.
+- Self-protection: a super admin cannot demote or delete themselves. They can
+  demote/delete any other user. Admin demotion automatically revokes super
+  admin (you can't be super without being admin).
+- Routes: `PATCH /api/admin/users/:id/role { isAdmin?, isSuperAdmin? }` and
+  `DELETE /api/admin/users/:id`, both gated by `requireSuperAdmin`. Deletes
+  cascade to user_profiles, user_entitlements, and purchases via FK.
+
 ### Cloud Sync
 - CloudSyncProvider wraps app content when Clerk is available
 - On sign-in: fetches profile, settings, caseStates from cloud; merges with local (newer wins by lastActiveAt)

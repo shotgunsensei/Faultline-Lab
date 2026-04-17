@@ -6,6 +6,7 @@ export interface EntitlementState {
   activeSubscription: string | null;
   isProUser: boolean;
   isAdmin?: boolean;
+  isSuperAdmin?: boolean;
   subscriptionInterval?: 'month' | 'year' | null;
   subscriptionRenewsAt?: number | null;
 }
@@ -15,6 +16,7 @@ const DEFAULT_ENTITLEMENTS: EntitlementState = {
   activeSubscription: null,
   isProUser: false,
   isAdmin: false,
+  isSuperAdmin: false,
   subscriptionInterval: null,
   subscriptionRenewsAt: null,
 };

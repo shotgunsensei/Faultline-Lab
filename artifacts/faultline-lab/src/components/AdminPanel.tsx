@@ -15,6 +15,8 @@ import {
   adminFetchCatalogOverrides,
   adminSaveCatalogOverride,
   adminRevertCatalogOverride,
+  adminUpdateUserRole,
+  adminDeleteUser,
   type CatalogOverridePayload,
 } from '@/lib/api';
 import { toast } from 'sonner';
@@ -73,6 +75,7 @@ interface AdminUser {
   email: string | null;
   displayName: string | null;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
 }
 
 interface UserEntitlement {
@@ -260,6 +263,58 @@ export default function AdminPanel() {
       toast.error(e.message || 'Failed to grant entitlement.');
     }
   };
+  const reloadUsers = async () => {
+    try {
+      const r = await adminFetchUsers();
+      setUsers(r.users);
+    } catch (e: any) {
+      setUsersError(e?.message || 'Failed to reload users');
+    }
+  };
+
+  const toggleAdmin = async (target: AdminUser) => {
+    const next = !target.isAdmin;
+    const verb = next ? 'Promote to admin' : 'Demote to regular user';
+    if (!window.confirm(`${verb} — ${target.email || target.displayName || target.id}?`)) return;
+    try {
+      await adminUpdateUserRole(target.id, { isAdmin: next });
+      toast.success(next ? 'Promoted to admin.' : 'Demoted to regular user.');
+      await reloadUsers();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update role.');
+    }
+  };
+
+  const toggleSuperAdmin = async (target: AdminUser) => {
+    const next = !target.isSuperAdmin;
+    const verb = next ? 'Grant SUPER ADMIN to' : 'Revoke super admin from';
+    if (!window.confirm(`${verb} ${target.email || target.displayName || target.id}? Super admins can manage other users.`)) return;
+    try {
+      await adminUpdateUserRole(target.id, { isSuperAdmin: next });
+      toast.success(next ? 'Super admin granted.' : 'Super admin revoked.');
+      await reloadUsers();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update role.');
+    }
+  };
+
+  const deleteUser = async (target: AdminUser) => {
+    const label = target.email || target.displayName || target.id;
+    if (!window.confirm(`Delete user ${label}? This removes their profile, entitlements, and purchase history. This cannot be undone.`)) return;
+    if (!window.confirm(`Final confirmation: permanently delete ${label}?`)) return;
+    try {
+      await adminDeleteUser(target.id);
+      toast.success('User deleted.');
+      if (selectedUserId === target.id) {
+        setSelectedUserId(null);
+        setUserEnts(null);
+      }
+      await reloadUsers();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to delete user.');
+    }
+  };
+
   const revoke = async (entitlementId: string) => {
     if (!selectedUserId) return;
     try {
@@ -473,29 +528,80 @@ export default function AdminPanel() {
                 <p className="text-xs text-zinc-500">Loading users…</p>
               )}
               <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-                {filteredUsers.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => setSelectedUserId(u.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
-                      selectedUserId === u.id
-                        ? 'border-emerald-500/40 bg-emerald-500/5'
-                        : 'border-zinc-800/60 hover:border-zinc-700/60'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-zinc-100 truncate">
-                        {u.displayName || u.email || u.clerkId || u.id}
-                      </span>
-                      {u.isAdmin && (
-                        <Shield size={12} className="text-emerald-400 shrink-0" />
+                {filteredUsers.map((u) => {
+                  return (
+                    <div
+                      key={u.id}
+                      className={`w-full px-3 py-2 rounded-lg border transition-colors ${
+                        selectedUserId === u.id
+                          ? 'border-emerald-500/40 bg-emerald-500/5'
+                          : 'border-zinc-800/60 hover:border-zinc-700/60'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUserId(u.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-zinc-100 truncate">
+                            {u.displayName || u.email || u.clerkId || u.id}
+                          </span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            {u.isSuperAdmin && (
+                              <span
+                                title="Super admin"
+                                className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
+                              >
+                                Super
+                              </span>
+                            )}
+                            {u.isAdmin && (
+                              <Shield size={12} className="text-emerald-400" />
+                            )}
+                          </span>
+                        </div>
+                        {u.email && (
+                          <span className="text-[11px] text-zinc-500 truncate block">
+                            {u.email}
+                          </span>
+                        )}
+                      </button>
+                      {ent.isSuperAdmin && (
+                        <div className="mt-2 flex items-center gap-1 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => toggleAdmin(u)}
+                            disabled={u.isSuperAdmin}
+                            title={u.isSuperAdmin ? 'Revoke super admin first' : (u.isAdmin ? 'Demote to regular user' : 'Promote to admin')}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border border-zinc-800 hover:border-emerald-500/40 hover:text-emerald-300 text-zinc-400 disabled:opacity-40 disabled:hover:border-zinc-800 disabled:hover:text-zinc-400"
+                          >
+                            {u.isAdmin ? <ShieldOff size={11} /> : <Shield size={11} />}
+                            {u.isAdmin ? 'Demote' : 'Promote'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleSuperAdmin(u)}
+                            title={u.isSuperAdmin ? 'Revoke super admin' : 'Grant super admin'}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border border-zinc-800 hover:border-cyan-500/40 hover:text-cyan-300 text-zinc-400"
+                          >
+                            <Shield size={11} />
+                            {u.isSuperAdmin ? 'Unsuper' : 'Super'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteUser(u)}
+                            title="Delete user (server blocks self-deletion)"
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono uppercase tracking-wider border border-zinc-800 hover:border-red-500/40 hover:text-red-300 text-zinc-400 ml-auto"
+                          >
+                            <Trash2 size={11} />
+                            Delete
+                          </button>
+                        </div>
                       )}
                     </div>
-                    {u.email && (
-                      <span className="text-[11px] text-zinc-500 truncate block">{u.email}</span>
-                    )}
-                  </button>
-                ))}
+                  );
+                })}
                 {users && filteredUsers.length === 0 && (
                   <p className="text-xs text-zinc-500">No users match your search.</p>
                 )}
