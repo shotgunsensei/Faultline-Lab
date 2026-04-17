@@ -39,9 +39,9 @@ export interface CatalogProduct {
  * Cases that are always free, regardless of entitlements. These are the
  * hand-built starter scenarios that ship with every install.
  *
- * NOTE: Until purchasable packs ship real content, the four built-in cases
- * are all free starters. As pack-exclusive cases are authored, they should be
- * added to the corresponding pack's `includedCaseIds` instead of this list.
+ * Source of truth is the case catalog registry — `isStarter: true` entries.
+ * This list is kept in sync at module load and asserted by the catalog
+ * validator at startup.
  */
 export const FREE_CASE_IDS = [
   'case-windows-ad-001',
@@ -113,8 +113,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 999,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['upgrade-advanced-tools', 'pro-subscription', 'bundle-master-investigator'],
     tags: ['new'],
     status: 'coming-soon',
@@ -133,8 +131,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 999,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['upgrade-deep-telemetry', 'pro-subscription'],
     tags: [],
     status: 'coming-soon',
@@ -153,8 +149,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 1299,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['pack-sensor-mesh', 'upgrade-advanced-tools'],
     tags: [],
     status: 'coming-soon',
@@ -173,8 +167,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 899,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['upgrade-deep-telemetry'],
     tags: [],
     status: 'coming-soon',
@@ -193,8 +185,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 1099,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['upgrade-chaos-mode', 'bundle-master-investigator'],
     tags: ['advanced'],
     status: 'coming-soon',
@@ -213,8 +203,6 @@ export const CATALOG: CatalogProduct[] = [
     entitlementType: 'content-pack',
     pricingType: 'one-time',
     priceAmountCents: 1499,
-    caseCount: 5,
-    includedCaseIds: [],
     relatedProductIds: ['bundle-clinical-systems', 'upgrade-advanced-tools'],
     tags: ['specialty'],
     status: 'coming-soon',
@@ -376,31 +364,6 @@ export const CATALOG: CatalogProduct[] = [
 
 export function getProduct(id: string): CatalogProduct | undefined {
   return CATALOG.find((p) => p.id === id);
-}
-
-/**
- * Returns the number of cases actually available right now in a content pack.
- * Derived from `includedCaseIds` so the store never shows fake inventory.
- */
-export function getReadyCaseCount(product: CatalogProduct): number {
-  return product.includedCaseIds?.length ?? 0;
-}
-
-/**
- * Returns the case-count copy a store card should display.
- * If `caseCount` advertises more than what's actually wired up, we surface both
- * numbers so the storefront stays honest ("1 of 5 ready").
- */
-export function getCaseCountLabel(product: CatalogProduct): string | null {
-  const ready = getReadyCaseCount(product);
-  const planned = product.caseCount ?? 0;
-  if (planned <= 0 && ready <= 0) return null;
-  if (planned > 0 && ready < planned) {
-    if (ready === 0) return `${planned} cases planned`;
-    return `${ready} of ${planned} cases ready`;
-  }
-  const total = Math.max(ready, planned);
-  return `${total} case${total === 1 ? '' : 's'}`;
 }
 
 export function getProductsByCategory(category: string): CatalogProduct[] {

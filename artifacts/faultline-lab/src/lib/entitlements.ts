@@ -1,5 +1,5 @@
 import { CATALOG, FREE_CASE_IDS, FREE_FEATURES, PRO_FEATURES, type CatalogProduct } from '@/data/catalog';
-import { allCases } from '@/data/cases';
+import { CASE_CATALOG_ENTRIES } from '@/data/caseCatalog/entries';
 
 export interface EntitlementState {
   ownedProductIds: string[];
@@ -124,42 +124,39 @@ export function getOwnedProducts(): CatalogProduct[] {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-function getAllCurrentCaseIds(): string[] {
-  return allCases.map((c) => c.id);
+function findCaseEntry(caseId: string) {
+  return CASE_CATALOG_ENTRIES.find((c) => c.id === caseId);
 }
 
 export function isCaseAccessible(caseId: string): boolean {
   // 1. Explicit free starter cases.
   if (FREE_CASE_IDS.includes(caseId)) return true;
+  const entry = findCaseEntry(caseId);
+  if (entry?.isStarter) return true;
 
   // 2. Pro subscription unlocks every case.
   if (currentEntitlements.isProUser) return true;
 
-  // 3. Owned content packs / bundles that include this case.
-  for (const ownedId of currentEntitlements.ownedProductIds) {
-    const product = CATALOG.find((p) => p.id === ownedId);
-    if (product?.includedCaseIds?.includes(caseId)) return true;
-
-    if (product?.bundledProductIds) {
-      for (const bundledId of product.bundledProductIds) {
-        const bundled = CATALOG.find((p) => p.id === bundledId);
-        if (bundled?.includedCaseIds?.includes(caseId)) return true;
-      }
+  // 3. Owned source product (or bundle that contains it) for this case.
+  if (entry) {
+    if (currentEntitlements.ownedProductIds.includes(entry.sourceProductId)) return true;
+    for (const ownedId of currentEntitlements.ownedProductIds) {
+      const product = CATALOG.find((p) => p.id === ownedId);
+      if (product?.bundledProductIds?.includes(entry.sourceProductId)) return true;
     }
   }
 
   // Fail-closed: an unknown case (not free, not in any owned pack/bundle, no Pro)
-  // is locked. This prevents new cases from accidentally shipping as free just
-  // because someone forgot to wire them into a catalog pack.
+  // is locked.
   return false;
 }
 
 /**
- * True if `caseId` exists in the bundled case registry. Useful for distinguishing
+ * True if `caseId` exists in the case registry. Useful for distinguishing
  * "case is locked" vs. "case ID is wrong / no longer exists".
  */
 export function caseExists(caseId: string): boolean {
-  return getAllCurrentCaseIds().includes(caseId);
+  return CASE_CATALOG_ENTRIES.some((c) => c.id === caseId);
 }
 
 export function hasFeature(featureId: string): boolean {
@@ -196,21 +193,24 @@ export function getProductOwnershipStatus(
 export function getRequiredProductForCase(caseId: string): CatalogProduct | null {
   if (isCaseAccessible(caseId)) return null;
 
-  const pack = CATALOG.find(
-    (p) => p.entitlementType === 'content-pack' && p.includedCaseIds?.includes(caseId)
-  );
-  if (pack) return pack;
+  const entry = findCaseEntry(caseId);
+  if (entry) {
+    const owning = CATALOG.find(
+      (p) => p.id === entry.sourceProductId && p.entitlementType === 'content-pack'
+    );
+    if (owning) return owning;
+  }
 
   const proProduct = CATALOG.find((p) => p.id === 'pro-subscription');
   return proProduct || null;
 }
 
 export function getPackForCase(caseId: string): CatalogProduct | null {
-  return (
-    CATALOG.find(
-      (p) => p.entitlementType === 'content-pack' && p.includedCaseIds?.includes(caseId)
-    ) || null
-  );
+  const entry = findCaseEntry(caseId);
+  if (!entry) return null;
+  const product = CATALOG.find((p) => p.id === entry.sourceProductId);
+  if (!product || product.entitlementType !== 'content-pack') return null;
+  return product;
 }
 
 export function getRequiredProductForFeature(featureId: string): CatalogProduct | null {

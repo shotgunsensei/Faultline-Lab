@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
-import { allCases, categoryLabels, difficultyColors } from '@/data/cases';
+import { categoryLabels, difficultyColors } from '@/data/cases';
 import { isCaseAccessible, getRequiredProductForCase, getPackForCase, getEntitlements, subscribeEntitlements } from '@/lib/entitlements';
 import { useUpgradePrompt } from './UpgradePrompt';
 import { useSyncExternalStore } from 'react';
-import { CATALOG, FREE_CASE_IDS } from '@/data/catalog';
-import type { CaseDefinition } from '@/types';
+import { getAllCaseEntries } from '@/data/caseCatalog';
+import type { CaseCatalogEntry } from '@/data/caseCatalog';
 import {
   Monitor,
   Network,
@@ -22,6 +22,7 @@ import {
   ShoppingBag,
   LogIn,
   Lock,
+  Hammer,
 } from 'lucide-react';
 
 const categoryIconMap: Record<string, React.ReactNode> = {
@@ -33,25 +34,40 @@ const categoryIconMap: Record<string, React.ReactNode> = {
   mixed: <Layers size={20} />,
 };
 
-function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
+function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
   const startCase = useAppStore(s => s.startCase);
   const resumeCase = useAppStore(s => s.resumeCase);
   const restartCase = useAppStore(s => s.restartCase);
   const setView = useAppStore(s => s.setView);
-  const isSolved = useAppStore(s => s.isCaseSolved(caseDef.id));
-  const bestScore = useAppStore(s => s.getCaseScore(caseDef.id));
-  const accessible = isCaseAccessible(caseDef.id);
-  const requiredProduct = !accessible ? getRequiredProductForCase(caseDef.id) : null;
-  const sourcePack = !FREE_CASE_IDS.includes(caseDef.id) ? getPackForCase(caseDef.id) : null;
+  const isSolved = useAppStore(s => s.isCaseSolved(entry.id));
+  const bestScore = useAppStore(s => s.getCaseScore(entry.id));
+  const accessible = isCaseAccessible(entry.id);
+  const isPlanned = entry.status === 'planned';
+  const isPlayable = entry.status === 'playable' && accessible;
+  const requiredProduct = !accessible ? getRequiredProductForCase(entry.id) : null;
+  const sourcePack = !entry.isStarter ? getPackForCase(entry.id) : null;
   const { prompt } = useUpgradePrompt();
 
   const handleClick = () => {
+    if (isPlanned) {
+      // Promote upsell for the owning pack instead of trying to start the case.
+      if (requiredProduct) {
+        prompt({
+          productId: requiredProduct.id,
+          contextKey: `case:${entry.id}`,
+          reason: `"${entry.title}" is part of ${requiredProduct.name}, which is in development. Reserve your slot to be notified at launch.`,
+        });
+      } else {
+        setView('store');
+      }
+      return;
+    }
     if (!accessible) {
       if (requiredProduct) {
         prompt({
           productId: requiredProduct.id,
-          contextKey: `case:${caseDef.id}`,
-          reason: `"${caseDef.title}" is part of ${requiredProduct.name}. Unlock it to start the investigation.`,
+          contextKey: `case:${entry.id}`,
+          reason: `"${entry.title}" is part of ${requiredProduct.name}. Unlock it to start the investigation.`,
         });
       } else {
         setView('store');
@@ -59,87 +75,111 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
       return;
     }
     if (isSolved) {
-      resumeCase(caseDef.id);
+      resumeCase(entry.id);
     } else {
-      startCase(caseDef.id);
+      startCase(entry.id);
     }
   };
 
   const handleReplay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    restartCase(caseDef.id);
+    restartCase(entry.id);
   };
+
+  const cardBorderClass = isPlayable
+    ? 'border-zinc-800/60 hover:border-cyan-500/30'
+    : isPlanned
+    ? 'border-zinc-800/30 opacity-70 hover:opacity-90 hover:border-purple-500/30'
+    : 'border-zinc-800/30 opacity-70 hover:opacity-90 hover:border-amber-500/30';
+
+  const titleHoverClass = isPlayable
+    ? 'text-zinc-100 group-hover:text-cyan-300'
+    : isPlanned
+    ? 'text-zinc-400 group-hover:text-purple-300'
+    : 'text-zinc-400 group-hover:text-amber-300';
 
   return (
     <motion.button
       onClick={handleClick}
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left bg-[#111822] border rounded-lg p-5 transition-all duration-300 group relative overflow-hidden
-        ${accessible
-          ? 'border-zinc-800/60 hover:border-cyan-500/30'
-          : 'border-zinc-800/30 opacity-70 hover:opacity-90 hover:border-amber-500/30'
-        }`}
+      className={`w-full text-left bg-[#111822] border rounded-lg p-5 transition-all duration-300 group relative overflow-hidden ${cardBorderClass}`}
     >
-      {isSolved && accessible && (
+      {isSolved && isPlayable && (
         <div className="absolute top-3 right-3">
           <CheckCircle size={18} className="text-emerald-400" />
         </div>
       )}
-      {!accessible && (
+      {isPlanned && (
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 text-[10px] text-purple-300/80 font-mono uppercase tracking-wider">
+          <Hammer size={12} />
+          In Development
+        </div>
+      )}
+      {!isPlanned && !accessible && (
         <div className="absolute top-3 right-3 flex items-center gap-1.5 text-xs text-amber-400/80">
           <Lock size={14} />
         </div>
       )}
 
       <div className="flex items-center gap-3 mb-3">
-        <div className={`p-2 rounded shrink-0 ${accessible ? 'bg-zinc-800/60 text-cyan-400' : 'bg-zinc-800/40 text-zinc-500'}`}>
-          {categoryIconMap[caseDef.category]}
+        <div className={`p-2 rounded shrink-0 ${isPlayable ? 'bg-zinc-800/60 text-cyan-400' : 'bg-zinc-800/40 text-zinc-500'}`}>
+          {categoryIconMap[entry.category]}
         </div>
         <div>
           <div className="text-xs text-zinc-500 uppercase tracking-wider">
-            {categoryLabels[caseDef.category]}
+            {categoryLabels[entry.category]}
           </div>
-          <h3 className={`text-base font-semibold transition-colors ${
-            accessible
-              ? 'text-zinc-100 group-hover:text-cyan-300'
-              : 'text-zinc-400 group-hover:text-amber-300'
-          }`}>
-            {caseDef.title}
+          <h3 className={`text-base font-semibold transition-colors ${titleHoverClass}`}>
+            {entry.title}
           </h3>
         </div>
       </div>
 
       <p className="text-sm text-zinc-400 mb-4 line-clamp-2">
-        {caseDef.description}
+        {entry.shortSummary}
       </p>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <span
-            className={`text-xs font-medium uppercase tracking-wider ${accessible ? difficultyColors[caseDef.difficulty] : 'text-zinc-600'}`}
+            className={`text-xs font-medium uppercase tracking-wider ${isPlayable ? difficultyColors[entry.difficulty] : 'text-zinc-600'}`}
           >
-            {caseDef.difficulty}
+            {entry.difficulty}
           </span>
           <span className="text-xs text-zinc-600">|</span>
           <span className="text-xs text-zinc-500 flex items-center gap-1">
-            <AlertTriangle size={12} />
-            {caseDef.symptoms.filter(s => s.severity === 'critical').length} critical
+            <Clock size={12} />
+            {entry.estimatedMinutes} min
           </span>
+          {entry.previewSymptoms.length > 0 && (
+            <>
+              <span className="text-xs text-zinc-600">|</span>
+              <span className="text-xs text-zinc-500 flex items-center gap-1">
+                <AlertTriangle size={12} />
+                {entry.previewSymptoms.length} signal{entry.previewSymptoms.length === 1 ? '' : 's'}
+              </span>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          {!accessible && requiredProduct && (
+          {isPlanned && requiredProduct && (
+            <span className="text-[11px] text-purple-300/80 font-mono">
+              {requiredProduct.name}
+            </span>
+          )}
+          {!isPlanned && !accessible && requiredProduct && (
             <span className="text-[11px] text-amber-400/70 font-mono">
               {requiredProduct.pricingType === 'free' ? 'Requires upgrade' : `${requiredProduct.name}`}
             </span>
           )}
-          {accessible && sourcePack && (
+          {isPlayable && sourcePack && (
             <span className="text-[11px] text-cyan-400/70 font-mono">
               {sourcePack.name}
             </span>
           )}
-          {accessible && isSolved && (
+          {isPlayable && isSolved && (
             <span
               onClick={handleReplay}
               className="text-xs text-zinc-600 hover:text-cyan-400 transition-colors cursor-pointer z-10 px-2 py-1 -my-1"
@@ -150,14 +190,18 @@ function CaseCard({ caseDef }: { caseDef: CaseDefinition }) {
           {bestScore !== undefined && (
             <div className="flex items-center gap-1 text-xs text-amber-400">
               <Trophy size={12} />
-              {bestScore}/{caseDef.maxScore}
+              {bestScore}
             </div>
           )}
         </div>
       </div>
 
       <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent to-transparent transition-all duration-500 ${
-        accessible ? 'via-cyan-500/0 group-hover:via-cyan-500/40' : 'via-amber-500/0 group-hover:via-amber-500/30'
+        isPlayable
+          ? 'via-cyan-500/0 group-hover:via-cyan-500/40'
+          : isPlanned
+          ? 'via-purple-500/0 group-hover:via-purple-500/30'
+          : 'via-amber-500/0 group-hover:via-amber-500/30'
       }`} />
     </motion.button>
   );
@@ -168,6 +212,9 @@ export default function IncidentBoard() {
   const setView = useAppStore(s => s.setView);
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const ent = useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
+  const entries = getAllCaseEntries();
+  const playableCount = entries.filter((e) => e.status === 'playable').length;
+  const plannedCount = entries.filter((e) => e.status === 'planned').length;
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -240,16 +287,22 @@ export default function IncidentBoard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-cyan-400 font-mono">
               <Clock size={12} />
-              Case Files
+              {playableCount} playable
             </div>
+            {plannedCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded text-xs text-purple-300 font-mono">
+                <Hammer size={12} />
+                {plannedCount} in development
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allCases.map((caseDef) => (
-              <CaseCard key={caseDef.id} caseDef={caseDef} />
+            {entries.map((entry) => (
+              <CaseCard key={entry.id} entry={entry} />
             ))}
           </div>
 

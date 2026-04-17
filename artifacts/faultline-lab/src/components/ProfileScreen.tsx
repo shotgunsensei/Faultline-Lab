@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
-import { allCases, categoryLabels } from '@/data/cases';
+import { categoryLabels } from '@/data/cases';
+import { getAllCaseEntries } from '@/data/caseCatalog';
 import { getOwnedProducts, subscribeEntitlements, getEntitlements, getCurrentPlanLabel } from '@/lib/entitlements';
 import { useSyncExternalStore } from 'react';
 import {
@@ -46,7 +47,7 @@ export default function ProfileScreen() {
     setEditingName(false);
   };
 
-  const solvedCases = allCases.filter(c =>
+  const solvedCases = getAllCaseEntries().filter(c =>
     profile.solvedCaseIds.includes(c.id)
   );
 
@@ -219,7 +220,7 @@ export default function ProfileScreen() {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-cyan-400 font-mono shrink-0 ml-2">
                       <Target size={12} />
-                      {profile.bestScores[c.id]}/{c.maxScore}
+                      {profile.bestScores[c.id]}
                     </div>
                   </button>
                 ))}
