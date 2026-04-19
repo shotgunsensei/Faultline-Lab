@@ -14,6 +14,7 @@ import DailyChallengeScreen from '@/components/DailyChallengeScreen';
 import SandboxScreen from '@/components/SandboxScreen';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { UpgradePromptProvider } from '@/components/UpgradePrompt';
+import InstallAppButton from '@/components/InstallAppButton';
 import { resetEntitlements } from '@/lib/entitlements';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
@@ -75,6 +76,7 @@ function AppContent() {
       <CloudSyncProvider>
         <div className="dark">
           {renderView()}
+          <InstallAppButton />
           <Toaster
             position="bottom-right"
             toastOptions={{
@@ -118,6 +120,7 @@ function AppContentWithoutClerk() {
   return (
     <UpgradePromptProvider>
       {renderView()}
+      <InstallAppButton />
       <Toaster
         position="bottom-right"
         toastOptions={{
