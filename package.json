@@ -16,5 +16,10 @@
   "dependencies": {
     "stripe": "20.0.0",
     "stripe-replit-sync": "1.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@clerk/shared": "^4.8.1"
+    }
   }
 }
