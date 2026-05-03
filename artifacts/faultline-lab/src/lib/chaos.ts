@@ -16,7 +16,9 @@ export const DEFAULT_CHAOS: ChaosSettings = {
 
 const STORAGE_KEY = 'faultline-lab-chaos-settings';
 
-export function loadChaosSettings(caseId: string): ChaosSettings {
+const snapshotCache = new Map<string, ChaosSettings>();
+
+function readFromStorage(caseId: string): ChaosSettings {
   if (typeof localStorage === 'undefined') return DEFAULT_CHAOS;
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}:${caseId}`);
@@ -27,13 +29,65 @@ export function loadChaosSettings(caseId: string): ChaosSettings {
   }
 }
 
-export function saveChaosSettings(caseId: string, settings: ChaosSettings) {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(`${STORAGE_KEY}:${caseId}`, JSON.stringify(settings));
-  } catch {
-    /* ignore */
+function settingsEqual(a: ChaosSettings, b: ChaosSettings): boolean {
+  return (
+    a.shuffleEvidence === b.shuffleEvidence &&
+    a.injectRedHerrings === b.injectRedHerrings &&
+    a.timePressure === b.timePressure &&
+    a.hintBlackout === b.hintBlackout &&
+    a.intensity === b.intensity
+  );
+}
+
+export function loadChaosSettings(caseId: string): ChaosSettings {
+  const fresh = readFromStorage(caseId);
+  const cached = snapshotCache.get(caseId);
+  if (cached && settingsEqual(cached, fresh)) {
+    return cached;
   }
+  snapshotCache.set(caseId, fresh);
+  return fresh;
+}
+
+export function saveChaosSettings(caseId: string, settings: ChaosSettings) {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(`${STORAGE_KEY}:${caseId}`, JSON.stringify(settings));
+    } catch {
+      /* ignore */
+    }
+  }
+  snapshotCache.delete(caseId);
+  notifyChaosListeners();
+}
+
+export function clearChaosSettings(caseId: string) {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}:${caseId}`);
+    } catch {
+      /* ignore */
+    }
+  }
+  snapshotCache.delete(caseId);
+  notifyChaosListeners();
+}
+
+const chaosListeners = new Set<() => void>();
+function notifyChaosListeners() {
+  chaosListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+export function subscribeChaosSettings(cb: () => void): () => void {
+  chaosListeners.add(cb);
+  return () => {
+    chaosListeners.delete(cb);
+  };
 }
 
 export function isChaosActive(chaos: ChaosSettings | undefined | null): boolean {
