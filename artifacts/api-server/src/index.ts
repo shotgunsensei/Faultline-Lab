@@ -2,6 +2,9 @@ import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
 import app from "./app";
 import { logger } from "./lib/logger";
+import { ensureE2EAuthTokenInDev } from "./lib/e2eAuthToken";
+
+ensureE2EAuthTokenInDev();
 
 async function initStripe() {
   const databaseUrl = process.env.DATABASE_URL;

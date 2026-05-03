@@ -198,11 +198,16 @@ pnpm --filter @workspace/scripts run test-stripe-flow
 
 This script (`scripts/src/test-stripe-flow.ts`):
 
-- Calls the real `/api/stripe/checkout-by-catalog` app endpoint (using a
-  test-only auth bypass that requires the workspace `SESSION_SECRET` and is
-  hard-disabled when `REPLIT_DEPLOYMENT=1`) so regressions in user
-  provisioning, customer creation, price selection, or session metadata are
-  caught.
+- Calls the real `/api/stripe/checkout-by-catalog` app endpoint via a
+  test-only auth bypass in `requireAuth`. The api-server only honours the
+  bypass when ALL of these hold: not running inside a production
+  deployment (`REPLIT_DEPLOYMENT !== "1"`), `ENABLE_E2E_AUTH_BYPASS=1`,
+  and the request's `x-e2e-test-token` matches the server's
+  `E2E_AUTH_TOKEN`. In dev, the api-server bootstrap auto-generates a
+  fresh `E2E_AUTH_TOKEN` and writes it to `.local/.e2e-auth-token` (mode
+  0600); the test script reads from the same file. Regressions in user
+  provisioning, customer creation, price selection, or session metadata
+  are caught.
 - Looks up the catalog product in `stripe.products` (default
   `pack-network-ops`, override with `TEST_CATALOG_PRODUCT_ID`).
 - Creates and confirms a side test-mode PaymentIntent for the same customer,

@@ -45,11 +45,14 @@
  *
  * Auth bypass:
  *   The script calls the real protected endpoint by sending two headers:
- *     x-e2e-test-token: <SESSION_SECRET>
+ *     x-e2e-test-token: <E2E_AUTH_TOKEN>
  *     x-e2e-clerk-id:   <a fresh test clerk id>
- *   `requireAuth` accepts this only when REPLIT_DEPLOYMENT !== "1" AND the
- *   token matches the workspace's SESSION_SECRET. See
- *   `artifacts/api-server/src/middlewares/requireAuth.ts`.
+ *   `requireAuth` accepts this only when ALL of the following hold:
+ *     - REPLIT_DEPLOYMENT !== "1" (not a production deployment)
+ *     - ENABLE_E2E_AUTH_BYPASS === "1" on the server
+ *     - E2E_AUTH_TOKEN is set on the server and matches the header
+ *   See `artifacts/api-server/src/middlewares/requireAuth.ts`. The script
+ *   itself reads E2E_AUTH_TOKEN from its own env to send the header.
  *
  * How to run (from the repo root):
  *
@@ -84,6 +87,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { Pool } from 'pg';
 import Stripe from 'stripe';
 import { getUncachableStripeClient } from './stripeClient';
@@ -92,13 +97,36 @@ const TEST_CATALOG_PRODUCT_ID =
   process.env.TEST_CATALOG_PRODUCT_ID || 'pack-network-ops';
 const KEEP_DATA = process.env.TEST_KEEP_DATA === '1';
 
+function findWorkspaceRoot(): string {
+  let dir = process.cwd();
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
+// Same path the api-server writes to
+// (artifacts/api-server/src/lib/e2eAuthToken.ts).
+const E2E_TOKEN_PATH = resolve(findWorkspaceRoot(), '.local/.e2e-auth-token');
+
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is required');
   process.exit(1);
 }
-if (!process.env.SESSION_SECRET) {
+if (!process.env.E2E_AUTH_TOKEN) {
+  if (existsSync(E2E_TOKEN_PATH)) {
+    const onDisk = readFileSync(E2E_TOKEN_PATH, 'utf8').trim();
+    if (onDisk) process.env.E2E_AUTH_TOKEN = onDisk;
+  }
+}
+if (!process.env.E2E_AUTH_TOKEN) {
   console.error(
-    'SESSION_SECRET is required (the script uses it as the auth-bypass token).',
+    'No E2E auth token available. Set ENABLE_E2E_AUTH_BYPASS=1 on the ' +
+      'api-server workflow and restart it; the server will write a fresh ' +
+      'token to .local/.e2e-auth-token which this script then picks up. ' +
+      '(Or set E2E_AUTH_TOKEN explicitly in both processes.)',
   );
   process.exit(1);
 }
@@ -215,7 +243,7 @@ async function callCheckoutByCatalog(): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-e2e-test-token': process.env.SESSION_SECRET as string,
+      'x-e2e-test-token': process.env.E2E_AUTH_TOKEN as string,
       'x-e2e-clerk-id': createdClerkId,
     },
     body: JSON.stringify({ catalogProductId: TEST_CATALOG_PRODUCT_ID }),
@@ -422,6 +450,28 @@ async function main(): Promise<void> {
       catalogProductId: TEST_CATALOG_PRODUCT_ID,
     }),
   );
+  await step('verify Checkout Session line item matches catalog price', async () => {
+    const items = await stripe.checkout.sessions.listLineItems(checkout.id, { limit: 5 });
+    if (items.data.length !== 1) {
+      throw new Error(`Expected 1 line item, got ${items.data.length}`);
+    }
+    const li = items.data[0];
+    if (li.price?.id !== product.stripePriceId) {
+      throw new Error(
+        `Session line item price ${li.price?.id} !== expected ${product.stripePriceId}`,
+      );
+    }
+    if (li.amount_total !== product.unitAmount) {
+      throw new Error(
+        `Session line item amount_total ${li.amount_total} !== expected ${product.unitAmount}`,
+      );
+    }
+    if ((li.currency || '').toLowerCase() !== product.currency.toLowerCase()) {
+      throw new Error(
+        `Session line item currency ${li.currency} !== expected ${product.currency}`,
+      );
+    }
+  });
   if (session.customer !== provisioned.stripeCustomerId) {
     throw new Error(
       `session.customer ${session.customer} !== provisioned customer ${provisioned.stripeCustomerId}`,
