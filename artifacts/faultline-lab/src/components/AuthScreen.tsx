@@ -4,6 +4,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { ArrowLeft } from 'lucide-react';
 import logoUrl from '@assets/faultlinelogotrans_1776394938786.png';
 import heroUrl from '@assets/faultlinelabhero_1776394938788.jpg';
+import ShotgunNinjasSSOButton from './auth/ShotgunNinjasSSOButton';
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
@@ -77,6 +78,7 @@ export default function AuthScreen() {
             }}
           />
         )}
+        <ShotgunNinjasSSOButton productSlug="faultline-lab" />
       </div>
 
       <button
