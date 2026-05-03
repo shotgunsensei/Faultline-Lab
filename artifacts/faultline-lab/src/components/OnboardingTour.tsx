@@ -374,22 +374,3 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
   );
 }
 
-/**
- * Convenience hook: reads/writes the onboarding completion flag from
- * AppSettings. Settings are persisted via the existing localStorage layer
- * for guests and pushed to the server through CloudSyncProvider for
- * signed-in users, so this works in both modes without extra plumbing.
- */
-export function useOnboardingTour() {
-  const settings = useAppStore((s) => s.settings);
-  const updateSettings = useAppStore((s) => s.updateSettings);
-
-  const isCompleted = !!settings.onboardingTourCompletedAt;
-
-  return {
-    isCompleted,
-    markCompleted: () =>
-      updateSettings({ onboardingTourCompletedAt: Date.now() }),
-    reset: () => updateSettings({ onboardingTourCompletedAt: null }),
-  };
-}
