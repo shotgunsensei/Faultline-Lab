@@ -15,10 +15,11 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
-  async (req, res) => {
+  async (req, res): Promise<void> => {
     const signature = req.headers['stripe-signature'];
     if (!signature) {
-      return res.status(400).json({ error: 'Missing stripe-signature' });
+      res.status(400).json({ error: 'Missing stripe-signature' });
+      return;
     }
 
     try {
@@ -26,7 +27,8 @@ app.post(
 
       if (!Buffer.isBuffer(req.body)) {
         console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer.');
-        return res.status(500).json({ error: 'Webhook processing error' });
+        res.status(500).json({ error: 'Webhook processing error' });
+        return;
       }
 
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
@@ -55,7 +57,8 @@ app.post(
             });
           } catch (fulfillErr: any) {
             console.error('Webhook fulfillment error:', fulfillErr.message);
-            return res.status(500).json({ error: 'Fulfillment failed; will retry' });
+            res.status(500).json({ error: 'Fulfillment failed; will retry' });
+            return;
           }
         }
       }

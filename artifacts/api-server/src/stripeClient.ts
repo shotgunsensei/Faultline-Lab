@@ -30,7 +30,11 @@ async function getCredentials() {
     }
   });
 
-  const data = await response.json();
+  const data = (await response.json()) as {
+    items?: Array<{
+      settings: { publishable?: string; secret?: string };
+    }>;
+  };
   connectionSettings = data.items?.[0];
 
   if (!connectionSettings || (!connectionSettings.settings.publishable || !connectionSettings.settings.secret)) {
