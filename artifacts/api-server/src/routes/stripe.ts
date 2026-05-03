@@ -140,7 +140,7 @@ router.post('/checkout-by-catalog', requireAuth, async (req: any, res): Promise<
         : { payment_intent_data: { metadata: { userId: user.id, clerkId, catalogProductId, interval: interval || '' } } }),
     });
 
-    res.json({ url: session.url });
+    res.json({ url: session.url, id: session.id });
   } catch (err: any) {
     console.error('checkout-by-catalog error:', err.message);
     res.status(500).json({ error: 'Failed to create checkout session' });

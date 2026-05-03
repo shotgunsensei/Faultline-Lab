@@ -198,17 +198,35 @@ pnpm --filter @workspace/scripts run test-stripe-flow
 
 This script (`scripts/src/test-stripe-flow.ts`):
 
-- Creates a throwaway user + Stripe test-mode customer.
+- Calls the real `/api/stripe/checkout-by-catalog` app endpoint (using a
+  test-only auth bypass that requires the workspace `SESSION_SECRET` and is
+  hard-disabled when `REPLIT_DEPLOYMENT=1`) so regressions in user
+  provisioning, customer creation, price selection, or session metadata are
+  caught.
 - Looks up the catalog product in `stripe.products` (default
   `pack-network-ops`, override with `TEST_CATALOG_PRODUCT_ID`).
-- Reads the managed webhook secret from `stripe._managed_webhooks`, signs a
-  synthetic `checkout.session.completed` event, and POSTs it to
-  `/api/stripe/webhook`.
-- Asserts the api-server created `user_entitlements` and `purchases` rows for
-  the test user, and that `stripe-replit-sync` mirrored the session into
+- Creates and confirms a side test-mode PaymentIntent for the same customer,
+  amount, and currency with `pm_card_visa`, exercising real Stripe payment
+  processing. (Stripe only attaches a PaymentIntent to a Checkout Session
+  after the hosted page is opened, so the side-PI is the closest scriptable
+  proof of card-charge capability.)
+- Signs a `checkout.session.completed` event with the secret stored in
+  `stripe._managed_webhooks` and POSTs it to `/api/stripe/webhook` using
+  the *real* Checkout Session id and *real* PaymentIntent id (so
+  `stripe-replit-sync`'s `listLineItems(sessionId)` and any downstream
+  PI lookups work). Stripe itself does not deliver `checkout.session.
+  completed` for a session whose hosted page was never opened, so this is
+  the deliberate way the event reaches the webhook in this scripted test;
+  the verification, decoding, and handler paths exercised are identical.
+- Asserts the api-server created `user_entitlements` and `purchases` rows
+  for the test user, and that `stripe-replit-sync` mirrored the session into
   `stripe.checkout_sessions`.
 - Cleans up the test user and Stripe customer on completion (set
   `TEST_KEEP_DATA=1` to inspect the rows).
+
+The hosted Stripe Checkout page itself is not driven (Stripe has no public
+API for "complete this Checkout Session"); confirming the underlying
+PaymentIntent is the closest faithful path that stays in CI/scripted form.
 
 Stripe test card numbers for the manual hosted-page path: `4242 4242 4242 4242`
 (succeeds), `4000 0000 0000 9995` (declines), `4000 0025 0000 3155` (requires
