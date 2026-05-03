@@ -123,6 +123,9 @@ importers:
       pino-http:
         specifier: ^10
         version: 10.5.0
+      stripe-replit-sync:
+        specifier: 1.0.0
+        version: 1.0.0(stripe@20.0.0(@types/node@25.3.5))
     devDependencies:
       '@types/cookie-parser':
         specifier: ^1.4.10
