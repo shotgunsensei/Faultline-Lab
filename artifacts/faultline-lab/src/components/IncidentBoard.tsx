@@ -11,6 +11,7 @@ import {
 import {
   Trophy,
   User,
+  CreditCard,
   Settings,
   Clock,
   ShoppingBag,
@@ -132,6 +133,16 @@ export default function IncidentBoard() {
                 className="px-2.5 py-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 font-mono uppercase tracking-wider"
               >
                 Admin
+              </button>
+            )}
+            {isSignedIn && (
+              <button
+                onClick={() => setView('account')}
+                className="p-2 text-zinc-500 hover:text-zinc-300 transition-colors"
+                title="Account & billing"
+                aria-label="Account & billing"
+              >
+                <CreditCard size={16} />
               </button>
             )}
             <button

@@ -45,6 +45,21 @@ export async function startStripeCheckout(
   });
 }
 
+export async function fetchSubscription(): Promise<{
+  subscription: {
+    id: string;
+    status: string;
+    current_period_end: number | string | null;
+    cancel_at_period_end?: boolean | null;
+  } | null;
+}> {
+  return apiFetch('/stripe/subscription');
+}
+
+export async function createBillingPortalSession(): Promise<{ url: string }> {
+  return apiFetch('/stripe/portal-session', { method: 'POST' });
+}
+
 export async function adminFetchUsers() {
   return apiFetch('/admin/users');
 }

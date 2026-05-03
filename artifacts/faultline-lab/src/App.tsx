@@ -10,6 +10,7 @@ const IncidentBoard = lazy(() => import('@/components/IncidentBoard'));
 const InvestigationWorkspace = lazy(() => import('@/components/InvestigationWorkspace'));
 const DebriefScreen = lazy(() => import('@/components/DebriefScreen'));
 const ProfileScreen = lazy(() => import('@/components/ProfileScreen'));
+const AccountScreen = lazy(() => import('@/components/AccountScreen'));
 const SettingsScreen = lazy(() => import('@/components/SettingsScreen'));
 const StoreScreen = lazy(() => import('@/components/StoreScreen'));
 const PricingScreen = lazy(() => import('@/components/PricingScreen'));
@@ -55,6 +56,8 @@ function renderView(view: string) {
       return <DebriefScreen />;
     case 'profile':
       return <ProfileScreen />;
+    case 'account':
+      return <AccountScreen />;
     case 'settings':
       return <SettingsScreen />;
     case 'store':

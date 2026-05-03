@@ -147,6 +147,30 @@ router.post('/checkout-by-catalog', requireAuth, async (req: any, res): Promise<
   }
 });
 
+router.post('/portal-session', requireAuth, async (req: any, res): Promise<void> => {
+  try {
+    const clerkId = req.userId as string;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+    if (!user?.stripeCustomerId) {
+      res.status(400).json({ error: 'No Stripe customer on file. Make a purchase first.' });
+      return;
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost'}`;
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${baseUrl}/?account=return`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    console.error('portal-session error:', err.message);
+    res.status(500).json({ error: 'Failed to create billing portal session' });
+  }
+});
+
 router.get('/subscription', requireAuth, async (req: any, res): Promise<void> => {
   try {
     const clerkId = req.userId as string;

@@ -219,6 +219,7 @@ export type AppView =
   | 'investigation'
   | 'debrief'
   | 'profile'
+  | 'account'
   | 'settings'
   | 'store'
   | 'pricing'
