@@ -1,18 +1,20 @@
 import { ExternalLink } from 'lucide-react';
+import { trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
 
 interface EcosystemLink {
   name: string;
   href: string;
   blurb: string;
+  product: string;
 }
 
 const ECOSYSTEM_LINKS: EcosystemLink[] = [
-  { name: 'ShotgunNinjas.com', href: 'https://shotgunninjas.com', blurb: 'Studio hub' },
-  { name: 'TorqueShed.pro', href: 'https://torqueshed.pro', blurb: 'Auto diagnostics' },
-  { name: 'TradeFlowKit.com', href: 'https://tradeflowkit.com', blurb: 'Ops & revenue' },
-  { name: 'TechDeck.app', href: 'https://techdeck.app', blurb: 'IT cockpit' },
-  { name: 'PulseDesk.support', href: 'https://pulsedesk.support', blurb: 'Healthcare ops' },
-  { name: 'ShotgunNinjaVillage.com', href: 'https://shotgunninjavillage.com', blurb: 'Community' },
+  { name: 'ShotgunNinjas.com', href: 'https://shotgunninjas.com', blurb: 'Studio hub', product: 'shotgunninjas' },
+  { name: 'TorqueShed.pro', href: 'https://torqueshed.pro', blurb: 'Auto diagnostics', product: 'torqueshed' },
+  { name: 'TradeFlowKit.com', href: 'https://tradeflowkit.com', blurb: 'Ops & revenue', product: 'tradeflowkit' },
+  { name: 'TechDeck.app', href: 'https://techdeck.app', blurb: 'IT cockpit', product: 'techdeck' },
+  { name: 'PulseDesk.support', href: 'https://pulsedesk.support', blurb: 'Healthcare ops', product: 'pulsedesk' },
+  { name: 'ShotgunNinjaVillage.com', href: 'https://shotgunninjavillage.com', blurb: 'Community', product: 'shotgunninjavillage' },
 ];
 
 interface Props {
@@ -30,6 +32,13 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
               href="https://shotgunninjas.com"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                trackCrossPromoClick({
+                  placementId: 'footer-compact-builtby',
+                  targetProduct: 'shotgunninjas',
+                  targetUrl: 'https://shotgunninjas.com',
+                })
+              }
               className="text-red-400/80 hover:text-red-300 transition-colors"
             >
               Shotgun Ninjas Productions
@@ -58,6 +67,13 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
               href={link.href}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                trackCrossPromoClick({
+                  placementId: `footer-grid-${link.product}`,
+                  targetProduct: link.product,
+                  targetUrl: link.href,
+                })
+              }
               className="group flex flex-col gap-1 p-3 rounded border border-zinc-800/50 hover:border-red-500/30 bg-[#0d1219]/60 hover:bg-[#111822] transition-all"
             >
               <span className="text-xs text-zinc-200 group-hover:text-red-300 font-mono flex items-center gap-1.5 transition-colors">
@@ -78,6 +94,13 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
               href="https://shotgunninjas.com"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                trackCrossPromoClick({
+                  placementId: 'footer-full-builtby',
+                  targetProduct: 'shotgunninjas',
+                  targetUrl: 'https://shotgunninjas.com',
+                })
+              }
               className="text-red-400/80 hover:text-red-300 transition-colors"
             >
               Shotgun Ninjas Productions

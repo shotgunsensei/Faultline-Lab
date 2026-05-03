@@ -1,11 +1,13 @@
 import { ExternalLink } from 'lucide-react';
 import type { CaseCategory } from '@/types';
+import { trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
 
 interface AppliedLink {
   name: string;
   href: string;
   blurb: string;
   tagline: string;
+  product: string;
 }
 
 const TECHDECK: AppliedLink = {
@@ -13,6 +15,7 @@ const TECHDECK: AppliedLink = {
   href: 'https://techdeck.app',
   blurb: 'IT cockpit for MSPs and power users',
   tagline: 'Take this diagnostic mindset to live IT operations.',
+  product: 'techdeck',
 };
 
 const TORQUESHED: AppliedLink = {
@@ -20,6 +23,7 @@ const TORQUESHED: AppliedLink = {
   href: 'https://torqueshed.pro',
   blurb: 'Automotive diagnostics, parts, and shop tooling',
   tagline: 'Apply the same root-cause workflow in the bay.',
+  product: 'torqueshed',
 };
 
 const HUB: AppliedLink = {
@@ -27,6 +31,7 @@ const HUB: AppliedLink = {
   href: 'https://shotgunninjas.com',
   blurb: 'The full Shotgun Ninjas operator ecosystem',
   tagline: 'See where else this skill set ships.',
+  product: 'shotgunninjas',
 };
 
 function pickLinks(category: CaseCategory): AppliedLink[] {
@@ -66,6 +71,13 @@ export default function EcosystemCrossPromo({ category }: Props) {
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() =>
+              trackCrossPromoClick({
+                placementId: `debrief-${category}-${link.product}`,
+                targetProduct: link.product,
+                targetUrl: link.href,
+              })
+            }
             className="group rounded-lg border border-zinc-800/60 bg-[#0d1219]/60 hover:border-red-500/30 hover:bg-[#111822] p-4 transition-all"
           >
             <div className="flex items-center justify-between gap-2 mb-1.5">

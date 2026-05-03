@@ -211,3 +211,31 @@ export async function adminDeleteUser(userId: string): Promise<{ success: boolea
     method: 'DELETE',
   });
 }
+
+export type CrossPromoClickEvent = {
+  placementId: string;
+  targetProduct: string;
+  targetUrl: string;
+  route?: string;
+  userTier: 'anonymous' | 'free' | 'pro';
+};
+
+/**
+ * Fire-and-forget cross-promo click telemetry. Never throws and never blocks
+ * navigation — the caller should not await this in a way that delays the
+ * user. Uses `fetch` with `keepalive: true` so the request survives a
+ * page-unload / target=_blank handoff.
+ */
+export function recordCrossPromoClick(event: CrossPromoClickEvent): void {
+  try {
+    void fetch(`${API_BASE}/cross-promo/click`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    }).catch(() => {});
+  } catch {
+    // swallow — telemetry must never block navigation
+  }
+}
