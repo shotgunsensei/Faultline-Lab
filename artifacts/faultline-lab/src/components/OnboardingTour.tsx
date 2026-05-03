@@ -210,10 +210,6 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
 
   if (!open) return null;
 
-  // Between screens (e.g. user finished the incident-board step but hasn't
-  // entered investigation yet) no step matches the current view. Render a
-  // small persistent "Skip tour" pill so the user can dismiss at any time
-  // instead of waiting for the next screen to surface the modal again.
   if (!step) {
     return (
       <button

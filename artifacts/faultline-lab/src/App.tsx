@@ -87,11 +87,7 @@ function GlobalOnboardingTour() {
   const authLoaded = useAppStore(s => s.authLoaded);
   const cloudSyncReady = useAppStore(s => s.cloudSyncReady);
   const updateSettings = useAppStore(s => s.updateSettings);
-  // Don't intrude on the boot or auth screens.
   const eligibleView = view !== 'boot' && view !== 'auth';
-  // Wait for Clerk's auth state to load before deciding, then for signed-in
-  // users wait for the initial cloud settings sync, so a fresh device never
-  // briefly replays a tour the user already completed elsewhere.
   const settingsReady = authLoaded && (!isSignedIn || cloudSyncReady);
   const open =
     eligibleView && settingsReady && !settings.onboardingTourCompletedAt;
@@ -146,7 +142,6 @@ function AppContentWithoutClerk() {
 
   useEffect(() => {
     resetEntitlements();
-    // No Clerk in this build, so auth is "loaded" immediately as anonymous.
     setAuthLoaded(true);
   }, [setAuthLoaded]);
 

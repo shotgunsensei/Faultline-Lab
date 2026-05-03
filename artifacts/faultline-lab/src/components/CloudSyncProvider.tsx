@@ -135,8 +135,6 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
       useAppStore.getState().setCloudSyncReady(true);
     } catch (err) {
       console.warn('Cloud sync failed, using local data:', err);
-      // Mark ready even on failure so the UI doesn't block forever; local
-      // settings are the fallback.
       useAppStore.getState().setCloudSyncReady(true);
     }
   }, []);
