@@ -32,7 +32,11 @@ custom) domain over HTTPS.
 | --------------------------- | ------------------------------------ | ----------------------------------------- |
 | `DATABASE_URL`              | Replit Postgres                      | App data, Stripe schema, sessions         |
 | `PORT`                      | Per-artifact workflow                | Service port binding                      |
-| `REPLIT_DOMAINS`            | Deployment runtime (comma-separated) | CORS, webhook URL, Stripe return URLs     |
+| `REPLIT_DOMAINS`            | Deployment runtime (comma-separated) | Stripe webhook URL construction on boot   |
+| `REPLIT_DEV_DOMAIN`         | Dev runtime                          | CORS allow-list (dev) + Stripe return URLs|
+| `REPLIT_DEPLOYMENT_URL`     | Deployment runtime                   | CORS allow-list (production)              |
+| `BASE_PATH`                 | Per-artifact workflow                | Vite base path; required by `vite.config.ts` in serve/preview |
+| `REPL_ID`                   | Workspace runtime                    | Optional dev-only Replit Vite plugins     |
 | `REPLIT_DEPLOYMENT`         | `=1` in production                   | Selects Stripe **production** connector   |
 | `REPLIT_CONNECTORS_HOSTNAME`| Connectors runtime                   | Resolves Stripe credentials from Connectors |
 | `REPL_IDENTITY` / `WEB_REPL_RENEWAL` | Connectors runtime          | Auth token for the Connectors API         |
