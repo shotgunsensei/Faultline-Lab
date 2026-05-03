@@ -182,6 +182,38 @@ Run these in order against the **production** deployment URL.
 
 If every box is checked, Faultline Lab is launch-ready.
 
+### Optional: scripted Stripe purchase E2E
+
+For a repeatable check that does not require sitting in front of the Stripe
+Checkout UI, run the scripted end-to-end test **from the dev workspace only,
+against the test-mode Stripe Connector**. The script refuses to run inside a
+production deployment (it detects `REPLIT_DEPLOYMENT=1` and aborts) because it
+would otherwise create real Checkout Sessions and post synthetic paid webhooks
+against the live Stripe account.
+
+```bash
+pnpm --filter @workspace/scripts run seed-products      # one-time per Stripe account
+pnpm --filter @workspace/scripts run test-stripe-flow
+```
+
+This script (`scripts/src/test-stripe-flow.ts`):
+
+- Creates a throwaway user + Stripe test-mode customer.
+- Looks up the catalog product in `stripe.products` (default
+  `pack-network-ops`, override with `TEST_CATALOG_PRODUCT_ID`).
+- Reads the managed webhook secret from `stripe._managed_webhooks`, signs a
+  synthetic `checkout.session.completed` event, and POSTs it to
+  `/api/stripe/webhook`.
+- Asserts the api-server created `user_entitlements` and `purchases` rows for
+  the test user, and that `stripe-replit-sync` mirrored the session into
+  `stripe.checkout_sessions`.
+- Cleans up the test user and Stripe customer on completion (set
+  `TEST_KEEP_DATA=1` to inspect the rows).
+
+Stripe test card numbers for the manual hosted-page path: `4242 4242 4242 4242`
+(succeeds), `4000 0000 0000 9995` (declines), `4000 0025 0000 3155` (requires
+3D Secure). Use any future expiry, any 3-digit CVC, any ZIP.
+
 ---
 
 ## 7. Rollback
