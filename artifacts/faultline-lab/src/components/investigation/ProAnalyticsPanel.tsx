@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { BarChart3, Download, Trophy, Target, Clock, Lightbulb } from 'lucide-react';
+import { BarChart3, Download, Trophy, Target, Clock, Lightbulb, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { loadCaseStates } from '@/lib/persistence';
 import { getCaseById, categoryLabels } from '@/data/cases';
@@ -98,9 +98,10 @@ export default function ProAnalyticsPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <Stat icon={Trophy} label="Cases solved" value={profile.casesSolved.toString()} accent="text-emerald-300" />
           <Stat icon={Target} label="Total score" value={profile.totalScore.toString()} accent="text-cyan-300" />
+          <Stat icon={Zap} label="Chaos score" value={profile.totalChaosScore.toString()} accent="text-fuchsia-300" />
           <Stat icon={Clock} label="Avg time" value={`${stats.avgTime.toFixed(1)}m`} accent="text-purple-300" />
           <Stat icon={Lightbulb} label="Avg hints" value={stats.avgHints.toFixed(1)} accent="text-amber-300" />
         </div>

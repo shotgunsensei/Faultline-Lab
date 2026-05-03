@@ -40,6 +40,8 @@ export function loadProfile(): InvestigatorProfile {
     casesSolved: 0,
     bestScores: {},
     totalScore: 0,
+    bestChaosScores: {},
+    totalChaosScore: 0,
     streakCurrent: 0,
     streakBest: 0,
     achievementsUnlocked: [],

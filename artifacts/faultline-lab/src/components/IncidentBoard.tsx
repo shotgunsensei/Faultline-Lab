@@ -516,6 +516,14 @@ export default function IncidentBoard() {
                   </div>
                   <div>
                     <div className="text-xs text-zinc-500 uppercase tracking-wider">
+                      Chaos Score
+                    </div>
+                    <div className="text-xl font-bold text-fuchsia-400 font-mono">
+                      {profile.totalChaosScore}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-zinc-500 uppercase tracking-wider">
                       Best Streak
                     </div>
                     <div className="text-xl font-bold text-amber-400 font-mono">

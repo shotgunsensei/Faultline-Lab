@@ -174,9 +174,10 @@ export default function ProfileScreen() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-6 sm:mb-8">
             <StatCard icon={<CheckCircle size={16} />} label="Cases Solved" value={profile.casesSolved} color="text-emerald-400" />
             <StatCard icon={<Trophy size={16} />} label="Total Score" value={profile.totalScore} color="text-cyan-400" />
+            <StatCard icon={<Zap size={16} />} label="Chaos Score" value={profile.totalChaosScore} color="text-fuchsia-400" />
             <StatCard icon={<Flame size={16} />} label="Best Streak" value={profile.streakBest} color="text-amber-400" />
             <StatCard icon={<Award size={16} />} label="Achievements" value={profile.achievementsUnlocked.length} color="text-purple-400" />
           </div>
@@ -218,9 +219,22 @@ export default function ProfileScreen() {
                         {categoryLabels[c.category]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-cyan-400 font-mono shrink-0 ml-2">
-                      <Target size={12} />
-                      {profile.bestScores[c.id]}
+                    <div className="flex items-center gap-3 shrink-0 ml-2">
+                      {profile.bestScores[c.id] !== undefined && (
+                        <div className="flex items-center gap-1 text-xs text-cyan-400 font-mono">
+                          <Target size={12} />
+                          {profile.bestScores[c.id]}
+                        </div>
+                      )}
+                      {profile.bestChaosScores[c.id] !== undefined && (
+                        <div
+                          className="flex items-center gap-1 text-xs text-fuchsia-400 font-mono"
+                          title="Best Chaos Mode score"
+                        >
+                          <Zap size={12} />
+                          {profile.bestChaosScores[c.id]}
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}

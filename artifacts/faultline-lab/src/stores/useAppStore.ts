@@ -30,7 +30,7 @@ import {
   generateDebrief,
   applyChaosToCaseDef,
 } from '@/lib/simulation';
-import { loadChaosSettings } from '@/lib/chaos';
+import { loadChaosSettings, isChaosActive } from '@/lib/chaos';
 import { resolveCaseDefinitionByEntryId } from '@/data/caseCatalog';
 import { getUtcDateKey, utcDateDiffInDays } from '@/lib/dailyChallenge';
 
@@ -384,9 +384,33 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     saveCaseState(currentCaseDef.id, completedState);
 
-    const isBetterScore =
-      !profile.bestScores[currentCaseDef.id] ||
-      scoreBreakdown.total > profile.bestScores[currentCaseDef.id];
+    const wasChaosRun = isChaosActive(currentCaseState.chaos);
+
+    const previousVanillaBest = profile.bestScores[currentCaseDef.id];
+    const previousChaosBest = profile.bestChaosScores[currentCaseDef.id];
+
+    const isBetterVanilla =
+      !wasChaosRun &&
+      (previousVanillaBest === undefined ||
+        scoreBreakdown.total > previousVanillaBest);
+    const isBetterChaos =
+      wasChaosRun &&
+      (previousChaosBest === undefined ||
+        scoreBreakdown.total > previousChaosBest);
+
+    const nextBestScores = isBetterVanilla
+      ? { ...profile.bestScores, [currentCaseDef.id]: scoreBreakdown.total }
+      : profile.bestScores;
+    const nextBestChaosScores = isBetterChaos
+      ? { ...profile.bestChaosScores, [currentCaseDef.id]: scoreBreakdown.total }
+      : profile.bestChaosScores;
+
+    const nextTotalScore = isBetterVanilla
+      ? Object.values(nextBestScores).reduce((a, b) => a + b, 0)
+      : profile.totalScore;
+    const nextTotalChaosScore = isBetterChaos
+      ? Object.values(nextBestChaosScores).reduce((a, b) => a + b, 0)
+      : profile.totalChaosScore;
 
     const newAchievements = debrief.achievementsUnlocked.filter(
       a => !profile.achievementsUnlocked.includes(a)
@@ -399,15 +423,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       casesSolved: wasPreviouslySolved
         ? profile.casesSolved
         : profile.casesSolved + 1,
-      bestScores: isBetterScore
-        ? { ...profile.bestScores, [currentCaseDef.id]: scoreBreakdown.total }
-        : profile.bestScores,
-      totalScore: isBetterScore
-        ? Object.values({
-            ...profile.bestScores,
-            [currentCaseDef.id]: scoreBreakdown.total,
-          }).reduce((a, b) => a + b, 0)
-        : profile.totalScore,
+      bestScores: nextBestScores,
+      totalScore: nextTotalScore,
+      bestChaosScores: nextBestChaosScores,
+      totalChaosScore: nextTotalChaosScore,
       streakCurrent:
         scoreBreakdown.tier !== 'Misdiagnosed'
           ? profile.streakCurrent + 1

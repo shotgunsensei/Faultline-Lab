@@ -163,6 +163,8 @@ export interface InvestigatorProfile {
   casesSolved: number;
   bestScores: Record<string, number>;
   totalScore: number;
+  bestChaosScores: Record<string, number>;
+  totalChaosScore: number;
   streakCurrent: number;
   streakBest: number;
   achievementsUnlocked: string[];
