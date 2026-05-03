@@ -32,7 +32,7 @@ router.get("/profile", requireAuth, async (req, res) => {
       caseStates: profile[0].caseStates,
     });
   } catch (err) {
-    console.error("Failed to load profile:", err);
+    req.log.error({ err }, "Failed to load profile");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -67,7 +67,7 @@ router.put("/profile", requireAuth, async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    console.error("Failed to save profile:", err);
+    req.log.error({ err }, "Failed to save profile");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -124,17 +124,17 @@ router.get("/entitlements", requireAuth, async (req, res) => {
 
     return res.json({ ownedProductIds, activeSubscription, isProUser, isAdmin, isSuperAdmin });
   } catch (err) {
-    console.error("Failed to load entitlements:", err);
+    req.log.error({ err }, "Failed to load entitlements");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-router.get("/catalog/overrides", async (_req, res) => {
+router.get("/catalog/overrides", async (req, res) => {
   try {
     const payload = await loadCatalogOverridesPayload();
     return res.json(payload);
   } catch (err) {
-    console.error("Failed to load public catalog overrides:", err);
+    req.log.error({ err }, "Failed to load public catalog overrides");
     return res.json({ overrides: [], version: getCatalogOverridesVersion() });
   }
 });
@@ -157,7 +157,7 @@ router.get("/catalog/overrides/stream", async (req, res) => {
     const initial = await loadCatalogOverridesPayload();
     write("overrides", initial);
   } catch (err) {
-    console.warn("SSE initial overrides load failed:", err);
+    req.log.warn({ err }, "SSE initial overrides load failed");
   }
 
   let lastSentVersion = getCatalogOverridesVersion();
@@ -168,7 +168,7 @@ router.get("/catalog/overrides/stream", async (req, res) => {
       lastSentVersion = payload.version;
       write("overrides", payload);
     } catch (err) {
-      console.warn("SSE overrides push failed:", err);
+      req.log.warn({ err }, "SSE overrides push failed");
     }
   });
 

@@ -45,7 +45,7 @@ function getParam(req: Request, key: string): string {
   return Array.isArray(v) ? String(v[0]) : String(v);
 }
 
-router.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
+router.get("/admin/users", requireAuth, requireAdmin, async (req, res) => {
   try {
     const users = await db.select().from(usersTable).limit(500);
     return res.json({
@@ -59,7 +59,7 @@ router.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
       })),
     });
   } catch (err) {
-    console.error("Failed to list users:", err);
+    req.log.error({ err }, "Failed to list users:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -82,7 +82,7 @@ router.get("/admin/users/:userId/entitlements", requireAuth, requireAdmin, async
       })),
     });
   } catch (err) {
-    console.error("Failed to load user entitlements:", err);
+    req.log.error({ err }, "Failed to load user entitlements:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -142,7 +142,7 @@ router.post("/admin/users/:userId/entitlements", requireAuth, requireAdmin, asyn
 
     return res.json({ success: true, id });
   } catch (err) {
-    console.error("Failed to grant entitlement:", err);
+    req.log.error({ err }, "Failed to grant entitlement:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -166,13 +166,13 @@ router.delete(
         );
       return res.json({ success: true });
     } catch (err) {
-      console.error("Failed to revoke entitlement:", err);
+      req.log.error({ err }, "Failed to revoke entitlement:");
       return res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
-router.get("/admin/catalog/overrides", requireAuth, requireAdmin, async (_req, res) => {
+router.get("/admin/catalog/overrides", requireAuth, requireAdmin, async (req, res) => {
   try {
     const rows = await db
       .select({
@@ -201,7 +201,7 @@ router.get("/admin/catalog/overrides", requireAuth, requireAdmin, async (_req, r
       })),
     });
   } catch (err) {
-    console.error("Failed to load catalog overrides:", err);
+    req.log.error({ err }, "Failed to load catalog overrides:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -264,7 +264,7 @@ router.put("/admin/catalog/overrides/:productId", requireAuth, requireAdmin, asy
       updatedByUserId: adminUser.id,
     });
   } catch (err) {
-    console.error("Failed to save catalog override:", err);
+    req.log.error({ err }, "Failed to save catalog override:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -304,7 +304,7 @@ router.delete(
       notifyCatalogOverridesChanged();
       return res.json({ success: true });
     } catch (err) {
-      console.error("Failed to revert catalog override:", err);
+      req.log.error({ err }, "Failed to revert catalog override:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -357,7 +357,7 @@ router.patch(
 
       return res.json({ success: true });
     } catch (err) {
-      console.error("Failed to update user role:", err);
+      req.log.error({ err }, "Failed to update user role:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -392,7 +392,7 @@ router.delete(
 
       return res.json({ success: true });
     } catch (err) {
-      console.error("Failed to delete user:", err);
+      req.log.error({ err }, "Failed to delete user:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -444,7 +444,7 @@ router.get(
         })),
       });
     } catch (err) {
-      console.error("Failed to load catalog override history:", err);
+      req.log.error({ err }, "Failed to load catalog override history:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -514,13 +514,13 @@ router.post(
         updatedByUserId: adminUser.id,
       });
     } catch (err) {
-      console.error("Failed to rollback catalog override:", err);
+      req.log.error({ err }, "Failed to rollback catalog override:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },
 );
 
-router.get("/admin/case-drafts", requireAuth, requireAdmin, async (_req, res) => {
+router.get("/admin/case-drafts", requireAuth, requireAdmin, async (req, res) => {
   try {
     const rows = await db
       .select({
@@ -550,7 +550,7 @@ router.get("/admin/case-drafts", requireAuth, requireAdmin, async (_req, res) =>
       })),
     });
   } catch (err) {
-    console.error("Failed to load case drafts:", err);
+    req.log.error({ err }, "Failed to load case drafts:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -628,7 +628,7 @@ router.put("/admin/case-drafts/:draftId", requireAuth, requireAdmin, async (req,
       updatedByUserId: adminUser.id,
     });
   } catch (err) {
-    console.error("Failed to save case draft:", err);
+    req.log.error({ err }, "Failed to save case draft:");
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -643,7 +643,7 @@ router.delete(
       await db.delete(caseDraftsTable).where(eq(caseDraftsTable.id, draftId));
       return res.json({ success: true });
     } catch (err) {
-      console.error("Failed to delete case draft:", err);
+      req.log.error({ err }, "Failed to delete case draft:");
       return res.status(500).json({ error: "Internal server error" });
     }
   },

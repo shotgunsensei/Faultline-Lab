@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { db, usersTable, type User } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
+import { logger } from "./logger";
 
 const BOOTSTRAP_SUPER_ADMIN_EMAILS: ReadonlySet<string> = new Set(
   ["john@shotgunninjas.com"].map((e) => e.toLowerCase()),
@@ -31,7 +32,7 @@ async function fetchClerkProfile(
     const avatarUrl: string | null = u?.imageUrl || null;
     return { email, displayName, avatarUrl };
   } catch (err) {
-    console.warn("clerkClient.users.getUser failed:", (err as Error)?.message);
+    logger.warn({ err }, "clerkClient.users.getUser failed");
     return { email: null, displayName: null, avatarUrl: null };
   }
 }
@@ -75,8 +76,9 @@ export async function ensureUserRow(clerkId: string): Promise<User> {
         ) {
           updates.isAdmin = true;
           updates.isSuperAdmin = true;
-          console.log(
-            `Bootstrapped super admin on email backfill: ${fetched.email} (clerkId=${clerkId})`,
+          logger.info(
+            { email: fetched.email, clerkId },
+            "Bootstrapped super admin on email backfill",
           );
         }
         await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id));
@@ -105,8 +107,9 @@ export async function ensureUserRow(clerkId: string): Promise<User> {
     })
     .onConflictDoNothing({ target: usersTable.clerkId });
   if (isBoot) {
-    console.log(
-      `Bootstrapped super admin on first sign-in: ${fetched.email} (clerkId=${clerkId})`,
+    logger.info(
+      { email: fetched.email, clerkId },
+      "Bootstrapped super admin on first sign-in",
     );
   }
   const inserted = await db

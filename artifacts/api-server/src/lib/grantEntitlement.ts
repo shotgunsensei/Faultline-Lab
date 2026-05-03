@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { db } from '@workspace/db';
 import { userEntitlementsTable, purchasesTable } from '@workspace/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { logger } from './logger';
 
 const PRODUCT_TYPE_MAP: Record<string, string> = {
   'pro-subscription': 'subscription',
@@ -29,7 +30,7 @@ export async function grantEntitlementFromCheckout(opts: {
   const { userId, productId, source, stripePaymentId } = opts;
   const entitlementType = PRODUCT_TYPE_MAP[productId];
   if (!entitlementType) {
-    console.warn(`[grant] unknown productId ${productId}, skipping`);
+    logger.warn({ productId }, "[grant] unknown productId, skipping");
     return null;
   }
 

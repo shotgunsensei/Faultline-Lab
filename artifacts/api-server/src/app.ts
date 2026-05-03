@@ -12,6 +12,26 @@ const app: Express = express();
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
+app.use(
+  pinoHttp({
+    logger,
+    serializers: {
+      req(req) {
+        return {
+          id: req.id,
+          method: req.method,
+          url: req.url?.split("?")[0],
+        };
+      },
+      res(res) {
+        return {
+          statusCode: res.statusCode,
+        };
+      },
+    },
+  }),
+);
+
 app.post(
   '/api/stripe/webhook',
   express.raw({ type: 'application/json' }),
@@ -26,7 +46,7 @@ app.post(
       const sig = Array.isArray(signature) ? signature[0] : signature;
 
       if (!Buffer.isBuffer(req.body)) {
-        console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer.');
+        req.log.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer.');
         res.status(500).json({ error: 'Webhook processing error' });
         return;
       }
@@ -56,7 +76,7 @@ app.post(
               currency: session.currency || 'usd',
             });
           } catch (fulfillErr: any) {
-            console.error('Webhook fulfillment error:', fulfillErr.message);
+            req.log.error({ err: fulfillErr }, 'Webhook fulfillment error');
             res.status(500).json({ error: 'Fulfillment failed; will retry' });
             return;
           }
@@ -65,30 +85,10 @@ app.post(
 
       res.status(200).json({ received: true });
     } catch (error: any) {
-      console.error('Webhook error:', error.message);
+      req.log.error({ err: error }, 'Webhook error');
       res.status(400).json({ error: 'Webhook processing error' });
     }
   }
-);
-
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
 );
 
 const allowedOrigins = [
