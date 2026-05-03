@@ -8,6 +8,7 @@ import {
   Wrench,
   ClipboardCheck,
   Sparkles,
+  Compass,
   X,
 } from 'lucide-react';
 import type { AppView } from '@/types';
@@ -207,7 +208,25 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, step, seen, isLastUnseen]);
 
-  if (!open || !step) return null;
+  if (!open) return null;
+
+  // Between screens (e.g. user finished the incident-board step but hasn't
+  // entered investigation yet) no step matches the current view. Render a
+  // small persistent "Skip tour" pill so the user can dismiss at any time
+  // instead of waiting for the next screen to surface the modal again.
+  if (!step) {
+    return (
+      <button
+        type="button"
+        onClick={() => onClose()}
+        className="fixed bottom-4 right-4 z-[100] flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0d131c]/95 border border-cyan-500/40 text-[11px] font-mono uppercase tracking-wider text-cyan-200 hover:bg-cyan-500/15 transition-colors shadow-lg shadow-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        aria-label="Skip onboarding tour"
+      >
+        <Compass size={12} />
+        Skip tour
+      </button>
+    );
+  }
 
   const Icon = step.icon;
 

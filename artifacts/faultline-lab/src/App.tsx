@@ -84,14 +84,15 @@ function GlobalOnboardingTour() {
   const view = useAppStore(s => s.view);
   const settings = useAppStore(s => s.settings);
   const isSignedIn = useAppStore(s => s.isSignedIn);
+  const authLoaded = useAppStore(s => s.authLoaded);
   const cloudSyncReady = useAppStore(s => s.cloudSyncReady);
   const updateSettings = useAppStore(s => s.updateSettings);
   // Don't intrude on the boot or auth screens.
   const eligibleView = view !== 'boot' && view !== 'auth';
-  // For signed-in users, wait for the initial cloud settings sync before
-  // deciding whether to show the tour, so a fresh device doesn't briefly
-  // replay a tour the user has already completed elsewhere.
-  const settingsReady = !isSignedIn || cloudSyncReady;
+  // Wait for Clerk's auth state to load before deciding, then for signed-in
+  // users wait for the initial cloud settings sync, so a fresh device never
+  // briefly replays a tour the user already completed elsewhere.
+  const settingsReady = authLoaded && (!isSignedIn || cloudSyncReady);
   const open =
     eligibleView && settingsReady && !settings.onboardingTourCompletedAt;
   if (!open) return null;
@@ -109,6 +110,7 @@ function AppContent() {
   const view = useAppStore(s => s.view);
   const { user, isLoaded } = useUser();
   const setAuthUser = useAppStore(s => s.setAuthUser);
+  const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
 
   useEffect(() => {
     if (isLoaded) {
@@ -118,8 +120,9 @@ function AppContent() {
         name: user.fullName || user.firstName || null,
         avatarUrl: user.imageUrl || null,
       } : null);
+      setAuthLoaded(true);
     }
-  }, [user, isLoaded, setAuthUser]);
+  }, [user, isLoaded, setAuthUser, setAuthLoaded]);
 
   return (
     <Suspense fallback={<ScreenFallback />}>
@@ -139,10 +142,13 @@ function AppContent() {
 
 function AppContentWithoutClerk() {
   const view = useAppStore(s => s.view);
+  const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
 
   useEffect(() => {
     resetEntitlements();
-  }, []);
+    // No Clerk in this build, so auth is "loaded" immediately as anonymous.
+    setAuthLoaded(true);
+  }, [setAuthLoaded]);
 
   return (
     <Suspense fallback={<ScreenFallback />}>
