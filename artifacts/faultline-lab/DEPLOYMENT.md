@@ -47,16 +47,21 @@ custom) domain over HTTPS.
 | `VITE_CLERK_PROXY_URL`         | Optional                                       | Only set if you proxy Clerk through your own domain.                  |
 | `LOG_LEVEL`                    | Optional                                       | Defaults to `info`. Use `debug` for first-launch troubleshooting.     |
 
-### Stripe — credentials are managed by the Replit Stripe Connector, not env vars
+### Variables you might expect, but **do not** need to set
 
-Faultline Lab does **not** read `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET`
-from the environment. `artifacts/api-server/src/stripeClient.ts` resolves the
-publishable + secret keys from the Replit **Stripe Connector**, picking
-`development` in dev and `production` when `REPLIT_DEPLOYMENT=1`. The webhook
-endpoint and signing secret are created and managed by `stripe-replit-sync`
-(see §4).
+The original deployment brief listed three more variables. Each is
+intentionally **not** required in the current implementation; they are listed
+here so an operator coming from the brief doesn't waste time chasing them:
 
-So the only Stripe action you take in the dashboard is what's covered in §4.
+| Variable                  | Status        | Why                                                                                                                                                  |
+| ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`          | Not consumed  | Faultline Lab uses Clerk-issued JWTs end-to-end; no Express session middleware is mounted. The dev secret can stay unset in prod with no effect.     |
+| `STRIPE_SECRET_KEY`       | Not consumed  | `artifacts/api-server/src/stripeClient.ts` resolves the secret from the Replit **Stripe Connector** (`development` in dev, `production` when `REPLIT_DEPLOYMENT=1`). |
+| `STRIPE_WEBHOOK_SECRET`   | Not consumed  | The webhook endpoint **and** its signing secret are created/managed by `stripe-replit-sync` on first boot and stored in the database (see §4).       |
+
+If you ever migrate off the Replit Stripe Connector or off
+`stripe-replit-sync`, re-introduce `STRIPE_SECRET_KEY` and
+`STRIPE_WEBHOOK_SECRET` here and update `stripeClient.ts` / `app.ts` accordingly.
 
 ---
 
@@ -105,11 +110,8 @@ What you still need to do manually:
    the api-server will read when `REPLIT_DEPLOYMENT=1`.
 2. After the first deploy, open the Stripe dashboard → **Developers → Webhooks**
    and confirm exactly one endpoint exists pointing at
-   `https://<your-domain>/api/stripe/webhook` (the path the api-server actually
-   serves). If the auto-registered URL points anywhere else, delete the wrong
-   endpoint in Stripe and either let the next boot recreate it correctly or
-   add the correct URL manually. Listed events should include at least
-   `checkout.session.completed`, `customer.subscription.created`,
+   `https://<your-domain>/api/stripe/webhook`. Listed events should include at
+   least `checkout.session.completed`, `customer.subscription.created`,
    `customer.subscription.updated`, `customer.subscription.deleted`,
    `invoice.paid`.
 3. In the Stripe dashboard, create your live **Products** and **Prices** with a
