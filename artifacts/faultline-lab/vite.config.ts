@@ -5,28 +5,32 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
+const parsedPort = rawPort ? Number(rawPort) : NaN;
+const port =
+  Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 5173;
+const basePath = process.env.BASE_PATH || "/";
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+const requireDevEnv = (kind: "serve" | "preview") => {
+  if (!rawPort) {
+    throw new Error(
+      `PORT environment variable is required for vite ${kind} but was not provided.`,
+    );
+  }
+  if (!Number.isFinite(parsedPort) || parsedPort <= 0) {
+    throw new Error(`Invalid PORT value: "${rawPort}"`);
+  }
+  if (!process.env.BASE_PATH) {
+    throw new Error(
+      `BASE_PATH environment variable is required for vite ${kind} but was not provided.`,
+    );
+  }
+};
 
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    "BASE_PATH environment variable is required but was not provided.",
-  );
-}
-
-export default defineConfig({
+export default defineConfig(async ({ command, isPreview }) => {
+  if (command === "serve") {
+    requireDevEnv(isPreview ? "preview" : "serve");
+  }
+  return {
   base: basePath,
   plugins: [
     react(),
@@ -92,4 +96,5 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
   },
+  };
 });
