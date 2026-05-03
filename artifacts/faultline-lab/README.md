@@ -68,6 +68,7 @@ This package lives in the `pnpm` monorepo. From the repo root:
 ```bash
 pnpm --filter @workspace/faultline-lab run dev      # vite dev server
 pnpm --filter @workspace/faultline-lab run build    # production build
+pnpm --filter @workspace/faultline-lab run test     # vitest unit suite
 pnpm run typecheck                                   # full repo typecheck
 ```
 
