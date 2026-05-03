@@ -22,6 +22,7 @@ import {
   Zap,
   Layers,
   ShoppingBag,
+  Compass,
 } from 'lucide-react';
 
 export default function ProfileScreen() {
@@ -31,6 +32,7 @@ export default function ProfileScreen() {
   const resumeCase = useAppStore(s => s.resumeCase);
   const isSignedIn = useAppStore(s => s.isSignedIn);
   const authUser = useAppStore(s => s.authUser);
+  const updateSettings = useAppStore(s => s.updateSettings);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
   const ent = useSyncExternalStore(
@@ -241,6 +243,29 @@ export default function ProfileScreen() {
               </div>
             </div>
           )}
+
+          <div className="mt-6 bg-[#111822] border border-zinc-800/40 rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <Compass size={16} className="text-cyan-400" />
+                <div>
+                  <p className="text-sm text-zinc-200">Replay onboarding tour</p>
+                  <p className="text-xs text-zinc-600">
+                    Walk through the 4-step intro again
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  updateSettings({ onboardingTourCompletedAt: null });
+                  setView('incident-board');
+                }}
+                className="px-3 py-1.5 rounded text-xs font-mono uppercase bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+              >
+                Replay
+              </button>
+            </div>
+          </div>
         </motion.div>
       </main>
     </div>
