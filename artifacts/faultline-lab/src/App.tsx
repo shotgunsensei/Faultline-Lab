@@ -83,10 +83,17 @@ const TOASTER_STYLE = {
 function GlobalOnboardingTour() {
   const view = useAppStore(s => s.view);
   const settings = useAppStore(s => s.settings);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
+  const cloudSyncReady = useAppStore(s => s.cloudSyncReady);
   const updateSettings = useAppStore(s => s.updateSettings);
   // Don't intrude on the boot or auth screens.
   const eligibleView = view !== 'boot' && view !== 'auth';
-  const open = eligibleView && !settings.onboardingTourCompletedAt;
+  // For signed-in users, wait for the initial cloud settings sync before
+  // deciding whether to show the tour, so a fresh device doesn't briefly
+  // replay a tour the user has already completed elsewhere.
+  const settingsReady = !isSignedIn || cloudSyncReady;
+  const open =
+    eligibleView && settingsReady && !settings.onboardingTourCompletedAt;
   if (!open) return null;
   return (
     <Suspense fallback={null}>

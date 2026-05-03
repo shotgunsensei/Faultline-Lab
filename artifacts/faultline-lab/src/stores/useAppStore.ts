@@ -53,6 +53,8 @@ interface AppState {
   showDiagnosisForm: boolean;
   authUser: AuthUser | null;
   isSignedIn: boolean;
+  cloudSyncReady: boolean;
+  setCloudSyncReady: (ready: boolean) => void;
   toolUsageSignals: Record<string, number>;
   pendingStoreProduct: { productId: string; reason: string; billingInterval?: 'month' | 'year' } | null;
   sandboxRunCaseId: string | null;
@@ -95,6 +97,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   showDiagnosisForm: false,
   authUser: null,
   isSignedIn: false,
+  cloudSyncReady: false,
+  setCloudSyncReady: (ready) => set({ cloudSyncReady: ready }),
   toolUsageSignals: {},
   pendingStoreProduct: null,
   sandboxRunCaseId: null,
