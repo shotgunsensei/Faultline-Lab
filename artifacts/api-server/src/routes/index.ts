@@ -3,12 +3,14 @@ import healthRouter from "./health";
 import profileRouter from "./profile";
 import stripeRouter from "./stripe";
 import adminRouter from "./admin";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(profileRouter);
 router.use(adminRouter);
+router.use(storageRouter);
 router.use("/stripe", stripeRouter);
 
 export default router;

@@ -29,6 +29,15 @@ export interface CaseCatalogEntry {
   redHerringLevel: RedHerringLevel;
   implementationRef?: CaseImplementationKey;
   definitionRef?: string;
+  /**
+   * Optional public-object path for the case author / cover image.
+   * Stored as a relative path within `PUBLIC_OBJECT_SEARCH_PATHS`
+   * (e.g. `case-authors/jane-doe.jpg`). Resolve to a serving URL with
+   * `getCaseAuthorImageUrl()` from `@/data/caseCatalog/authorImage`.
+   *
+   * See `docs/case-author-images.md` for the upload + reference workflow.
+   */
+  authorImagePath?: string;
   tags: string[];
   isStarter: boolean;
   isFeatured: boolean;
