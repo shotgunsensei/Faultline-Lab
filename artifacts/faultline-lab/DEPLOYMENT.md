@@ -239,7 +239,36 @@ Stripe test card numbers for the manual hosted-page path: `4242 4242 4242 4242`
 
 ---
 
-## 7. Rollback
+## 7. SEO & canonical domain
+
+Faultline Lab assumes a single canonical origin: **`https://faultlinelab.com`**.
+This value is hard-coded in three places and should be updated together if you
+ever change the public origin:
+
+- `artifacts/faultline-lab/src/lib/seo.ts` — `CANONICAL_ORIGIN` constant used to
+  build per-route `<link rel="canonical">`, `og:url`, and absolute OG image URLs.
+- `artifacts/faultline-lab/public/sitemap.xml` — every `<loc>` entry.
+- `artifacts/faultline-lab/public/robots.txt` — `Sitemap:` directive.
+
+Per-route titles, descriptions, and OG tags are applied at runtime by
+`useRouteSeo(view)` (see `src/lib/seo.ts`). After deploying, validate at least
+one route with the
+[Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) or
+[Twitter/X Card Validator](https://cards-dev.twitter.com/validator) — paste e.g.
+`https://faultlinelab.com/pricing` and confirm the per-route title and
+description are returned. (Note: because the SPA sets meta tags client-side,
+crawlers that do not execute JS will only see the defaults baked into
+`index.html`. The runtime overrides cover modern social-share crawlers that do
+execute JS, plus the in-app `document.title` shown in browser tabs and history.)
+
+`/sitemap.xml` and `/robots.txt` are served as static files from
+`artifacts/faultline-lab/public/` — confirm they are reachable at
+`https://<your-domain>/sitemap.xml` and `https://<your-domain>/robots.txt`
+post-deploy.
+
+---
+
+## 8. Rollback
 
 If a launch goes wrong:
 

@@ -3,6 +3,7 @@ import { ClerkProvider, useUser } from '@clerk/react';
 import { useAppStore } from '@/stores/useAppStore';
 import BootScreen from '@/components/BootScreen';
 import { resetEntitlements } from '@/lib/entitlements';
+import { useRouteSeo } from '@/lib/seo';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
 
@@ -110,6 +111,7 @@ function AppContent() {
   const { user, isLoaded } = useUser();
   const setAuthUser = useAppStore(s => s.setAuthUser);
   const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
+  useRouteSeo(view);
 
   useEffect(() => {
     if (isLoaded) {
@@ -142,6 +144,7 @@ function AppContent() {
 function AppContentWithoutClerk() {
   const view = useAppStore(s => s.view);
   const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
+  useRouteSeo(view);
 
   useEffect(() => {
     resetEntitlements();
