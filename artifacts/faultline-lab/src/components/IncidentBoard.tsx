@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { getEntitlements, subscribeEntitlements } from '@/lib/entitlements';
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore, useEffect, useRef, useState } from 'react';
+import { subscribeFreshness } from '@/lib/incidentFreshness';
 import { getAllCaseEntries } from '@/data/caseCatalog';
 import type { CaseCatalogEntry } from '@/data/caseCatalog';
 import {
@@ -52,7 +53,40 @@ export default function IncidentBoard() {
   const profile = useAppStore(s => s.profile);
   const setView = useAppStore(s => s.setView);
   const isSignedIn = useAppStore(s => s.isSignedIn);
+  const settings = useAppStore(s => s.settings);
+  const updateSettings = useAppStore(s => s.updateSettings);
+  const cloudSyncReady = useAppStore(s => s.cloudSyncReady);
   const ent = useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
+
+  // Snapshot the previous-visit timestamp once cloud sync has settled (or
+  // immediately for signed-out users) so badges don't disappear mid-session
+  // as we update the cloud-synced lastVisitedAt, and so cloud settings
+  // arriving slightly after mount aren't ignored.
+  const previousVisitRef = useRef<number | null>(null);
+  const seenMapRef = useRef<Record<string, number>>({});
+  const snapshotTakenRef = useRef(false);
+  const [, forceFreshRender] = useState(0);
+  const shouldSnapshot = !isSignedIn || cloudSyncReady;
+  useEffect(() => {
+    if (!shouldSnapshot || snapshotTakenRef.current) return;
+    snapshotTakenRef.current = true;
+    const fresh = useAppStore.getState().settings;
+    previousVisitRef.current = fresh.lastVisitedAt ?? null;
+    seenMapRef.current = { ...(fresh.seenNewCases ?? {}) };
+    updateSettings({ lastVisitedAt: Date.now() });
+    forceFreshRender((n) => n + 1);
+  }, [shouldSnapshot, updateSettings]);
+  useEffect(() => {
+    const unsub = subscribeFreshness(() => forceFreshRender((n) => n + 1));
+    return unsub;
+  }, []);
+
+  const markCaseSeen = (caseId: string) => {
+    const now = Date.now();
+    seenMapRef.current = { ...seenMapRef.current, [caseId]: now };
+    updateSettings({ seenNewCases: seenMapRef.current });
+  };
+
   const authoredEntries = useSyncExternalStore(
     subscribeSandboxScenarios,
     getAuthoredEntriesSnapshot,
@@ -272,7 +306,13 @@ export default function IncidentBoard() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {authoredEntries.map((entry) => (
-                  <CaseCard key={entry.id} entry={entry} />
+                  <CaseCard
+                    key={entry.id}
+                    entry={entry}
+                    previousVisitAt={previousVisitRef.current}
+                    seenNewCases={seenMapRef.current}
+                    onMarkSeen={markCaseSeen}
+                  />
                 ))}
               </div>
             </div>
@@ -287,7 +327,13 @@ export default function IncidentBoard() {
           )}
           <div data-tour="case-grid" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {catalogEntries.map((entry) => (
-              <CaseCard key={entry.id} entry={entry} />
+              <CaseCard
+                key={entry.id}
+                entry={entry}
+                previousVisitAt={previousVisitRef.current}
+                seenNewCases={seenMapRef.current}
+                onMarkSeen={markCaseSeen}
+              />
             ))}
           </div>
 

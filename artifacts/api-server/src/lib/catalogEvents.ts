@@ -14,7 +14,9 @@ export function getCatalogOverridesVersion(): number {
 
 export async function loadCatalogOverridesPayload(): Promise<{
   version: number;
-  overrides: Array<{ productId: string } & Record<string, unknown>>;
+  overrides: Array<
+    { productId: string; updatedAt: string | null } & Record<string, unknown>
+  >;
 }> {
   const rows = await db.select().from(catalogOverridesTable);
   // Snapshot the version AFTER reading rows so the returned version
@@ -27,6 +29,10 @@ export async function loadCatalogOverridesPayload(): Promise<{
     overrides: rows.map((r) => ({
       productId: r.productId,
       ...((r.overrides as Record<string, unknown>) || {}),
+      // Per-row server timestamp lets the client decide whether an
+      // override was published before or after the user's last visit,
+      // rather than treating every push as fresh-as-of-now.
+      updatedAt: r.updatedAt?.toISOString?.() ?? null,
     })),
   };
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { setEntitlements } from '@/lib/entitlements';
 import { applyCatalogOverrides } from '@/data/catalog';
+import { recordCatalogOverrideFreshness } from '@/lib/incidentFreshness';
 import { loadCaseStates, saveCaseStates } from '@/lib/persistence';
 import { useUpgradePrompt } from './UpgradePrompt';
 
@@ -36,7 +37,24 @@ export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
       const version = typeof payload.version === 'number' ? payload.version : Date.now();
       if (version === lastVersion) return;
       lastVersion = version;
-      applyCatalogOverrides((payload.overrides as Parameters<typeof applyCatalogOverrides>[0]) || []);
+      const overridesRaw =
+        (payload.overrides as Array<
+          { productId: string; updatedAt?: string | null } & Record<string, unknown>
+        >) || [];
+      applyCatalogOverrides(
+        overridesRaw as Parameters<typeof applyCatalogOverrides>[0]
+      );
+      // Record per-product freshness using the server-provided per-row
+      // updatedAt (when available). isCaseNewSince filters against the
+      // user's previous-visit timestamp, so applying this on the initial
+      // snapshot will only badge cases whose overrides actually post-date
+      // the user's last visit.
+      for (const o of overridesRaw) {
+        const ts = o.updatedAt ? Date.parse(o.updatedAt) : NaN;
+        if (Number.isFinite(ts)) {
+          recordCatalogOverrideFreshness([o.productId], ts);
+        }
+      }
     };
 
     const startPolling = () => {

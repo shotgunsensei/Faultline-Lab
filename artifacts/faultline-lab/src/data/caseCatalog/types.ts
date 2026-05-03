@@ -44,6 +44,14 @@ export interface CaseCatalogEntry {
   isDailyEligible: boolean;
   isSandboxEligible: boolean;
   sortOrder: number;
+  /**
+   * Optional millisecond timestamp marking when this case was added or
+   * substantively updated in the catalog. Consumed by the Incident Board
+   * to surface a "New since your last visit" badge. When omitted the
+   * entry is treated as having been published before any modern visit
+   * timestamp (see LEGACY_CATALOG_PUBLISHED_AT).
+   */
+  publishedAt?: number;
 }
 
 export interface CaseCardState {

@@ -211,6 +211,13 @@ export interface AppSettings {
   animationsEnabled: boolean;
   terminalFontSize: number;
   onboardingTourCompletedAt?: number | null;
+  lastVisitedAt?: number | null;
+  /**
+   * Map of caseId -> millisecond timestamp at which the user last
+   * acknowledged the "New" badge for that case. The badge re-appears if
+   * the case is updated again after this timestamp.
+   */
+  seenNewCases?: Record<string, number>;
 }
 
 export type AppView = 

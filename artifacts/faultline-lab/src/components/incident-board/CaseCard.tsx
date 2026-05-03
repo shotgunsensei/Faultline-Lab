@@ -9,6 +9,7 @@ import {
 import { useUpgradePrompt } from '../UpgradePrompt';
 import type { CaseCatalogEntry } from '@/data/caseCatalog';
 import { isAuthoredEntry } from '@/lib/sandboxScenarios';
+import { isCaseNewSince } from '@/lib/incidentFreshness';
 import {
   Monitor,
   Network,
@@ -35,7 +36,17 @@ const categoryIconMap: Record<string, React.ReactNode> = {
   mixed: <Layers size={20} />,
 };
 
-export function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
+export function CaseCard({
+  entry,
+  previousVisitAt,
+  seenNewCases,
+  onMarkSeen,
+}: {
+  entry: CaseCatalogEntry;
+  previousVisitAt?: number | null;
+  seenNewCases?: Record<string, number>;
+  onMarkSeen?: (caseId: string) => void;
+}) {
   const startCase = useAppStore((s) => s.startCase);
   const startSandboxRun = useAppStore((s) => s.startSandboxRun);
   const resumeCase = useAppStore((s) => s.resumeCase);
@@ -52,8 +63,13 @@ export function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
   const requiredProduct = !accessible ? getRequiredProductForCase(entry.id) : null;
   const sourcePack = !entry.isStarter ? getPackForCase(entry.id) : null;
   const { prompt } = useUpgradePrompt();
+  const showNewBadge =
+    isPlayable &&
+    !isSolved &&
+    isCaseNewSince(entry.id, authored, previousVisitAt, seenNewCases);
 
   const handleClick = () => {
+    if (showNewBadge && onMarkSeen) onMarkSeen(entry.id);
     if (isPlanned) {
       // Promote upsell for the owning pack instead of trying to start the case.
       if (requiredProduct) {
@@ -143,13 +159,23 @@ export function CaseCard({ entry }: { entry: CaseCatalogEntry }) {
         <div className={`p-2 rounded shrink-0 ${isPlayable ? 'bg-zinc-800/60 text-cyan-400' : 'bg-zinc-800/40 text-zinc-500'}`}>
           {categoryIconMap[entry.category]}
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="text-xs text-zinc-500 uppercase tracking-wider">
             {categoryLabels[entry.category]}
           </div>
-          <h3 className={`text-base font-semibold transition-colors ${titleHoverClass}`}>
-            {entry.title}
-          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className={`text-base font-semibold transition-colors ${titleHoverClass}`}>
+              {entry.title}
+            </h3>
+            {showNewBadge && (
+              <span
+                aria-label="New since your last visit"
+                className="px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider rounded border border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+              >
+                New
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
