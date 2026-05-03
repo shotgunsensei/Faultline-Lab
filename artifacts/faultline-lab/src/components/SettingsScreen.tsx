@@ -1,5 +1,5 @@
 import { useAppStore } from '@/stores/useAppStore';
-import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2, LogOut, Crown, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Sparkles, Type, Trash2, LogOut, Crown, ShieldCheck, Compass } from 'lucide-react';
 import { clearAllData } from '@/lib/persistence';
 import { useState, useSyncExternalStore } from 'react';
 import { useClerk } from '@clerk/react';
@@ -42,6 +42,11 @@ export default function SettingsScreen() {
     }
     clearAllData();
     window.location.reload();
+  };
+
+  const handleReplayTour = () => {
+    updateSettings({ onboardingTourCompletedAt: null });
+    setView('incident-board');
   };
 
   return (
@@ -200,6 +205,26 @@ export default function SettingsScreen() {
                 +
               </button>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Compass size={16} className="text-cyan-400" />
+              <div>
+                <p className="text-sm text-zinc-200">Replay onboarding tour</p>
+                <p className="text-xs text-zinc-600">
+                  Re-show the 4-step intro on the Incident Board
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleReplayTour}
+              className="px-3 py-1.5 rounded text-xs font-mono uppercase bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+            >
+              Replay
+            </button>
           </div>
         </div>
 

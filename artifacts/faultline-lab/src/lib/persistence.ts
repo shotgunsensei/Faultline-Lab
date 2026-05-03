@@ -92,6 +92,7 @@ export function loadSettings(): AppSettings {
     soundEnabled: false,
     animationsEnabled: true,
     terminalFontSize: 16,
+    onboardingTourCompletedAt: null,
   });
 }
 

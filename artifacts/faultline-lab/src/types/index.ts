@@ -210,6 +210,7 @@ export interface AppSettings {
   soundEnabled: boolean;
   animationsEnabled: boolean;
   terminalFontSize: number;
+  onboardingTourCompletedAt?: number | null;
 }
 
 export type AppView = 
