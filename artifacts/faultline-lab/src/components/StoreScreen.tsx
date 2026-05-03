@@ -22,6 +22,7 @@ import {
   isCaseAccessible,
 } from '@/lib/entitlements';
 import { recommendProducts } from '@/lib/recommendations';
+import EcosystemFooter from './EcosystemFooter';
 import { startStripeCheckout } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -746,6 +747,8 @@ export default function StoreScreen() {
           reason={selectedReason}
         />
       )}
+
+      <EcosystemFooter />
     </div>
   );
 }

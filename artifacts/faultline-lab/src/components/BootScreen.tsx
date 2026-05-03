@@ -102,6 +102,31 @@ export default function BootScreen() {
           transition={{ duration: 0.3 }}
           className="mt-6 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent origin-left"
         />
+
+        <AnimatePresence>
+          {ready && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="mt-10 pt-6 border-t border-zinc-800/40 flex items-center justify-between gap-4 flex-wrap text-[11px] text-zinc-500 font-mono"
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500/70" />
+                Built by{' '}
+                <a
+                  href="https://shotgunninjas.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-red-400/80 hover:text-red-300 transition-colors"
+                >
+                  Shotgun Ninjas Productions
+                </a>
+              </span>
+              <span className="text-zinc-600">FaultlineLab.com</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

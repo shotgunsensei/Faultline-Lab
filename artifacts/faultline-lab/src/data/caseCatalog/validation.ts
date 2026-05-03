@@ -73,21 +73,21 @@ export function validateCaseCatalog(): CatalogValidationIssue[] {
       });
     }
 
-    if (entry.status === 'playable' && !entry.implementationRef) {
+    if (entry.status === 'playable' && !entry.implementationRef && !entry.definitionRef) {
       issues.push({
         level: 'error',
         code: 'playable-without-impl',
         caseId: entry.id,
-        message: `Playable case ${entry.id} has no implementationRef`,
+        message: `Playable case ${entry.id} has no implementationRef or definitionRef`,
       });
     }
 
-    if (entry.status === 'planned' && entry.implementationRef) {
+    if (entry.status === 'planned' && (entry.implementationRef || entry.definitionRef)) {
       issues.push({
         level: 'warning',
         code: 'planned-with-impl',
         caseId: entry.id,
-        message: `Planned case ${entry.id} has implementationRef ${entry.implementationRef} — promote to status:'playable'`,
+        message: `Planned case ${entry.id} has an implementation hook — promote to status:'playable'`,
       });
     }
   }

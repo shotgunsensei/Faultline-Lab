@@ -220,7 +220,10 @@ function packEntries(
       previewSymptoms: symptoms,
       previewSystems: systems,
       redHerringLevel: redHerring,
-      implementationRef: id,
+      // Pack cases resolve via `getCaseById` fallback in the resolver — no
+      // typed implementationRef needed (those are reserved for the four
+      // hand-keyed starter case bindings).
+      definitionRef: id,
       tags: [category],
       isStarter: false,
       isFeatured: false,
