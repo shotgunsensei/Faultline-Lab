@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { recommendForCase } from '@/lib/recommendations';
 import { formatPrice } from '@/data/catalog';
+import EcosystemCrossPromo from './EcosystemCrossPromo';
+import EcosystemFooter from './EcosystemFooter';
 import {
   ArrowLeft,
   Trophy,
@@ -259,8 +261,11 @@ export default function DebriefScreen() {
               Replay Case
             </button>
           </div>
+
+          <EcosystemCrossPromo category={currentCaseDef.category} />
         </motion.div>
       </main>
+      <EcosystemFooter variant="compact" />
     </div>
   );
 }

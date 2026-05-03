@@ -1,7 +1,7 @@
 {
-  "name": "Faultline Lab",
+  "name": "Faultline Lab — Diagnostic Challenge Platform",
   "short_name": "Faultline",
-  "description": "Cinematic troubleshooting simulator for technical minds",
+  "description": "Diagnostic challenge platform for technical minds. A Shotgun Ninjas Productions release.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",
