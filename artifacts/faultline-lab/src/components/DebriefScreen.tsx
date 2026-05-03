@@ -71,7 +71,7 @@ export default function DebriefScreen() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className={`text-center py-6 sm:py-8 mb-6 sm:mb-8 rounded-lg border ${config.bg} ${config.border}`}>
+          <div data-tour="debrief-summary" className={`text-center py-6 sm:py-8 mb-6 sm:mb-8 rounded-lg border ${config.bg} ${config.border}`}>
             <div className={`${config.color} mb-3 flex justify-center`}>
               {config.icon}
             </div>

@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import EcosystemFooter from './EcosystemFooter';
 import { CaseCard } from './incident-board/CaseCard';
-import OnboardingTour, { useOnboardingTour } from './OnboardingTour';
 
 // Cache the authored-entries snapshot so useSyncExternalStore sees a stable
 // reference between renders. The cached value is only refreshed when the
@@ -62,7 +61,6 @@ export default function IncidentBoard() {
   const playableCount = catalogEntries.filter((e) => e.status === 'playable').length;
   const plannedCount = catalogEntries.filter((e) => e.status === 'planned').length;
   const authoredCount = authoredEntries.length;
-  const tour = useOnboardingTour();
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -335,11 +333,6 @@ export default function IncidentBoard() {
       </main>
 
       <EcosystemFooter />
-
-      <OnboardingTour
-        open={!tour.isCompleted}
-        onClose={() => tour.markCompleted()}
-      />
     </div>
   );
 }

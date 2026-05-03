@@ -266,7 +266,7 @@ export default function InvestigationWorkspace() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#0a0e14] flex flex-col">
+    <div data-tour="investigation-workspace" className="fixed inset-0 bg-[#0a0e14] flex flex-col">
       <header className="flex items-center justify-between px-3 sm:px-4 py-2 bg-[#111822] border-b border-zinc-800/50 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button

@@ -1,7 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
-import { ArrowRight, Check, Search, Wrench, ClipboardCheck, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  Search,
+  Wrench,
+  ClipboardCheck,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import type { AppView } from '@/types';
 
 type StepId = 'welcome' | 'pick-incident' | 'investigate' | 'debrief';
 
@@ -9,6 +18,12 @@ interface TourStep {
   id: StepId;
   title: string;
   body: string;
+  /**
+   * If set, this step is only eligible to render when the app is currently
+   * showing this view. The tour shows the first eligible unseen step.
+   */
+  requiredView?: AppView;
+  /** CSS selector resolved when the step is shown; null = centered card. */
   anchorSelector?: string;
   icon: React.ComponentType<{ className?: string; size?: number }>;
 }
@@ -18,14 +33,16 @@ const STEPS: TourStep[] = [
     id: 'welcome',
     title: 'Welcome to Faultline Lab',
     body:
-      'Faultline Lab drops you into broken systems. Read the briefing, run real commands, gather evidence, then submit your diagnosis. This quick tour shows you the three things to learn first.',
-    icon: Search,
+      'Faultline Lab drops you into broken systems. Read the briefing, run real commands, gather evidence, then submit your diagnosis. This quick tour walks you through the three screens you will use most.',
+    requiredView: 'incident-board',
+    icon: Sparkles,
   },
   {
     id: 'pick-incident',
     title: 'Step 1 — Pick an incident',
     body:
-      'Every card on this board is a self-contained scenario with its own briefing, telemetry, and scoring rubric. Click a playable card to begin. The four free starters are a good place to learn the rhythm.',
+      'Every card on this board is a self-contained scenario with its own briefing, telemetry, and scoring rubric. Click a playable card to begin — the four free starters are a good place to learn the rhythm.',
+    requiredView: 'incident-board',
     anchorSelector: '[data-tour="case-grid"]',
     icon: Search,
   },
@@ -33,14 +50,18 @@ const STEPS: TourStep[] = [
     id: 'investigate',
     title: 'Step 2 — Run the investigation',
     body:
-      'Inside a case you get a terminal, event logs, and an evidence locker. Issue real commands, pin findings to the locker, and watch your action log build. The scoring engine rewards efficient diagnostics.',
+      'This is your investigation workspace. Use the terminal, event logs, and ticket history on the left; pin findings to the evidence locker on the right. The scoring engine rewards efficient diagnostics.',
+    requiredView: 'investigation',
+    anchorSelector: '[data-tour="investigation-workspace"]',
     icon: Wrench,
   },
   {
     id: 'debrief',
-    title: 'Step 3 — Submit and debrief',
+    title: 'Step 3 — Review your debrief',
     body:
-      'When you are confident, open the diagnosis form and lock in your call. The debrief screen breaks down what you got right, what you missed, and where to improve next time.',
+      'After you submit a diagnosis, the debrief screen breaks down what you got right, what you missed, and where to improve next time. Replay the case any time to chase a higher tier.',
+    requiredView: 'debrief',
+    anchorSelector: '[data-tour="debrief-summary"]',
     icon: ClipboardCheck,
   },
 ];
@@ -64,15 +85,16 @@ function readAnchorRect(selector?: string): AnchorRect | null {
 interface OnboardingTourProps {
   open: boolean;
   /**
-   * Called whenever the tour is finished, skipped, or dismissed via Esc /
-   * backdrop click. Per spec, any dismissal is remembered so the tour never
-   * replays unless the user explicitly invokes the Replay action.
+   * Called whenever the user finishes the last step or explicitly dismisses
+   * (Esc / backdrop / Skip / X). Per spec, any dismissal is remembered so the
+   * tour does not replay until the user invokes the Replay action.
    */
   onClose: () => void;
 }
 
 export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
-  const [stepIdx, setStepIdx] = useState(0);
+  const view = useAppStore((s) => s.view);
+  const [seen, setSeen] = useState<Set<StepId>>(() => new Set());
   const [anchorRect, setAnchorRect] = useState<AnchorRect | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -80,17 +102,41 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
   const primaryActionRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
-  const step = STEPS[stepIdx];
-  const isLast = stepIdx === STEPS.length - 1;
-
+  // Reset the seen-set whenever the tour transitions from closed -> open so
+  // a Replay action restarts cleanly.
   useEffect(() => {
-    if (open) setStepIdx(0);
+    if (open) setSeen(new Set());
   }, [open]);
 
+  // The currently displayable step: first not-yet-seen step whose required
+  // view matches (or has none). When nothing matches the current view, the
+  // overlay hides itself and waits for the user to navigate.
+  const step = useMemo<TourStep | null>(() => {
+    if (!open) return null;
+    for (const s of STEPS) {
+      if (seen.has(s.id)) continue;
+      if (s.requiredView && s.requiredView !== view) continue;
+      return s;
+    }
+    return null;
+  }, [open, seen, view]);
+
+  const isLastUnseen = useMemo(() => {
+    if (!step) return false;
+    // True iff no other unseen step exists after this one.
+    const idx = STEPS.findIndex((s) => s.id === step.id);
+    for (let i = idx + 1; i < STEPS.length; i++) {
+      if (!seen.has(STEPS[i].id)) return false;
+    }
+    return true;
+  }, [step, seen]);
+
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || !step) {
+      setAnchorRect(null);
+      return;
+    }
     const measure = () => setAnchorRect(readAnchorRect(step.anchorSelector));
-    // Defer one frame so DOM is settled (e.g. after view transitions).
     const raf = requestAnimationFrame(measure);
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, true);
@@ -99,57 +145,45 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };
-  }, [open, step.anchorSelector, stepIdx]);
+  }, [open, step]);
 
-  // Focus management: capture the previously focused element on open,
-  // move focus to the primary action, and restore focus on close.
+  // Focus management: capture previous focus on open, move focus to primary
+  // action on each step, restore focus on close.
   useEffect(() => {
     if (!open) return;
     previouslyFocusedRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    // Defer one frame so the button is in the DOM.
-    const raf = requestAnimationFrame(() => {
-      primaryActionRef.current?.focus();
-    });
     return () => {
-      cancelAnimationFrame(raf);
       const prev = previouslyFocusedRef.current;
       if (prev && document.contains(prev)) prev.focus();
     };
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-    // Move focus to the primary action whenever the step changes so screen
-    // readers announce the new content and keyboard users land on Next/Finish.
-    const raf = requestAnimationFrame(() => {
-      primaryActionRef.current?.focus();
-    });
+    if (!open || !step) return;
+    const raf = requestAnimationFrame(() => primaryActionRef.current?.focus());
     return () => cancelAnimationFrame(raf);
-  }, [open, stepIdx]);
+  }, [open, step]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !step) return;
+    const advance = () => {
+      const nextSeen = new Set(seen);
+      nextSeen.add(step.id);
+      setSeen(nextSeen);
+      if (isLastUnseen) closeRef.current();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         closeRef.current();
         return;
       }
-      // Enter is intentionally not handled here — the focused primary
-      // button (Next/Finish) already activates on Enter natively, so
-      // intercepting it would double-fire and skip steps.
+      // Enter is left to native button activation to avoid double-firing.
       if (e.key === 'ArrowRight') {
-        if (isLast) closeRef.current();
-        else setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
+        advance();
         return;
       }
-      if (e.key === 'ArrowLeft') {
-        setStepIdx((i) => Math.max(i - 1, 0));
-        return;
-      }
-      // Focus trap: keep Tab within the dialog so the dim background can't
-      // be reached while the modal is open.
       if (e.key === 'Tab') {
         const root = dialogRef.current;
         if (!root) return;
@@ -171,19 +205,21 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, isLast]);
+  }, [open, step, seen, isLastUnseen]);
 
-  if (!open) return null;
+  if (!open || !step) return null;
 
   const Icon = step.icon;
 
-  // Position the card: prefer below the anchor; fall back to centered.
+  // Position the card: prefer below the anchor; otherwise center it.
   const cardStyle: React.CSSProperties = (() => {
     if (!anchorRect) {
       return {
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
+        width: 420,
+        maxWidth: 'calc(100vw - 32px)',
       };
     }
     const cardWidth = 420;
@@ -207,6 +243,17 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
     };
   })();
 
+  // Step counter (1-indexed) reflects the canonical 4-step order, not the
+  // dynamic seen-set, so the user always sees a stable "n / total" label.
+  const stepNumber = STEPS.findIndex((s) => s.id === step.id) + 1;
+
+  const advance = () => {
+    const nextSeen = new Set(seen);
+    nextSeen.add(step.id);
+    setSeen(nextSeen);
+    if (isLastUnseen) onClose();
+  };
+
   return (
     <div
       ref={dialogRef}
@@ -215,7 +262,6 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
       aria-modal="true"
       aria-labelledby="onboarding-tour-title"
     >
-      {/* Dim backdrop. Clicking dismisses (and per spec, marks remembered). */}
       <button
         type="button"
         aria-label="Dismiss tour"
@@ -224,11 +270,10 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
         className="absolute inset-0 w-full h-full bg-black/70 backdrop-blur-[2px]"
       />
 
-      {/* Spotlight ring around the anchor. */}
       <AnimatePresence>
         {anchorRect && (
           <motion.div
-            key={`spot-${stepIdx}`}
+            key={`spot-${step.id}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -243,9 +288,8 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
         )}
       </AnimatePresence>
 
-      {/* Tour card */}
       <motion.div
-        key={`card-${stepIdx}`}
+        key={`card-${step.id}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
@@ -258,7 +302,7 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-mono uppercase tracking-widest text-cyan-400/80 mb-0.5">
-              Tour · {stepIdx + 1} / {STEPS.length}
+              Tour · {stepNumber} / {STEPS.length}
             </div>
             <h2
               id="onboarding-tour-title"
@@ -281,18 +325,18 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
 
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            {STEPS.map((s, i) => (
-              <span
-                key={s.id}
-                className={`h-1.5 w-5 rounded-full transition-colors ${
-                  i === stepIdx
-                    ? 'bg-cyan-400'
-                    : i < stepIdx
-                      ? 'bg-emerald-500/60'
-                      : 'bg-zinc-700'
-                }`}
-              />
-            ))}
+            {STEPS.map((s) => {
+              const isCurrent = s.id === step.id;
+              const isDone = seen.has(s.id);
+              return (
+                <span
+                  key={s.id}
+                  className={`h-1.5 w-5 rounded-full transition-colors ${
+                    isCurrent ? 'bg-cyan-400' : isDone ? 'bg-emerald-500/60' : 'bg-zinc-700'
+                  }`}
+                />
+              );
+            })}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -302,20 +346,11 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
             >
               Skip
             </button>
-            {stepIdx > 0 && (
-              <button
-                type="button"
-                onClick={() => setStepIdx((i) => Math.max(i - 1, 0))}
-                className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors px-3 py-1.5 rounded border border-zinc-700 hover:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              >
-                Back
-              </button>
-            )}
-            {isLast ? (
+            {isLastUnseen ? (
               <button
                 ref={primaryActionRef}
                 type="button"
-                onClick={() => onClose()}
+                onClick={advance}
                 className="text-[11px] font-mono uppercase tracking-wider text-emerald-200 bg-emerald-500/15 border border-emerald-500/40 hover:bg-emerald-500/25 transition-colors px-3 py-1.5 rounded flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
                 <Check size={12} />
@@ -325,7 +360,7 @@ export default function OnboardingTour({ open, onClose }: OnboardingTourProps) {
               <button
                 ref={primaryActionRef}
                 type="button"
-                onClick={() => setStepIdx((i) => Math.min(i + 1, STEPS.length - 1))}
+                onClick={advance}
                 className="text-[11px] font-mono uppercase tracking-wider text-cyan-200 bg-cyan-500/15 border border-cyan-500/40 hover:bg-cyan-500/25 transition-colors px-3 py-1.5 rounded flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 Next

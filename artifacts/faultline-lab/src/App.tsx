@@ -25,6 +25,7 @@ const UpgradePromptProvider = lazy(() =>
 );
 const InstallAppButton = lazy(() => import('@/components/InstallAppButton'));
 const Toaster = lazy(() => import('sonner').then(m => ({ default: m.Toaster })));
+const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
 
 logCatalogValidation();
 runAuthoringSelfTest();
@@ -79,6 +80,24 @@ const TOASTER_STYLE = {
   color: '#e4e4e7',
 } as const;
 
+function GlobalOnboardingTour() {
+  const view = useAppStore(s => s.view);
+  const settings = useAppStore(s => s.settings);
+  const updateSettings = useAppStore(s => s.updateSettings);
+  // Don't intrude on the boot or auth screens.
+  const eligibleView = view !== 'boot' && view !== 'auth';
+  const open = eligibleView && !settings.onboardingTourCompletedAt;
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <OnboardingTour
+        open={open}
+        onClose={() => updateSettings({ onboardingTourCompletedAt: Date.now() })}
+      />
+    </Suspense>
+  );
+}
+
 function AppContent() {
   const view = useAppStore(s => s.view);
   const { user, isLoaded } = useUser();
@@ -102,6 +121,7 @@ function AppContent() {
           <div className="dark">
             <Suspense fallback={<ScreenFallback />}>{renderView(view)}</Suspense>
             <InstallAppButton />
+            <GlobalOnboardingTour />
             <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
           </div>
         </CloudSyncProvider>
@@ -124,6 +144,7 @@ function AppContentWithoutClerk() {
           {view === 'auth' ? <IncidentBoard /> : renderView(view)}
         </Suspense>
         <InstallAppButton />
+        <GlobalOnboardingTour />
         <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
       </UpgradePromptProvider>
     </Suspense>
