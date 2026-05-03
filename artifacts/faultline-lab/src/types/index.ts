@@ -220,6 +220,7 @@ export type AppView =
   | 'profile'
   | 'settings'
   | 'store'
+  | 'pricing'
   | 'auth'
   | 'admin'
   | 'daily'

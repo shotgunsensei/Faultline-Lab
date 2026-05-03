@@ -92,6 +92,12 @@ export default function BootScreen() {
               >
                 Enter Incident Board
               </button>
+              <button
+                onClick={() => setView('pricing')}
+                className="mt-3 w-full py-2.5 border border-zinc-700 text-zinc-400 font-mono text-xs uppercase tracking-widest hover:text-cyan-300 hover:border-cyan-500/40 transition-all duration-300 rounded"
+              >
+                Compare Plans
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

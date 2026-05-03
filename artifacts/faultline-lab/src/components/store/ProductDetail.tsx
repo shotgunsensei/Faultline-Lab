@@ -28,11 +28,13 @@ export function ProductDetail({
   onClose,
   onPurchased,
   reason,
+  initialBillingInterval,
 }: {
   product: CatalogProduct;
   onClose: () => void;
   onPurchased: () => void;
   reason?: string;
+  initialBillingInterval?: 'month' | 'year';
 }) {
   const status = getProductOwnershipStatus(product.id);
   const isOwned = status === 'owned';
@@ -41,7 +43,7 @@ export function ProductDetail({
   const isSignedIn = useAppStore((s) => s.isSignedIn);
   const setView = useAppStore((s) => s.setView);
   const [purchasing, setPurchasing] = useState(false);
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>(initialBillingInterval ?? 'month');
   const bundle = getBetterValueBundle(product.id);
 
   const handlePurchase = async () => {

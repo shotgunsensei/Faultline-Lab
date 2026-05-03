@@ -54,14 +54,14 @@ interface AppState {
   authUser: AuthUser | null;
   isSignedIn: boolean;
   toolUsageSignals: Record<string, number>;
-  pendingStoreProduct: { productId: string; reason: string } | null;
+  pendingStoreProduct: { productId: string; reason: string; billingInterval?: 'month' | 'year' } | null;
   sandboxRunCaseId: string | null;
   dailyRunCaseId: string | null;
 
   trackToolUsage: (signal: string) => void;
   setView: (view: AppView) => void;
-  openStoreWithProduct: (productId: string, reason: string) => void;
-  consumePendingStoreProduct: () => { productId: string; reason: string } | null;
+  openStoreWithProduct: (productId: string, reason: string, billingInterval?: 'month' | 'year') => void;
+  consumePendingStoreProduct: () => { productId: string; reason: string; billingInterval?: 'month' | 'year' } | null;
   setAuthUser: (user: AuthUser | null) => void;
   startCase: (caseId: string) => void;
   resumeCase: (caseId: string) => void;
@@ -100,8 +100,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   sandboxRunCaseId: null,
   dailyRunCaseId: null,
 
-  openStoreWithProduct: (productId, reason) =>
-    set({ pendingStoreProduct: { productId, reason }, view: 'store' }),
+  openStoreWithProduct: (productId, reason, billingInterval) =>
+    set({ pendingStoreProduct: { productId, reason, billingInterval }, view: 'store' }),
 
   consumePendingStoreProduct: () => {
     const pending = get().pendingStoreProduct;

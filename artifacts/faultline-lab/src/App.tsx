@@ -12,6 +12,7 @@ const DebriefScreen = lazy(() => import('@/components/DebriefScreen'));
 const ProfileScreen = lazy(() => import('@/components/ProfileScreen'));
 const SettingsScreen = lazy(() => import('@/components/SettingsScreen'));
 const StoreScreen = lazy(() => import('@/components/StoreScreen'));
+const PricingScreen = lazy(() => import('@/components/PricingScreen'));
 const AuthScreen = lazy(() => import('@/components/AuthScreen'));
 const AdminPanel = lazy(() => import('@/components/AdminPanel'));
 const DailyChallengeScreen = lazy(() => import('@/components/DailyChallengeScreen'));
@@ -57,6 +58,8 @@ function renderView(view: string) {
       return <SettingsScreen />;
     case 'store':
       return <StoreScreen />;
+    case 'pricing':
+      return <PricingScreen />;
     case 'admin':
       return <AdminPanel />;
     case 'auth':

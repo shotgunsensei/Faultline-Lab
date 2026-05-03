@@ -41,6 +41,7 @@ export default function StoreScreen() {
   const toolUsageSignals = useAppStore((s) => s.toolUsageSignals);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const [selectedReason, setSelectedReason] = useState<string | undefined>(undefined);
+  const [selectedInterval, setSelectedInterval] = useState<'month' | 'year' | undefined>(undefined);
   const consumePendingStoreProduct = useAppStore((s) => s.consumePendingStoreProduct);
   const pendingStoreProduct = useAppStore((s) => s.pendingStoreProduct);
   useEntitlementsTick();
@@ -53,16 +54,19 @@ export default function StoreScreen() {
     if (product) {
       setSelectedProduct(product);
       setSelectedReason(pending.reason);
+      setSelectedInterval(pending.billingInterval);
     }
   }, [pendingStoreProduct, consumePendingStoreProduct]);
 
   const openProduct = (p: CatalogProduct) => {
     setSelectedProduct(p);
     setSelectedReason(undefined);
+    setSelectedInterval(undefined);
   };
   const closeProduct = () => {
     setSelectedProduct(null);
     setSelectedReason(undefined);
+    setSelectedInterval(undefined);
   };
 
   const featured = CATALOG.filter((p) => p.featured && p.status !== 'disabled');
@@ -88,6 +92,12 @@ export default function StoreScreen() {
             <h1 className="text-lg font-bold font-mono tracking-wide text-cyan-400">STORE</h1>
             <p className="text-xs text-zinc-500">Expand your investigation toolkit</p>
           </div>
+          <button
+            onClick={() => setView('pricing')}
+            className="text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-cyan-300 transition-colors px-3 py-1.5 rounded border border-zinc-700 hover:border-cyan-500/40"
+          >
+            Compare plans
+          </button>
         </div>
       </header>
 
@@ -226,6 +236,7 @@ export default function StoreScreen() {
           onClose={closeProduct}
           onPurchased={closeProduct}
           reason={selectedReason}
+          initialBillingInterval={selectedInterval}
         />
       )}
 
