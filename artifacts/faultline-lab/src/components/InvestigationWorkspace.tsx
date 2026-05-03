@@ -1,4 +1,21 @@
+import { lazy, Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Activity,
+  ArrowLeft,
+  Briefcase,
+  Clock,
+  FileText,
+  Lightbulb,
+  Lock,
+  MessageSquare,
+  Package,
+  Save,
+  Send,
+  Terminal,
+  X,
+  Zap,
+} from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import TerminalPanel from './investigation/TerminalPanel';
 import EventLogPanel from './investigation/EventLogPanel';
@@ -8,34 +25,13 @@ import HintPanel from './investigation/HintPanel';
 import ActionLog from './investigation/ActionLog';
 import SymptomsPanel from './investigation/SymptomsPanel';
 import DiagnosisForm from './investigation/DiagnosisForm';
-import WiresharkPanel from './investigation/WiresharkPanel';
-import DeepTelemetryPanel from './investigation/DeepTelemetryPanel';
-import ChaosModePanel from './investigation/ChaosModePanel';
-import SandboxPanel from './investigation/SandboxPanel';
-import ProAnalyticsPanel from './investigation/ProAnalyticsPanel';
-import { categoryLabels, difficultyColors } from '@/data/cases';
 import {
-  Terminal,
-  FileText,
-  MessageSquare,
-  Send,
-  ArrowLeft,
-  Save,
-  Clock,
-  Briefcase,
-  X,
-  ChevronUp,
-  Package,
-  Lightbulb,
-  Activity,
-  Network,
-  Gauge,
-  Zap,
-  FlaskConical,
-  BarChart3,
-  Lock,
-} from 'lucide-react';
-import { useState, useEffect, useSyncExternalStore } from 'react';
+  PremiumToolPanel,
+  premiumTools,
+  type PremiumToolMeta,
+} from './investigation/premiumTools';
+import { BriefingModal } from './investigation/BriefingModal';
+import { categoryLabels, difficultyColors } from '@/data/cases';
 import {
   hasFeature,
   getRequiredProductForFeature,
@@ -44,51 +40,13 @@ import {
 } from '@/lib/entitlements';
 import { useUpgradePrompt } from './UpgradePrompt';
 
-interface PremiumToolMeta {
-  id: string;
-  label: string;
-  icon: typeof Network;
-  description: string;
-  baseline: string;
-}
-
-const premiumTools: PremiumToolMeta[] = [
-  {
-    id: 'wireshark-panel',
-    label: 'Wireshark',
-    icon: Network,
-    description: 'Inspect packet captures, decode protocols, and follow streams alongside your terminal session.',
-    baseline: 'Open the Wireshark tab to inspect the capture for this case. Use the filter bar (e.g. proto:tcp, port:443) to narrow the trace.',
-  },
-  {
-    id: 'deep-telemetry',
-    label: 'Deep Telemetry',
-    icon: Gauge,
-    description: 'Stream high-resolution metrics, heatmaps, and anomaly markers from the system under investigation.',
-    baseline: 'Open the Telemetry tab to scrub through CPU, memory, and latency series. Anomaly markers highlight likely incident windows.',
-  },
-  {
-    id: 'chaos-mode',
-    label: 'Chaos Mode',
-    icon: Zap,
-    description: 'Randomize evidence order, inject red herrings, and add time pressure for replayable challenge runs.',
-    baseline: 'Open the Chaos tab to enable modifiers (shuffled evidence, extra red herrings, timed runs) before re-attempting any case.',
-  },
-  {
-    id: 'sandbox-pro',
-    label: 'Sandbox',
-    icon: FlaskConical,
-    description: 'Spin up a custom scenario sandbox to author your own diagnostic puzzles.',
-    baseline: 'Open the Sandbox tab to author your own scenarios — symptoms, terminal commands, evidence, and a guided diagnosis flow.',
-  },
-  {
-    id: 'pro-analytics',
-    label: 'Analytics',
-    icon: BarChart3,
-    description: 'Career dashboards, skill heatmaps, and exportable case reports tied to this investigation.',
-    baseline: 'Open the Analytics tab to see your skill heatmap, time-to-diagnose trends, and exportable case reports.',
-  },
-];
+// Lazy-load premium investigation panels — they are gated behind entitlements
+// and rare in a typical session, so we keep them out of the initial chunk.
+const WiresharkPanel = lazy(() => import('./investigation/WiresharkPanel'));
+const DeepTelemetryPanel = lazy(() => import('./investigation/DeepTelemetryPanel'));
+const ChaosModePanel = lazy(() => import('./investigation/ChaosModePanel'));
+const SandboxPanel = lazy(() => import('./investigation/SandboxPanel'));
+const ProAnalyticsPanel = lazy(() => import('./investigation/ProAnalyticsPanel'));
 
 const toolTabs = [
   { id: 'terminal', label: 'Terminal', icon: Terminal },
@@ -102,13 +60,21 @@ const sidebarTabs = [
   { id: 'symptoms', label: 'Symptoms', icon: Activity },
 ];
 
+function PanelLoader({ label }: { label: string }) {
+  return (
+    <div className="h-full w-full flex items-center justify-center text-xs font-mono text-zinc-500">
+      Loading {label}…
+    </div>
+  );
+}
+
 export default function InvestigationWorkspace() {
-  const currentCaseDef = useAppStore(s => s.currentCaseDef);
-  const currentCaseState = useAppStore(s => s.currentCaseState);
-  const activeTool = useAppStore(s => s.activeTool);
-  const setActiveTool = useAppStore(s => s.setActiveTool);
-  const trackToolUsage = useAppStore(s => s.trackToolUsage);
-  const showDiagnosisForm = useAppStore(s => s.showDiagnosisForm);
+  const currentCaseDef = useAppStore((s) => s.currentCaseDef);
+  const currentCaseState = useAppStore((s) => s.currentCaseState);
+  const activeTool = useAppStore((s) => s.activeTool);
+  const setActiveTool = useAppStore((s) => s.setActiveTool);
+  const trackToolUsage = useAppStore((s) => s.trackToolUsage);
+  const showDiagnosisForm = useAppStore((s) => s.showDiagnosisForm);
   useSyncExternalStore((cb) => subscribeEntitlements(cb), () => getEntitlements());
   const { prompt } = useUpgradePrompt();
 
@@ -130,8 +96,8 @@ export default function InvestigationWorkspace() {
     trackToolUsage(tool.id);
     setActiveTool(tool.id);
   };
-  const toggleDiagnosisForm = useAppStore(s => s.toggleDiagnosisForm);
-  const exitCase = useAppStore(s => s.exitCase);
+  const toggleDiagnosisForm = useAppStore((s) => s.toggleDiagnosisForm);
+  const exitCase = useAppStore((s) => s.exitCase);
   const [elapsed, setElapsed] = useState('00:00');
   const [countdown, setCountdown] = useState<{ label: string; overtime: boolean } | null>(null);
   const [showBriefing, setShowBriefing] = useState(true);
@@ -177,17 +143,28 @@ export default function InvestigationWorkspace() {
         const premium = premiumTools.find((t) => t.id === activeTool);
         if (premium) {
           if (hasFeature(premium.id)) {
-            switch (premium.id) {
-              case 'wireshark-panel':
-                return <WiresharkPanel />;
-              case 'deep-telemetry':
-                return <DeepTelemetryPanel />;
-              case 'chaos-mode':
-                return <ChaosModePanel />;
-              case 'sandbox-pro':
-                return <SandboxPanel />;
-              case 'pro-analytics':
-                return <ProAnalyticsPanel />;
+            const Lazy = (() => {
+              switch (premium.id) {
+                case 'wireshark-panel':
+                  return WiresharkPanel;
+                case 'deep-telemetry':
+                  return DeepTelemetryPanel;
+                case 'chaos-mode':
+                  return ChaosModePanel;
+                case 'sandbox-pro':
+                  return SandboxPanel;
+                case 'pro-analytics':
+                  return ProAnalyticsPanel;
+                default:
+                  return null;
+              }
+            })();
+            if (Lazy) {
+              return (
+                <Suspense fallback={<PanelLoader label={premium.label} />}>
+                  <Lazy />
+                </Suspense>
+              );
             }
           }
           return (
@@ -311,7 +288,9 @@ export default function InvestigationWorkspace() {
                 {categoryLabels[currentCaseDef.category]}
               </span>
               <span className="text-zinc-700">|</span>
-              <span className={`uppercase tracking-wider ${difficultyColors[currentCaseDef.difficulty]}`}>
+              <span
+                className={`uppercase tracking-wider ${difficultyColors[currentCaseDef.difficulty]}`}
+              >
                 {currentCaseDef.difficulty}
               </span>
             </div>
@@ -339,7 +318,11 @@ export default function InvestigationWorkspace() {
                   ? 'border-red-500/40 bg-red-500/10 text-red-300'
                   : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
               }`}
-              title={countdown.overtime ? 'Overtime — losing efficiency points' : 'Chaos Mode time pressure'}
+              title={
+                countdown.overtime
+                  ? 'Overtime — losing efficiency points'
+                  : 'Chaos Mode time pressure'
+              }
             >
               <Zap size={12} />
               {countdown.label}
@@ -365,7 +348,7 @@ export default function InvestigationWorkspace() {
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 py-1.5 sm:py-2 bg-[#0d1219] border-b border-zinc-800/30">
-            {toolTabs.map(tab => {
+            {toolTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
@@ -401,7 +384,9 @@ export default function InvestigationWorkspace() {
                           ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10'
                           : 'border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700/60'
                     }`}
-                    title={unlocked ? `${tool.label} (unlocked)` : `${tool.label} (upgrade to unlock)`}
+                    title={
+                      unlocked ? `${tool.label} (unlocked)` : `${tool.label} (upgrade to unlock)`
+                    }
                   >
                     {unlocked ? <Icon size={11} /> : <Lock size={11} />}
                     <span>{tool.label}</span>
@@ -428,7 +413,7 @@ export default function InvestigationWorkspace() {
                   {premiumTools.length}
                 </span>
               </button>
-              {sidebarTabs.map(tab => {
+              {sidebarTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
@@ -464,7 +449,7 @@ export default function InvestigationWorkspace() {
                     <span className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
                       {mobileDrawer === 'tools'
                         ? 'Premium Tools'
-                        : sidebarTabs.find(t => t.id === mobileDrawer)?.label}
+                        : sidebarTabs.find((t) => t.id === mobileDrawer)?.label}
                     </span>
                     <button
                       onClick={() => setMobileDrawer(null)}
@@ -499,146 +484,13 @@ export default function InvestigationWorkspace() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {showDiagnosisForm && <DiagnosisForm />}
-      </AnimatePresence>
+      <AnimatePresence>{showDiagnosisForm && <DiagnosisForm />}</AnimatePresence>
 
       <AnimatePresence>
         {showBriefing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-[#111822] border border-zinc-800/60 rounded-lg max-w-2xl w-full max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-zinc-800/50">
-                <div className="flex items-center gap-2">
-                  <Briefcase size={16} className="text-cyan-400" />
-                  <h2 className="font-mono text-sm uppercase tracking-wider text-zinc-200">
-                    Case Briefing
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowBriefing(false)}
-                  className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-zinc-100 mb-2">
-                  {currentCaseDef.title}
-                </h3>
-                <div className="flex items-center gap-2 mb-4 text-xs">
-                  <span className="text-zinc-500">
-                    {categoryLabels[currentCaseDef.category]}
-                  </span>
-                  <span className="text-zinc-700">|</span>
-                  <span className={`uppercase tracking-wider ${difficultyColors[currentCaseDef.difficulty]}`}>
-                    {currentCaseDef.difficulty}
-                  </span>
-                </div>
-
-                <pre className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap font-sans mb-6">
-                  {currentCaseDef.briefing}
-                </pre>
-
-                <p className="text-sm text-zinc-500 mb-4">
-                  {currentCaseDef.description}
-                </p>
-
-                <button
-                  onClick={() => setShowBriefing(false)}
-                  className="w-full py-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs uppercase tracking-widest rounded hover:bg-cyan-500/20 transition-colors"
-                >
-                  Begin Investigation
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+          <BriefingModal caseDef={currentCaseDef} onClose={() => setShowBriefing(false)} />
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-interface PremiumToolPanelProps {
-  tool: PremiumToolMeta;
-  unlocked: boolean;
-  onUpgrade: () => void;
-}
-
-function PremiumToolPanel({ tool, unlocked, onUpgrade }: PremiumToolPanelProps) {
-  const Icon = tool.icon;
-  const required = unlocked ? null : getRequiredProductForFeature(tool.id);
-
-  if (unlocked) {
-    return (
-      <div className="h-full w-full flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#0d1219] border border-emerald-500/20 rounded-lg p-6 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-300 mb-3">
-            <Icon size={20} />
-          </div>
-          <p className="text-[11px] font-mono uppercase tracking-wider text-emerald-300/80 mb-1">
-            {tool.label} ready
-          </p>
-          <h3 className="text-lg font-semibold text-zinc-100 mb-2">{tool.label}</h3>
-          <p className="text-sm text-zinc-400 leading-relaxed mb-3">{tool.description}</p>
-          <p className="text-xs text-zinc-500 leading-relaxed">{tool.baseline}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-gradient-to-br from-zinc-900 to-[#0d1219] border border-cyan-800/30 rounded-lg p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400">
-            <Lock size={18} />
-          </div>
-          <div>
-            <p className="text-[11px] font-mono uppercase tracking-wider text-cyan-400/80">
-              Premium tool locked
-            </p>
-            <h3 className="text-base font-semibold text-zinc-100">{tool.label}</h3>
-          </div>
-        </div>
-
-        <p className="text-sm text-zinc-300 leading-relaxed mb-4">{tool.description}</p>
-
-        {required && (
-          <div className="rounded-md border border-zinc-800/60 bg-black/20 p-3 mb-4">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1">
-              Included in
-            </p>
-            <p className="text-sm text-zinc-200 font-semibold">{required.name}</p>
-            {required.shortDescription && (
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                {required.shortDescription}
-              </p>
-            )}
-          </div>
-        )}
-
-        <button
-          onClick={onUpgrade}
-          disabled={!required}
-          className="w-full py-2.5 rounded-md bg-cyan-600 hover:bg-cyan-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-        >
-          <ChevronUp size={14} className="rotate-90" />
-          {required ? `Unlock ${tool.label}` : 'Coming soon'}
-        </button>
-        <p className="text-[11px] text-zinc-500 text-center mt-3">
-          Free tools (Terminal, Event Logs, Tickets) stay available — upgrades only add to your kit.
-        </p>
-      </div>
     </div>
   );
 }
