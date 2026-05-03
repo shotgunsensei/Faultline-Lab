@@ -34,3 +34,12 @@ export const catalogOverrideHistoryTable = pgTable(
 );
 
 export type CatalogOverrideHistory = typeof catalogOverrideHistoryTable.$inferSelect;
+
+export const caseDraftsTable = pgTable("case_drafts", {
+  id: text("id").primaryKey(),
+  draft: jsonb("draft").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedByUserId: text("updated_by_user_id"),
+});
+
+export type CaseDraftRow = typeof caseDraftsTable.$inferSelect;

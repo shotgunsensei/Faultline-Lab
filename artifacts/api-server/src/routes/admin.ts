@@ -6,6 +6,7 @@ import {
   userEntitlementsTable,
   catalogOverridesTable,
   catalogOverrideHistoryTable,
+  caseDraftsTable,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -514,6 +515,135 @@ router.post(
       });
     } catch (err) {
       console.error("Failed to rollback catalog override:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.get("/admin/case-drafts", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        id: caseDraftsTable.id,
+        draft: caseDraftsTable.draft,
+        updatedAt: caseDraftsTable.updatedAt,
+        updatedByUserId: caseDraftsTable.updatedByUserId,
+        editorEmail: usersTable.email,
+        editorDisplayName: usersTable.displayName,
+      })
+      .from(caseDraftsTable)
+      .leftJoin(usersTable, eq(usersTable.id, caseDraftsTable.updatedByUserId))
+      .orderBy(desc(caseDraftsTable.updatedAt));
+    return res.json({
+      drafts: rows.map((r) => ({
+        id: r.id,
+        draft: r.draft,
+        updatedAt: r.updatedAt?.toISOString?.() ?? null,
+        updatedByUserId: r.updatedByUserId,
+        editor: r.updatedByUserId
+          ? {
+              id: r.updatedByUserId,
+              displayName: r.editorDisplayName,
+              email: r.editorEmail,
+            }
+          : null,
+      })),
+    });
+  } catch (err) {
+    console.error("Failed to load case drafts:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+function isCaseDraftShape(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.id === "string" &&
+    typeof v.slug === "string" &&
+    typeof v.title === "string" &&
+    typeof v.category === "string" &&
+    typeof v.difficulty === "string" &&
+    typeof v.description === "string" &&
+    typeof v.briefing === "string" &&
+    Array.isArray(v.symptoms) &&
+    Array.isArray(v.evidence) &&
+    Array.isArray(v.hints) &&
+    Array.isArray(v.terminalCommands) &&
+    Array.isArray(v.eventLogs) &&
+    Array.isArray(v.ticketHistory) &&
+    Array.isArray(v.availableTools) &&
+    Array.isArray(v.redHerrings) &&
+    Array.isArray(v.preventativeMeasures) &&
+    typeof v.remediation === "string" &&
+    !!v.rootCause &&
+    typeof v.rootCause === "object"
+  );
+}
+
+const MAX_DRAFT_BYTES = 256 * 1024;
+
+router.put("/admin/case-drafts/:draftId", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const draftId = getParam(req, "draftId");
+    const adminUser = (req as any).adminUser as { id: string };
+    const draft = req.body?.draft;
+    if (!isCaseDraftShape(draft)) {
+      return res.status(400).json({ error: "Invalid draft payload" });
+    }
+    if (!draftId.trim()) {
+      return res.status(400).json({ error: "Invalid draft id" });
+    }
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(draft);
+    } catch {
+      return res.status(400).json({ error: "Draft is not JSON-serializable" });
+    }
+    if (serialized.length > MAX_DRAFT_BYTES) {
+      return res.status(413).json({ error: "Draft exceeds maximum size" });
+    }
+    const now = new Date();
+    const existing = await db
+      .select()
+      .from(caseDraftsTable)
+      .where(eq(caseDraftsTable.id, draftId))
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(caseDraftsTable).values({
+        id: draftId,
+        draft,
+        updatedAt: now,
+        updatedByUserId: adminUser.id,
+      });
+    } else {
+      await db
+        .update(caseDraftsTable)
+        .set({ draft, updatedAt: now, updatedByUserId: adminUser.id })
+        .where(eq(caseDraftsTable.id, draftId));
+    }
+    return res.json({
+      success: true,
+      updatedAt: now.toISOString(),
+      updatedByUserId: adminUser.id,
+    });
+  } catch (err) {
+    console.error("Failed to save case draft:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete(
+  "/admin/case-drafts/:draftId",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const draftId = getParam(req, "draftId");
+      await db.delete(caseDraftsTable).where(eq(caseDraftsTable.id, draftId));
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to delete case draft:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   },

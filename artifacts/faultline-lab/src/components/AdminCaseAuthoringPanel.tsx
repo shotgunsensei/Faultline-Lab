@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -13,7 +13,15 @@ import {
   Copy,
   FolderOpen,
   Hammer,
+  RefreshCw,
 } from 'lucide-react';
+import {
+  adminDeleteCaseDraft,
+  adminFetchCaseDrafts,
+  adminSaveCaseDraft,
+  type CaseDraftEditor,
+  type CaseDraftRecord,
+} from '@/lib/api';
 import {
   composeCase,
   createTemplate,
@@ -73,11 +81,10 @@ const TOOL_OPTIONS: ToolType[] = [
   'firewall-table',
 ];
 
-const DRAFT_STORAGE_KEY = 'faultline-lab/admin/case-drafts/v1';
-
 interface StoredDraft {
   draft: CaseDraft;
   savedAt: number;
+  editor: CaseDraftEditor | null;
 }
 
 function isCaseDraftShape(value: unknown): value is CaseDraft {
@@ -106,38 +113,23 @@ function isCaseDraftShape(value: unknown): value is CaseDraft {
   );
 }
 
-function loadStoredDrafts(): Record<string, StoredDraft> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    const out: Record<string, StoredDraft> = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      const v = value as { draft?: unknown; savedAt?: unknown } | null;
-      if (
-        v &&
-        typeof v === 'object' &&
-        isCaseDraftShape(v.draft) &&
-        typeof v.savedAt === 'number'
-      ) {
-        out[key] = { draft: v.draft, savedAt: v.savedAt };
-      }
-    }
-    return out;
-  } catch {
-    return {};
+function recordsToMap(records: CaseDraftRecord[]): Record<string, StoredDraft> {
+  const out: Record<string, StoredDraft> = {};
+  for (const r of records) {
+    if (!isCaseDraftShape(r.draft)) continue;
+    const savedAt = r.updatedAt ? Date.parse(r.updatedAt) : Date.now();
+    out[r.id] = {
+      draft: r.draft,
+      savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
+      editor: r.editor,
+    };
   }
+  return out;
 }
 
-function persistStoredDrafts(map: Record<string, StoredDraft>) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // ignore quota issues silently; the toast layer will surface save failures
-  }
+function editorLabel(editor: CaseDraftEditor | null): string {
+  if (!editor) return 'unknown';
+  return editor.displayName || editor.email || editor.id;
 }
 
 function blankDraft(): CaseDraft {
@@ -232,14 +224,28 @@ const inputCls =
 export default function AdminCaseAuthoringPanel() {
   const [draft, setDraft] = useState<CaseDraft>(() => blankDraft());
   const [domain, setDomain] = useState<DomainTemplate>('windows-ad');
-  const [storedDrafts, setStoredDrafts] = useState<Record<string, StoredDraft>>(
-    () => loadStoredDrafts()
-  );
+  const [storedDrafts, setStoredDrafts] = useState<Record<string, StoredDraft>>({});
   const [showPreview, setShowPreview] = useState(true);
+  const [draftsLoading, setDraftsLoading] = useState(true);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  const refreshDrafts = useCallback(async (silent = false) => {
+    if (!silent) setDraftsLoading(true);
+    try {
+      const { drafts } = await adminFetchCaseDrafts();
+      setStoredDrafts(recordsToMap(drafts));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? `Failed to load drafts: ${err.message}` : 'Failed to load drafts.'
+      );
+    } finally {
+      if (!silent) setDraftsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setStoredDrafts(loadStoredDrafts());
-  }, []);
+    void refreshDrafts();
+  }, [refreshDrafts]);
 
   const validation = useMemo(() => validateDraft(draft), [draft]);
   const issues = validation.issues;
@@ -264,18 +270,23 @@ export default function AdminCaseAuthoringPanel() {
     toast.info('Draft cleared.');
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!draft.id.trim()) {
       toast.error('Draft needs an id before it can be saved.');
       return;
     }
-    const next: Record<string, StoredDraft> = {
-      ...storedDrafts,
-      [draft.id]: { draft, savedAt: Date.now() },
-    };
-    persistStoredDrafts(next);
-    setStoredDrafts(next);
-    toast.success(`Saved draft "${draft.id}" locally.`);
+    setSavingDraft(true);
+    try {
+      await adminSaveCaseDraft(draft.id, draft);
+      await refreshDrafts(true);
+      toast.success(`Saved draft "${draft.id}" to the team workspace.`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? `Save failed: ${err.message}` : 'Failed to save draft.'
+      );
+    } finally {
+      setSavingDraft(false);
+    }
   };
 
   const loadDraft = (id: string) => {
@@ -285,12 +296,16 @@ export default function AdminCaseAuthoringPanel() {
     toast.info(`Loaded draft "${id}".`);
   };
 
-  const deleteDraft = (id: string) => {
-    const next = { ...storedDrafts };
-    delete next[id];
-    persistStoredDrafts(next);
-    setStoredDrafts(next);
-    toast.info(`Deleted draft "${id}".`);
+  const deleteDraft = async (id: string) => {
+    try {
+      await adminDeleteCaseDraft(id);
+      await refreshDrafts(true);
+      toast.info(`Deleted draft "${id}".`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? `Delete failed: ${err.message}` : 'Failed to delete draft.'
+      );
+    }
   };
 
   const exportDraft = async () => {
@@ -437,7 +452,9 @@ export default function AdminCaseAuthoringPanel() {
     });
   };
 
-  const storedKeys = Object.keys(storedDrafts).sort();
+  const storedKeys = Object.keys(storedDrafts).sort(
+    (a, b) => (storedDrafts[b]?.savedAt ?? 0) - (storedDrafts[a]?.savedAt ?? 0)
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
@@ -1201,9 +1218,10 @@ export default function AdminCaseAuthoringPanel() {
           <div className="flex flex-col gap-2 mt-3">
             <button
               onClick={saveDraft}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono uppercase tracking-wider hover:bg-emerald-500/20"
+              disabled={savingDraft}
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-mono uppercase tracking-wider hover:bg-emerald-500/20 disabled:opacity-50"
             >
-              <Save size={12} /> Save draft
+              <Save size={12} /> {savingDraft ? 'Saving...' : 'Save draft'}
             </button>
             <button
               onClick={exportDraft}
@@ -1305,11 +1323,27 @@ export default function AdminCaseAuthoringPanel() {
         </div>
 
         <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-1.5 mb-3">
-            <FolderOpen size={13} /> Saved drafts
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-zinc-100 flex items-center gap-1.5">
+              <FolderOpen size={13} /> Team drafts
+            </h3>
+            <button
+              onClick={() => void refreshDrafts()}
+              disabled={draftsLoading}
+              className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-zinc-500 hover:text-zinc-200 disabled:opacity-50"
+              title="Refresh drafts"
+            >
+              <RefreshCw size={11} className={draftsLoading ? 'animate-spin' : ''} />
+              {draftsLoading ? 'Loading' : 'Refresh'}
+            </button>
+          </div>
+          <p className="text-[11px] text-zinc-500 mb-2">
+            Drafts are shared across all admins.
+          </p>
           {storedKeys.length === 0 ? (
-            <p className="text-[11px] text-zinc-500">No drafts saved yet.</p>
+            <p className="text-[11px] text-zinc-500">
+              {draftsLoading ? 'Loading drafts…' : 'No drafts saved yet.'}
+            </p>
           ) : (
             <ul className="space-y-1 max-h-72 overflow-y-auto">
               {storedKeys.map((id) => {
@@ -1329,6 +1363,9 @@ export default function AdminCaseAuthoringPanel() {
                         {stored.draft.title || '—'} ·{' '}
                         {new Date(stored.savedAt).toLocaleString()}
                       </p>
+                      <p className="text-[10px] text-zinc-600 font-mono truncate">
+                        edited by {editorLabel(stored.editor)}
+                      </p>
                     </button>
                     <button
                       onClick={() => loadDraft(id)}
@@ -1338,7 +1375,7 @@ export default function AdminCaseAuthoringPanel() {
                       <FileDown size={12} />
                     </button>
                     <button
-                      onClick={() => deleteDraft(id)}
+                      onClick={() => void deleteDraft(id)}
                       className="p-1 rounded hover:bg-zinc-800 text-red-400"
                       title="Delete"
                     >

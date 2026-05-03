@@ -140,6 +140,40 @@ export async function adminRollbackCatalogOverride(
   );
 }
 
+export type CaseDraftEditor = {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+};
+
+export type CaseDraftRecord = {
+  id: string;
+  draft: unknown;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  editor: CaseDraftEditor | null;
+};
+
+export async function adminFetchCaseDrafts(): Promise<{ drafts: CaseDraftRecord[] }> {
+  return apiFetch('/admin/case-drafts');
+}
+
+export async function adminSaveCaseDraft(
+  draftId: string,
+  draft: unknown
+): Promise<{ success: boolean; updatedAt: string; updatedByUserId: string | null }> {
+  return apiFetch(`/admin/case-drafts/${encodeURIComponent(draftId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ draft }),
+  });
+}
+
+export async function adminDeleteCaseDraft(draftId: string): Promise<{ success: boolean }> {
+  return apiFetch(`/admin/case-drafts/${encodeURIComponent(draftId)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function adminRevokeEntitlement(userId: string, entitlementId: string) {
   return apiFetch(
     `/admin/users/${encodeURIComponent(userId)}/entitlements/${encodeURIComponent(entitlementId)}`,
