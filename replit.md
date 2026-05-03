@@ -33,6 +33,7 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 - `artifacts/faultline-lab/src/data/cases/` — Case definitions (4 MVP cases, all authored via the framework) + typed `registry.ts` (`CASE_DEFINITIONS` map)
 - `artifacts/faultline-lab/src/data/cases/authoring/` — Case Authoring Framework (schema, helpers, validation, per-domain templates)
 - `artifacts/faultline-lab/src/data/caseCatalog/` — Catalog spine: 56 entries with status/access/source-product mapping, validation, and selectors
+- `artifacts/faultline-lab/scripts/generate-og.ts` — Build-time per-case OG image + share-stub generator (runs as `prebuild`). Emits `public/og/case-<slug>.png` and `public/case/<slug>/index.html` with full OG/Twitter meta + redirect to the SPA. Generated dirs are gitignored.
 - `artifacts/faultline-lab/src/data/catalog.ts` — Product catalog (14 products: tiers, packs, upgrades, bundles)
 - `artifacts/faultline-lab/src/lib/simulation.ts` — Simulation engine
 - `artifacts/faultline-lab/src/lib/persistence.ts` — localStorage persistence layer
