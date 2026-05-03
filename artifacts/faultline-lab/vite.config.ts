@@ -57,6 +57,26 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("/@clerk/")) return "vendor-clerk";
+          if (id.includes("/framer-motion/")) return "vendor-motion";
+          if (id.includes("/lucide-react/")) return "vendor-icons";
+          if (id.includes("/sonner/")) return "vendor-sonner";
+          if (id.includes("/recharts/") || id.includes("/d3-")) return "vendor-charts";
+          if (id.includes("/zustand/")) return "vendor-zustand";
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/")
+          ) return "vendor-react";
+          return "vendor";
+        },
+      },
+    },
   },
   server: {
     port,

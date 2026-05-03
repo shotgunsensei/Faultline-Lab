@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Plus,
   Trash2,
   Save,
   FileDown,
@@ -19,8 +18,6 @@ import {
   adminDeleteCaseDraft,
   adminFetchCaseDrafts,
   adminSaveCaseDraft,
-  type CaseDraftEditor,
-  type CaseDraftRecord,
 } from '@/lib/api';
 import {
   composeCase,
@@ -28,7 +25,6 @@ import {
   validateDraft,
   type CaseDraft,
   type AuthorEvidence,
-  type AuthoringIssue,
   type DomainTemplate,
 } from '@/data/cases/authoring';
 import { categoryLabels, difficultyColors } from '@/data/cases';
@@ -42,184 +38,29 @@ import type {
   ToolCommand,
   ToolType,
 } from '@/types';
-
-const DOMAIN_OPTIONS: Array<{ value: DomainTemplate; label: string }> = [
-  { value: 'windows-ad', label: 'Windows / Active Directory' },
-  { value: 'networking', label: 'Networking / VPN' },
-  { value: 'servers', label: 'Servers / Services' },
-  { value: 'automotive', label: 'Automotive Diagnostics' },
-  { value: 'electronics', label: 'Electronics / Sensor Mesh' },
-  { value: 'mixed', label: 'Mixed Systems' },
-  { value: 'healthcare-imaging', label: 'Healthcare / Imaging (PACS)' },
-];
-
-const CATEGORY_OPTIONS: CaseCategory[] = [
-  'windows-ad',
-  'networking',
-  'automotive',
-  'electronics',
-  'servers',
-  'mixed',
-];
-
-const DIFFICULTY_OPTIONS: Difficulty[] = [
-  'beginner',
-  'intermediate',
-  'advanced',
-  'expert',
-];
-
-const TOOL_OPTIONS: ToolType[] = [
-  'terminal',
-  'event-log',
-  'ticket-history',
-  'network-map',
-  'service-inspector',
-  'registry-viewer',
-  'sensor-graph',
-  'obd-panel',
-  'firewall-table',
-];
-
-interface StoredDraft {
-  draft: CaseDraft;
-  savedAt: number;
-  editor: CaseDraftEditor | null;
-}
-
-function isCaseDraftShape(value: unknown): value is CaseDraft {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.id === 'string' &&
-    typeof v.slug === 'string' &&
-    typeof v.title === 'string' &&
-    typeof v.category === 'string' &&
-    typeof v.difficulty === 'string' &&
-    typeof v.description === 'string' &&
-    typeof v.briefing === 'string' &&
-    Array.isArray(v.symptoms) &&
-    Array.isArray(v.evidence) &&
-    Array.isArray(v.hints) &&
-    Array.isArray(v.terminalCommands) &&
-    Array.isArray(v.eventLogs) &&
-    Array.isArray(v.ticketHistory) &&
-    Array.isArray(v.availableTools) &&
-    Array.isArray(v.redHerrings) &&
-    Array.isArray(v.preventativeMeasures) &&
-    typeof v.remediation === 'string' &&
-    !!v.rootCause &&
-    typeof v.rootCause === 'object'
-  );
-}
-
-function recordsToMap(records: CaseDraftRecord[]): Record<string, StoredDraft> {
-  const out: Record<string, StoredDraft> = {};
-  for (const r of records) {
-    if (!isCaseDraftShape(r.draft)) continue;
-    const savedAt = r.updatedAt ? Date.parse(r.updatedAt) : Date.now();
-    out[r.id] = {
-      draft: r.draft,
-      savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
-      editor: r.editor,
-    };
-  }
-  return out;
-}
-
-function editorLabel(editor: CaseDraftEditor | null): string {
-  if (!editor) return 'unknown';
-  return editor.displayName || editor.email || editor.id;
-}
-
-function blankDraft(): CaseDraft {
-  return createTemplate('windows-ad', {
-    id: 'new-case',
-    slug: 'new-case',
-    title: 'Untitled Case',
-  });
-}
-
-function issuesForPath(issues: AuthoringIssue[], pathPrefix: string): AuthoringIssue[] {
-  return issues.filter((i) => i.path === pathPrefix || i.path?.startsWith(`${pathPrefix}`));
-}
-
-function topLevelIssues(issues: AuthoringIssue[]): AuthoringIssue[] {
-  return issues.filter((i) => !i.path);
-}
-
-function FieldIssues({ issues }: { issues: AuthoringIssue[] }) {
-  if (issues.length === 0) return null;
-  return (
-    <ul className="mt-1 space-y-0.5">
-      {issues.map((i, idx) => (
-        <li
-          key={`${i.code}-${idx}`}
-          className={`text-[11px] font-mono flex items-start gap-1 ${
-            i.level === 'error' ? 'text-red-400' : 'text-amber-300'
-          }`}
-        >
-          {i.level === 'error' ? (
-            <AlertCircle size={11} className="mt-0.5 shrink-0" />
-          ) : (
-            <AlertTriangle size={11} className="mt-0.5 shrink-0" />
-          )}
-          <span>{i.message}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Section({
-  title,
-  description,
-  children,
-  action,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <section className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-4">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
-          {description && (
-            <p className="text-[11px] text-zinc-500 mt-0.5">{description}</p>
-          )}
-        </div>
-        {action}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Labeled({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1">
-        {label}
-        {hint && <span className="ml-2 text-zinc-600 normal-case font-sans">{hint}</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-const inputCls =
-  'w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500/50';
+import {
+  FieldIssues,
+  Labeled,
+  Section,
+  inputCls,
+  topLevelIssues,
+} from './admin/case-authoring/primitives';
+import {
+  CATEGORY_OPTIONS,
+  DIFFICULTY_OPTIONS,
+  DOMAIN_OPTIONS,
+  TOOL_OPTIONS,
+  blankDraft,
+  editorLabel,
+  recordsToMap,
+  type StoredDraft,
+} from './admin/case-authoring/draftStorage';
+import { SymptomsSection } from './admin/case-authoring/sections/SymptomsSection';
+import { EvidenceSection } from './admin/case-authoring/sections/EvidenceSection';
+import { HintsSection } from './admin/case-authoring/sections/HintsSection';
+import { CommandsSection } from './admin/case-authoring/sections/CommandsSection';
+import { EventsSection } from './admin/case-authoring/sections/EventsSection';
+import { TicketsSection } from './admin/case-authoring/sections/TicketsSection';
 
 export default function AdminCaseAuthoringPanel() {
   const [draft, setDraft] = useState<CaseDraft>(() => blankDraft());
@@ -582,61 +423,13 @@ export default function AdminCaseAuthoringPanel() {
           </div>
         </Section>
 
-        {/* Symptoms */}
-        <Section
-          title="Symptoms"
-          description="At least 2 required."
-          action={
-            <button
-              onClick={addSymptom}
-              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Plus size={12} /> Add
-            </button>
-          }
-        >
-          <FieldIssues issues={issues.filter((i) => i.code === 'too-few-symptoms')} />
-          {draft.symptoms.map((s, idx) => (
-            <div
-              key={idx}
-              className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-            >
-              <div className="grid sm:grid-cols-[120px_1fr_140px_auto] gap-2">
-                <input
-                  value={s.id}
-                  onChange={(e) => updateSymptom(idx, { id: e.target.value })}
-                  placeholder="id"
-                  className={inputCls + ' font-mono text-xs'}
-                />
-                <input
-                  value={s.description}
-                  onChange={(e) => updateSymptom(idx, { description: e.target.value })}
-                  placeholder="What the user/system observes"
-                  className={inputCls}
-                />
-                <select
-                  value={s.severity}
-                  onChange={(e) =>
-                    updateSymptom(idx, { severity: e.target.value as Symptom['severity'] })
-                  }
-                  className={inputCls}
-                >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                  <option value="critical">critical</option>
-                </select>
-                <button
-                  onClick={() => removeSymptom(idx)}
-                  className="p-1.5 rounded hover:bg-zinc-800 text-red-400"
-                  title="Remove symptom"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </Section>
+        <SymptomsSection
+          draft={draft}
+          issues={issues}
+          updateSymptom={updateSymptom}
+          addSymptom={addSymptom}
+          removeSymptom={removeSymptom}
+        />
 
         {/* Root cause */}
         <Section title="Root cause">
@@ -687,393 +480,39 @@ export default function AdminCaseAuthoringPanel() {
           </Labeled>
         </Section>
 
-        {/* Evidence */}
-        <Section
-          title="Evidence"
-          description="At least 4 items. Every clue/critical entry must be revealed by a command, event, or ticket."
-          action={
-            <button
-              onClick={addEvidence}
-              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Plus size={12} /> Add
-            </button>
-          }
-        >
-          <FieldIssues issues={issues.filter((i) => i.code === 'too-few-evidence')} />
-          {draft.evidence.map((e, idx) => {
-            const itemIssues = issuesForPath(issues, `evidence.${e.id}`);
-            const missingId =
-              !e.id && issues.some((i) => i.code === 'missing-evidence-id');
-            return (
-              <div
-                key={idx}
-                className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-              >
-                <div className="grid sm:grid-cols-[120px_1fr_140px_140px_auto] gap-2">
-                  <div>
-                    <input
-                      value={e.id}
-                      onChange={(ev) => updateEvidence(idx, { id: ev.target.value })}
-                      placeholder="id"
-                      className={
-                        inputCls +
-                        ' font-mono text-xs' +
-                        (missingId ? ' border-red-500/60' : '')
-                      }
-                    />
-                    {missingId && (
-                      <p className="text-[11px] font-mono text-red-400 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} /> id is required
-                      </p>
-                    )}
-                  </div>
-                  <input
-                    value={e.title}
-                    onChange={(ev) => updateEvidence(idx, { title: ev.target.value })}
-                    placeholder="Title"
-                    className={inputCls}
-                  />
-                  <select
-                    value={e.category}
-                    onChange={(ev) =>
-                      updateEvidence(idx, {
-                        category: ev.target.value as AuthorEvidence['category'],
-                      })
-                    }
-                    className={inputCls}
-                  >
-                    <option value="clue">clue</option>
-                    <option value="red-herring">red-herring</option>
-                    <option value="contextual">contextual</option>
-                  </select>
-                  <select
-                    value={e.importance}
-                    onChange={(ev) =>
-                      updateEvidence(idx, {
-                        importance: ev.target.value as AuthorEvidence['importance'],
-                      })
-                    }
-                    className={inputCls}
-                  >
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                    <option value="critical">critical</option>
-                  </select>
-                  <button
-                    onClick={() => removeEvidence(idx)}
-                    className="p-1.5 rounded hover:bg-zinc-800 text-red-400"
-                    title="Remove evidence"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <textarea
-                  rows={2}
-                  value={e.description}
-                  onChange={(ev) => updateEvidence(idx, { description: ev.target.value })}
-                  placeholder="Description"
-                  className={inputCls}
-                />
-                <FieldIssues issues={itemIssues} />
-              </div>
-            );
-          })}
-        </Section>
+        <EvidenceSection
+          draft={draft}
+          issues={issues}
+          updateEvidence={updateEvidence}
+          addEvidence={addEvidence}
+          removeEvidence={removeEvidence}
+        />
 
-        {/* Hints */}
-        <Section
-          title="Hint ladder"
-          description="Exactly 4 tiers (levels 1–4) with strictly increasing penalties."
-        >
-          {issues
-            .filter(
-              (i) => i.code === 'hint-ladder-length' || i.code === 'hint-penalty-monotonic'
-            )
-            .map((i, idx) => (
-              <div
-                key={`hint-issue-${idx}`}
-                className="text-[11px] font-mono text-red-400 flex items-center gap-1"
-              >
-                <AlertCircle size={11} /> {i.message}
-              </div>
-            ))}
-          {draft.hints.map((h, idx) => {
-            const itemIssues = issuesForPath(issues, `hints[${idx}]`);
-            return (
-              <div
-                key={idx}
-                className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-              >
-                <div className="grid sm:grid-cols-[60px_1fr_120px] gap-2">
-                  <div className="text-xs font-mono text-zinc-500 self-center">
-                    L{h.level}
-                  </div>
-                  <input
-                    value={h.label}
-                    onChange={(e) => updateHint(idx, { label: e.target.value })}
-                    placeholder="Label"
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    value={h.scorePenalty}
-                    onChange={(e) =>
-                      updateHint(idx, { scorePenalty: Number(e.target.value) || 0 })
-                    }
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                </div>
-                <textarea
-                  rows={2}
-                  value={h.text}
-                  onChange={(e) => updateHint(idx, { text: e.target.value })}
-                  placeholder="Hint text"
-                  className={inputCls}
-                />
-                <FieldIssues issues={itemIssues} />
-              </div>
-            );
-          })}
-        </Section>
+        <HintsSection draft={draft} issues={issues} updateHint={updateHint} />
 
-        {/* Commands */}
-        <Section
-          title="Terminal commands"
-          action={
-            <button
-              onClick={addCommand}
-              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Plus size={12} /> Add
-            </button>
-          }
-        >
-          {draft.terminalCommands.map((c, idx) => {
-            const itemIssues = issues.filter((i) =>
-              i.path?.startsWith(`command:${c.command}`)
-            );
-            return (
-              <div
-                key={idx}
-                className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-              >
-                <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
-                  <input
-                    value={c.command}
-                    onChange={(e) => updateCommand(idx, { command: e.target.value })}
-                    placeholder="command"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <input
-                    value={c.description}
-                    onChange={(e) => updateCommand(idx, { description: e.target.value })}
-                    placeholder="Description"
-                    className={inputCls}
-                  />
-                  <button
-                    onClick={() => removeCommand(idx)}
-                    className="p-1.5 rounded hover:bg-zinc-800 text-red-400"
-                    title="Remove command"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <textarea
-                  rows={3}
-                  value={c.output}
-                  onChange={(e) => updateCommand(idx, { output: e.target.value })}
-                  placeholder="Command output"
-                  className={inputCls + ' font-mono text-xs'}
-                />
-                <input
-                  value={(c.revealsEvidence || []).join(', ')}
-                  onChange={(e) =>
-                    updateCommand(idx, {
-                      revealsEvidence: e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="Reveals evidence ids (comma separated)"
-                  className={inputCls + ' font-mono text-xs'}
-                />
-                <label className="flex items-center gap-2 text-[11px] text-zinc-400">
-                  <input
-                    type="checkbox"
-                    checked={!!c.isRisky}
-                    onChange={(e) => updateCommand(idx, { isRisky: e.target.checked })}
-                  />
-                  Risky action (applies score penalty)
-                </label>
-                <FieldIssues issues={itemIssues} />
-              </div>
-            );
-          })}
-        </Section>
+        <CommandsSection
+          draft={draft}
+          issues={issues}
+          updateCommand={updateCommand}
+          addCommand={addCommand}
+          removeCommand={removeCommand}
+        />
 
-        {/* Event logs */}
-        <Section
-          title="Event log entries"
-          action={
-            <button
-              onClick={addEvent}
-              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Plus size={12} /> Add
-            </button>
-          }
-        >
-          {draft.eventLogs.map((e, idx) => {
-            const itemIssues = issues.filter((i) => i.path?.startsWith(`eventLog:${e.id}`));
-            return (
-              <div
-                key={idx}
-                className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-              >
-                <div className="grid sm:grid-cols-[120px_180px_120px_120px_auto] gap-2">
-                  <input
-                    value={e.id}
-                    onChange={(ev) => updateEvent(idx, { id: ev.target.value })}
-                    placeholder="id"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <input
-                    value={e.timestamp}
-                    onChange={(ev) => updateEvent(idx, { timestamp: ev.target.value })}
-                    placeholder="YYYY-MM-DD HH:MM:SS"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <input
-                    value={e.source}
-                    onChange={(ev) => updateEvent(idx, { source: ev.target.value })}
-                    placeholder="source"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <select
-                    value={e.level}
-                    onChange={(ev) =>
-                      updateEvent(idx, { level: ev.target.value as EventLogEntry['level'] })
-                    }
-                    className={inputCls}
-                  >
-                    <option value="info">info</option>
-                    <option value="warning">warning</option>
-                    <option value="error">error</option>
-                    <option value="critical">critical</option>
-                  </select>
-                  <button
-                    onClick={() => removeEvent(idx)}
-                    className="p-1.5 rounded hover:bg-zinc-800 text-red-400"
-                    title="Remove event"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <input
-                  value={e.message}
-                  onChange={(ev) => updateEvent(idx, { message: ev.target.value })}
-                  placeholder="Message"
-                  className={inputCls}
-                />
-                <input
-                  value={(e.revealsEvidence || []).join(', ')}
-                  onChange={(ev) =>
-                    updateEvent(idx, {
-                      revealsEvidence: ev.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="Reveals evidence ids (comma separated)"
-                  className={inputCls + ' font-mono text-xs'}
-                />
-                <FieldIssues issues={itemIssues} />
-              </div>
-            );
-          })}
-        </Section>
+        <EventsSection
+          draft={draft}
+          issues={issues}
+          updateEvent={updateEvent}
+          addEvent={addEvent}
+          removeEvent={removeEvent}
+        />
 
-        {/* Tickets */}
-        <Section
-          title="Ticket history"
-          action={
-            <button
-              onClick={addTicket}
-              className="flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Plus size={12} /> Add
-            </button>
-          }
-        >
-          {draft.ticketHistory.map((t, idx) => {
-            const itemIssues = issues.filter((i) => i.path?.startsWith(`ticket:${t.id}`));
-            return (
-              <div
-                key={idx}
-                className="border border-zinc-800/60 rounded-lg p-3 bg-zinc-950/40 space-y-2"
-              >
-                <div className="grid sm:grid-cols-[100px_1fr_1fr_180px_auto] gap-2">
-                  <input
-                    value={t.id}
-                    onChange={(e) => updateTicket(idx, { id: e.target.value })}
-                    placeholder="id"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <input
-                    value={t.author}
-                    onChange={(e) => updateTicket(idx, { author: e.target.value })}
-                    placeholder="Author"
-                    className={inputCls}
-                  />
-                  <input
-                    value={t.role}
-                    onChange={(e) => updateTicket(idx, { role: e.target.value })}
-                    placeholder="Role"
-                    className={inputCls}
-                  />
-                  <input
-                    value={t.timestamp}
-                    onChange={(e) => updateTicket(idx, { timestamp: e.target.value })}
-                    placeholder="Timestamp"
-                    className={inputCls + ' font-mono text-xs'}
-                  />
-                  <button
-                    onClick={() => removeTicket(idx)}
-                    className="p-1.5 rounded hover:bg-zinc-800 text-red-400"
-                    title="Remove ticket"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-                <textarea
-                  rows={2}
-                  value={t.content}
-                  onChange={(e) => updateTicket(idx, { content: e.target.value })}
-                  placeholder="Ticket content"
-                  className={inputCls}
-                />
-                <input
-                  value={(t.revealsEvidence || []).join(', ')}
-                  onChange={(e) =>
-                    updateTicket(idx, {
-                      revealsEvidence: e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="Reveals evidence ids (comma separated)"
-                  className={inputCls + ' font-mono text-xs'}
-                />
-                <FieldIssues issues={itemIssues} />
-              </div>
-            );
-          })}
-        </Section>
+        <TicketsSection
+          draft={draft}
+          issues={issues}
+          updateTicket={updateTicket}
+          addTicket={addTicket}
+          removeTicket={removeTicket}
+        />
 
         {/* Tools */}
         <Section title="Available tools">

@@ -1,30 +1,80 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/react';
 import { useAppStore } from '@/stores/useAppStore';
 import BootScreen from '@/components/BootScreen';
-import IncidentBoard from '@/components/IncidentBoard';
-import InvestigationWorkspace from '@/components/InvestigationWorkspace';
-import DebriefScreen from '@/components/DebriefScreen';
-import ProfileScreen from '@/components/ProfileScreen';
-import SettingsScreen from '@/components/SettingsScreen';
-import StoreScreen from '@/components/StoreScreen';
-import AuthScreen from '@/components/AuthScreen';
-import AdminPanel from '@/components/AdminPanel';
-import DailyChallengeScreen from '@/components/DailyChallengeScreen';
-import SandboxScreen from '@/components/SandboxScreen';
-import { CloudSyncProvider } from '@/components/CloudSyncProvider';
-import { UpgradePromptProvider } from '@/components/UpgradePrompt';
-import InstallAppButton from '@/components/InstallAppButton';
 import { resetEntitlements } from '@/lib/entitlements';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
-import { Toaster } from 'sonner';
+
+const IncidentBoard = lazy(() => import('@/components/IncidentBoard'));
+const InvestigationWorkspace = lazy(() => import('@/components/InvestigationWorkspace'));
+const DebriefScreen = lazy(() => import('@/components/DebriefScreen'));
+const ProfileScreen = lazy(() => import('@/components/ProfileScreen'));
+const SettingsScreen = lazy(() => import('@/components/SettingsScreen'));
+const StoreScreen = lazy(() => import('@/components/StoreScreen'));
+const AuthScreen = lazy(() => import('@/components/AuthScreen'));
+const AdminPanel = lazy(() => import('@/components/AdminPanel'));
+const DailyChallengeScreen = lazy(() => import('@/components/DailyChallengeScreen'));
+const SandboxScreen = lazy(() => import('@/components/SandboxScreen'));
+const CloudSyncProvider = lazy(() =>
+  import('@/components/CloudSyncProvider').then(m => ({ default: m.CloudSyncProvider })),
+);
+const UpgradePromptProvider = lazy(() =>
+  import('@/components/UpgradePrompt').then(m => ({ default: m.UpgradePromptProvider })),
+);
+const InstallAppButton = lazy(() => import('@/components/InstallAppButton'));
+const Toaster = lazy(() => import('sonner').then(m => ({ default: m.Toaster })));
 
 logCatalogValidation();
 runAuthoringSelfTest();
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL || undefined;
+
+function ScreenFallback() {
+  return (
+    <div className="fixed inset-0 bg-[#0a0e14] flex items-center justify-center">
+      <div className="font-mono text-cyan-400 text-sm tracking-wide animate-pulse">
+        loading module...
+      </div>
+    </div>
+  );
+}
+
+function renderView(view: string) {
+  switch (view) {
+    case 'boot':
+      return <BootScreen />;
+    case 'incident-board':
+      return <IncidentBoard />;
+    case 'investigation':
+      return <InvestigationWorkspace />;
+    case 'debrief':
+      return <DebriefScreen />;
+    case 'profile':
+      return <ProfileScreen />;
+    case 'settings':
+      return <SettingsScreen />;
+    case 'store':
+      return <StoreScreen />;
+    case 'admin':
+      return <AdminPanel />;
+    case 'auth':
+      return <AuthScreen />;
+    case 'daily':
+      return <DailyChallengeScreen />;
+    case 'sandbox':
+      return <SandboxScreen />;
+    default:
+      return <BootScreen />;
+  }
+}
+
+const TOASTER_STYLE = {
+  background: '#18181b',
+  border: '1px solid #27272a',
+  color: '#e4e4e7',
+} as const;
 
 function AppContent() {
   const view = useAppStore(s => s.view);
@@ -42,54 +92,18 @@ function AppContent() {
     }
   }, [user, isLoaded, setAuthUser]);
 
-  const renderView = () => {
-    switch (view) {
-      case 'boot':
-        return <BootScreen />;
-      case 'incident-board':
-        return <IncidentBoard />;
-      case 'investigation':
-        return <InvestigationWorkspace />;
-      case 'debrief':
-        return <DebriefScreen />;
-      case 'profile':
-        return <ProfileScreen />;
-      case 'settings':
-        return <SettingsScreen />;
-      case 'store':
-        return <StoreScreen />;
-      case 'admin':
-        return <AdminPanel />;
-      case 'auth':
-        return <AuthScreen />;
-      case 'daily':
-        return <DailyChallengeScreen />;
-      case 'sandbox':
-        return <SandboxScreen />;
-      default:
-        return <BootScreen />;
-    }
-  };
-
   return (
-    <UpgradePromptProvider>
-      <CloudSyncProvider>
-        <div className="dark">
-          {renderView()}
-          <InstallAppButton />
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                background: '#18181b',
-                border: '1px solid #27272a',
-                color: '#e4e4e7',
-              },
-            }}
-          />
-        </div>
-      </CloudSyncProvider>
-    </UpgradePromptProvider>
+    <Suspense fallback={<ScreenFallback />}>
+      <UpgradePromptProvider>
+        <CloudSyncProvider>
+          <div className="dark">
+            <Suspense fallback={<ScreenFallback />}>{renderView(view)}</Suspense>
+            <InstallAppButton />
+            <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
+          </div>
+        </CloudSyncProvider>
+      </UpgradePromptProvider>
+    </Suspense>
   );
 }
 
@@ -100,38 +114,16 @@ function AppContentWithoutClerk() {
     resetEntitlements();
   }, []);
 
-  const renderView = () => {
-    switch (view) {
-      case 'boot': return <BootScreen />;
-      case 'incident-board': return <IncidentBoard />;
-      case 'investigation': return <InvestigationWorkspace />;
-      case 'debrief': return <DebriefScreen />;
-      case 'profile': return <ProfileScreen />;
-      case 'settings': return <SettingsScreen />;
-      case 'store': return <StoreScreen />;
-      case 'admin': return <AdminPanel />;
-      case 'auth': return <IncidentBoard />;
-      case 'daily': return <DailyChallengeScreen />;
-      case 'sandbox': return <SandboxScreen />;
-      default: return <BootScreen />;
-    }
-  };
-
   return (
-    <UpgradePromptProvider>
-      {renderView()}
-      <InstallAppButton />
-      <Toaster
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: '#18181b',
-            border: '1px solid #27272a',
-            color: '#e4e4e7',
-          },
-        }}
-      />
-    </UpgradePromptProvider>
+    <Suspense fallback={<ScreenFallback />}>
+      <UpgradePromptProvider>
+        <Suspense fallback={<ScreenFallback />}>
+          {view === 'auth' ? <IncidentBoard /> : renderView(view)}
+        </Suspense>
+        <InstallAppButton />
+        <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
+      </UpgradePromptProvider>
+    </Suspense>
   );
 }
 
