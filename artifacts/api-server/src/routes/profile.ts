@@ -9,6 +9,7 @@ import {
   onCatalogOverridesChanged,
 } from "../lib/catalogEvents";
 import { ensureUserRow } from "../lib/userSync";
+import { computeEntitlementsPayload } from "../lib/entitlementsPayload";
 
 const router = Router();
 
@@ -75,54 +76,9 @@ router.put("/profile", requireAuth, async (req, res) => {
 router.get("/entitlements", requireAuth, async (req, res) => {
   try {
     const clerkId = (req as any).userId as string;
-
     const userRow = await ensureUserRow(clerkId);
-    const user = [userRow];
-
-    const { userEntitlementsTable } = await import("@workspace/db");
-    const entitlements = await db.select()
-      .from(userEntitlementsTable)
-      .where(eq(userEntitlementsTable.userId, user[0].id));
-
-    const activeEntitlements = entitlements.filter(e => e.isActive && !e.revokedAt);
-    const directIds = activeEntitlements.map(e => e.productId);
-
-    const BUNDLE_CONTENTS: Record<string, string[]> = {
-      "bundle-master-investigator": [
-        "pro-subscription",
-        "pack-network-ops",
-        "pack-server-graveyard",
-        "pack-garage-diagnostics",
-        "pack-sensor-mesh",
-        "pack-mixed-cascades",
-        "upgrade-advanced-tools",
-        "upgrade-chaos-mode",
-        "upgrade-deep-telemetry",
-        "upgrade-sandbox-pro",
-        "upgrade-pro-analytics",
-      ],
-      "bundle-clinical-systems": [
-        "pack-healthcare-imaging",
-        "upgrade-advanced-tools",
-        "upgrade-deep-telemetry",
-      ],
-    };
-
-    const expanded = new Set<string>(directIds);
-    for (const id of directIds) {
-      const children = BUNDLE_CONTENTS[id];
-      if (children) for (const c of children) expanded.add(c);
-    }
-
-    const ownedProductIds = ["base-free", ...Array.from(expanded)];
-    const activeSubscription =
-      activeEntitlements.find(e => e.entitlementType === "subscription")?.productId ||
-      (expanded.has("pro-subscription") ? "pro-subscription" : null);
-    const isProUser = expanded.has("pro-subscription");
-    const isAdmin = !!user[0].isAdmin;
-    const isSuperAdmin = !!user[0].isSuperAdmin;
-
-    return res.json({ ownedProductIds, activeSubscription, isProUser, isAdmin, isSuperAdmin });
+    const payload = await computeEntitlementsPayload(userRow.id);
+    return res.json(payload);
   } catch (err) {
     req.log.error({ err }, "Failed to load entitlements");
     return res.status(500).json({ error: "Internal server error" });

@@ -4,7 +4,7 @@ import { userEntitlementsTable, purchasesTable } from '@workspace/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { logger } from './logger';
 
-const PRODUCT_TYPE_MAP: Record<string, string> = {
+export const PRODUCT_TYPE_MAP: Record<string, string> = {
   'pro-subscription': 'subscription',
   'pack-network-ops': 'content-pack',
   'pack-server-graveyard': 'content-pack',
@@ -59,6 +59,29 @@ export async function grantEntitlementFromCheckout(opts: {
     isActive: true,
   });
   return id;
+}
+
+export async function revokeEntitlement(opts: {
+  userId: string;
+  productId: string;
+}): Promise<number> {
+  const { userId, productId } = opts;
+  const now = new Date();
+  const rows = await db
+    .update(userEntitlementsTable)
+    .set({ isActive: false, revokedAt: now })
+    .where(
+      and(
+        eq(userEntitlementsTable.userId, userId),
+        eq(userEntitlementsTable.productId, productId),
+        eq(userEntitlementsTable.isActive, true)
+      )
+    )
+    .returning({ id: userEntitlementsTable.id });
+  if (rows.length === 0) {
+    logger.warn({ userId, productId }, '[revoke] no active entitlement found');
+  }
+  return rows.length;
 }
 
 export async function recordPurchase(opts: {

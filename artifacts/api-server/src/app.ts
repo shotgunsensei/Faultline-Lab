@@ -4,7 +4,8 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers } from "./webhookHandlers";
-import { grantEntitlementFromCheckout, recordPurchase } from "./lib/grantEntitlement";
+import { grantEntitlementFromCheckout, recordPurchase, revokeEntitlement } from "./lib/grantEntitlement";
+import { handleStripeEvent } from "./lib/stripeEventHandler";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -54,33 +55,17 @@ app.post(
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
 
       const event = JSON.parse((req.body as Buffer).toString('utf8'));
-      if (event?.type === 'checkout.session.completed') {
-        const session = event.data?.object || {};
-        const md = session.metadata || {};
-        const userId = md.userId;
-        const productId = md.catalogProductId;
-        if (userId && productId) {
-          try {
-            await grantEntitlementFromCheckout({
-              userId,
-              productId,
-              source: 'stripe',
-              stripePaymentId: session.payment_intent || session.subscription || session.id,
-            });
-            await recordPurchase({
-              userId,
-              productId,
-              stripeSessionId: session.id,
-              stripePaymentIntentId: session.payment_intent || null,
-              amount: session.amount_total ?? null,
-              currency: session.currency || 'usd',
-            });
-          } catch (fulfillErr: any) {
-            req.log.error({ err: fulfillErr }, 'Webhook fulfillment error');
-            res.status(500).json({ error: 'Fulfillment failed; will retry' });
-            return;
-          }
-        }
+      try {
+        await handleStripeEvent(event, {
+          grantEntitlement: grantEntitlementFromCheckout,
+          recordPurchase,
+          revokeEntitlement,
+          logger: req.log,
+        });
+      } catch (fulfillErr: any) {
+        req.log.error({ err: fulfillErr }, 'Webhook fulfillment error');
+        res.status(500).json({ error: 'Fulfillment failed; will retry' });
+        return;
       }
 
       res.status(200).json({ received: true });
