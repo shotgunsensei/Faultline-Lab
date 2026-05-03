@@ -55,6 +55,12 @@ the suite then puts to use in production work.
   (`FREE_CASE_IDS`) and the same look as signed-in users — no degraded
   preview experience.
 
+## Deployment
+
+For taking Faultline Lab from dev to production (Clerk live keys, Stripe
+webhook configuration, schema verification, and the pre-launch checklist) see
+[`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## Local development
 
 This package lives in the `pnpm` monorepo. From the repo root:
