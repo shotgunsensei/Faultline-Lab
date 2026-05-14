@@ -98,6 +98,35 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
   `DELETE /api/admin/users/:id`, both gated by `requireSuperAdmin`. Deletes
   cascade to user_profiles, user_entitlements, and purchases via FK.
 
+### OperatorOS SSO
+- Faultline Lab is launchable as a child app inside OperatorOS. The api-server
+  owns `GET /sso?token=<JWT>&returnTo=...` (artifact.toml routes `/sso` to
+  api-server alongside `/api`). On success the user gets an HMAC-signed
+  `fl_session` cookie and is redirected to `?sso=ok`; on failure to
+  `?sso=error&reason=<code>`.
+- HS256 verification (`lib/operatorOsSso.ts`) enforces alg, iss, aud
+  (lowercased), env, iat freshness, exp, jti/sub presence, then performs a
+  **mandatory** `POST {OPERATOROS_API_URL}/v1/modules/sso/consume` for
+  single-use enforcement. Network/5xx → HTTP 502.
+- Required env: `MODULE_SSO_SECRET` (≥16 chars), `OPERATOROS_BASE_URL`,
+  `OPERATOROS_SSO_AUDIENCE` (= `faultlinelab`), `OPERATOROS_SSO_ENV`,
+  `OPERATOROS_API_URL`. Hard-fails on boot in production when missing; in
+  dev `/sso` returns 503 with a warning.
+- Coexists with Clerk: `requireAuth` / `optionalAuth` resolve `req.appUser`
+  from either the `fl_session` cookie OR Clerk, and set `req.userId` to the
+  local `users.id`. Routes (`profile`, `entitlements`, `admin`, `stripe`,
+  `crossPromo`) now query users by app id, not `clerkId`.
+- New `users` columns: `operator_identity_id` (unique, = JWT `sub`),
+  `operator_plan_slug`, `operator_organization_id`, `operator_role`,
+  `operator_last_launch_at`. `ensureOperatorOsUserRow` upserts on relaunch.
+- Client surface: `GET /api/me`, `POST /api/logout`,
+  `lib/ssoLanding.ts` consumes `?sso=` query and shows a Sonner toast.
+  Bootstrap super-admin emails apply to OperatorOS users too.
+- Reference: `artifacts/faultline-lab/docs/operatoros-sso.md`.
+- Tests: `artifacts/api-server/src/routes/sso.test.ts` (9 cases — happy
+  path, wrong secret, alg=none, expired, aud/env mismatch, replay, 502
+  unavailable, relaunch upsert).
+
 ### Cloud Sync
 - CloudSyncProvider wraps app content when Clerk is available
 - On sign-in: fetches profile, settings, caseStates from cloud; merges with local (newer wins by lastActiveAt)

@@ -1,15 +1,16 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/requireAuth";
 import { db } from "@workspace/db";
-import { usersTable, userProfilesTable } from "@workspace/db";
+import { userProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   getCatalogOverridesVersion,
   loadCatalogOverridesPayload,
   onCatalogOverridesChanged,
 } from "../lib/catalogEvents";
-import { ensureUserRow } from "../lib/userSync";
 import { computeEntitlementsPayload } from "../lib/entitlementsPayload";
+import type { User } from "@workspace/db";
+import { clearSessionCookie } from "../lib/sessionCookie";
 
 const router = Router();
 
@@ -17,12 +18,11 @@ router.get("/profile", requireAuth, async (req, res) => {
   try {
     const userId = (req as any).userId as string;
 
-    const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, userId)).limit(1);
-    if (user.length === 0) {
-      return res.json({ profile: null, settings: null, caseStates: null });
-    }
-
-    const profile = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, user[0].id)).limit(1);
+    const profile = await db
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
     if (profile.length === 0) {
       return res.json({ profile: null, settings: null, caseStates: null });
     }
@@ -40,17 +40,18 @@ router.get("/profile", requireAuth, async (req, res) => {
 
 router.put("/profile", requireAuth, async (req, res) => {
   try {
-    const clerkId = (req as any).userId as string;
+    const userId = (req as any).userId as string;
     const { profile, settings, caseStates } = req.body;
 
-    const userRow = await ensureUserRow(clerkId);
-    const user = [userRow];
-
-    const existing = await db.select().from(userProfilesTable).where(eq(userProfilesTable.userId, user[0].id)).limit(1);
+    const existing = await db
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, userId))
+      .limit(1);
 
     if (existing.length === 0) {
       await db.insert(userProfilesTable).values({
-        userId: user[0].id,
+        userId,
         profileData: profile,
         caseStates: caseStates || {},
         settings: settings || { soundEnabled: false, animationsEnabled: true, terminalFontSize: 14 },
@@ -63,7 +64,7 @@ router.put("/profile", requireAuth, async (req, res) => {
 
       await db.update(userProfilesTable)
         .set(updates)
-        .where(eq(userProfilesTable.userId, user[0].id));
+        .where(eq(userProfilesTable.userId, userId));
     }
 
     return res.json({ success: true });
@@ -75,14 +76,54 @@ router.put("/profile", requireAuth, async (req, res) => {
 
 router.get("/entitlements", requireAuth, async (req, res) => {
   try {
-    const clerkId = (req as any).userId as string;
-    const userRow = await ensureUserRow(clerkId);
-    const payload = await computeEntitlementsPayload(userRow.id);
+    const userId = (req as any).userId as string;
+    const payload = await computeEntitlementsPayload(userId);
     return res.json(payload);
   } catch (err) {
     req.log.error({ err }, "Failed to load entitlements");
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+/**
+ * `/api/me` exposes the minimal identity payload the SPA needs in order to
+ * decide between guest mode and signed-in mode when the auth source is
+ * server-issued (OperatorOS SSO cookie). Clerk-driven sessions normally
+ * surface user data via the Clerk frontend SDK; this endpoint is the
+ * cookie-only path's equivalent and is also safe to call for Clerk users.
+ */
+router.get("/me", requireAuth, async (req, res) => {
+  const user = (req as any).appUser as User;
+  return res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      isAdmin: !!user.isAdmin,
+      isSuperAdmin: !!user.isSuperAdmin,
+      authSource: user.operatorIdentityId ? "operatoros" : user.clerkId ? "clerk" : "unknown",
+      operator: user.operatorIdentityId
+        ? {
+            planSlug: user.operatorPlanSlug,
+            organizationId: user.operatorOrganizationId,
+            role: user.operatorRole,
+            lastLaunchAt: user.operatorLastLaunchAt?.toISOString?.() ?? null,
+          }
+        : null,
+    },
+  });
+});
+
+/**
+ * Clears the local SSO session cookie. Idempotent — always returns 200.
+ * Does not touch Clerk; Clerk-driven sign-out is handled by the Clerk SDK
+ * on the client. We intentionally do not call back to OperatorOS — the
+ * remote session lives on the OperatorOS shell, not in our app.
+ */
+router.post("/logout", (_req, res) => {
+  clearSessionCookie(res);
+  return res.json({ success: true });
 });
 
 router.get("/catalog/overrides", async (req, res) => {

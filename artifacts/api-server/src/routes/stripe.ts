@@ -57,24 +57,15 @@ router.post('/checkout-by-catalog', requireAuth, async (req: any, res): Promise<
       return;
     }
 
-    const clerkId = req.userId as string;
+    const userId = req.userId as string;
     const stripe = await getUncachableStripeClient();
 
-    let [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) {
-      const id = (await import('crypto')).randomUUID();
-      await db.insert(usersTable).values({
-        id,
-        clerkId,
-        email: null,
-        displayName: 'Investigator',
-      });
-      [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
-      if (!user) {
-        res.status(500).json({ error: 'Failed to provision user' });
-        return;
-      }
+      res.status(500).json({ error: 'Failed to resolve user' });
+      return;
     }
+    const clerkId = user.clerkId ?? user.operatorIdentityId ?? user.id;
 
     const productRows = await db.execute(
       sql`SELECT id FROM stripe.products
@@ -149,8 +140,8 @@ router.post('/checkout-by-catalog', requireAuth, async (req: any, res): Promise<
 
 router.post('/portal-session', requireAuth, async (req: any, res): Promise<void> => {
   try {
-    const clerkId = req.userId as string;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+    const userId = req.userId as string;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user?.stripeCustomerId) {
       res.status(400).json({ error: 'No Stripe customer on file. Make a purchase first.' });
       return;
@@ -173,8 +164,8 @@ router.post('/portal-session', requireAuth, async (req: any, res): Promise<void>
 
 router.get('/subscription', requireAuth, async (req: any, res): Promise<void> => {
   try {
-    const clerkId = req.userId as string;
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId));
+    const userId = req.userId as string;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
 
     if (!user?.stripeSubscriptionId) {
       res.json({ subscription: null });

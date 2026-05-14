@@ -76,6 +76,12 @@ export const ROUTE_SEO: Record<AppView, RouteSeo> = {
     description:
       'Sign in to Faultline Lab to sync your progress and unlock the full diagnostic challenge catalog.',
   },
+  account: {
+    path: '/account',
+    title: 'Account & Billing — Faultline Lab',
+    description:
+      'Manage your Faultline Lab subscription, billing, and account preferences.',
+  },
   daily: {
     path: '/daily',
     title: 'Daily Challenge — Faultline Lab',

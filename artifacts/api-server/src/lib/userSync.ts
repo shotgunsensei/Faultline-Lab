@@ -3,6 +3,7 @@ import { db, usersTable, type User } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
 import { logger } from "./logger";
+import type { VerifiedSsoToken } from "./operatorOsSso";
 
 const BOOTSTRAP_SUPER_ADMIN_EMAILS: ReadonlySet<string> = new Set(
   ["john@shotgunninjas.com"].map((e) => e.toLowerCase()),
@@ -116,6 +117,88 @@ export async function ensureUserRow(clerkId: string): Promise<User> {
     .select()
     .from(usersTable)
     .where(eq(usersTable.clerkId, clerkId))
+    .limit(1);
+  return inserted[0];
+}
+
+/**
+ * Upsert a users row from a successfully verified + consumed OperatorOS SSO
+ * token. Keyed on `operator_identity_id` (the JWT `sub`), which is unique.
+ *
+ * On every launch we refresh the descriptive fields (email, name, avatar,
+ * plan/org/role, last launch time) so OperatorOS remains the source of truth
+ * for identity. We do NOT touch Clerk fields — accounts that arrived via
+ * Clerk and accounts that arrived via OperatorOS are independent rows; a
+ * single human with both auth methods will today have two rows. Linking them
+ * is intentionally left for a future "claim account" flow.
+ *
+ * Bootstrap super-admin promotion runs once on row creation, or once on the
+ * first launch where we learn an email, mirroring `ensureUserRow`.
+ */
+export async function ensureOperatorOsUserRow(token: VerifiedSsoToken): Promise<User> {
+  const now = new Date();
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.operatorIdentityId, token.sub))
+    .limit(1);
+
+  if (existing.length > 0) {
+    const user = existing[0];
+    const updates: Partial<User> = {
+      operatorPlanSlug: token.planSlug ?? user.operatorPlanSlug ?? null,
+      operatorOrganizationId: token.organizationId ?? user.operatorOrganizationId ?? null,
+      operatorRole: token.role ?? user.operatorRole ?? null,
+      operatorLastLaunchAt: now,
+      updatedAt: now,
+    };
+    if (token.email && token.email !== user.email) updates.email = token.email;
+    if (token.name && !user.displayName) updates.displayName = token.name;
+    if (token.avatarUrl && !user.avatarUrl) updates.avatarUrl = token.avatarUrl;
+    if (
+      !user.isAdmin &&
+      !user.isSuperAdmin &&
+      isBootstrapEmail(updates.email ?? user.email)
+    ) {
+      updates.isAdmin = true;
+      updates.isSuperAdmin = true;
+      logger.info(
+        { email: updates.email ?? user.email, operatorIdentityId: token.sub },
+        "Bootstrapped super admin on OperatorOS launch",
+      );
+    }
+    await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id));
+    return { ...user, ...updates } as User;
+  }
+
+  const id = crypto.randomUUID();
+  const isBoot = isBootstrapEmail(token.email);
+  await db
+    .insert(usersTable)
+    .values({
+      id,
+      operatorIdentityId: token.sub,
+      email: token.email ?? null,
+      displayName: token.name || token.email || "Investigator",
+      avatarUrl: token.avatarUrl ?? null,
+      operatorPlanSlug: token.planSlug ?? null,
+      operatorOrganizationId: token.organizationId ?? null,
+      operatorRole: token.role ?? null,
+      operatorLastLaunchAt: now,
+      isAdmin: isBoot,
+      isSuperAdmin: isBoot,
+    })
+    .onConflictDoNothing({ target: usersTable.operatorIdentityId });
+  if (isBoot) {
+    logger.info(
+      { email: token.email, operatorIdentityId: token.sub },
+      "Bootstrapped super admin on first OperatorOS launch",
+    );
+  }
+  const inserted = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.operatorIdentityId, token.sub))
     .limit(1);
   return inserted[0];
 }

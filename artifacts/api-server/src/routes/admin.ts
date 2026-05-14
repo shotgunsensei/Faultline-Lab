@@ -16,13 +16,15 @@ import { notifyCatalogOverridesChanged } from "../lib/catalogEvents";
 const router: IRouter = Router();
 
 async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const clerkId = (req as any).userId as string;
-  const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, clerkId)).limit(1);
-  if (user.length === 0 || !user[0].isAdmin) {
+  // requireAuth has already resolved the local user row (`req.appUser`) for
+  // both Clerk and OperatorOS-cookie sessions. We only need to gate on the
+  // admin flag here.
+  const adminUser = (req as any).appUser as { id: string; isAdmin?: boolean; isSuperAdmin?: boolean } | undefined;
+  if (!adminUser || !adminUser.isAdmin) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  (req as any).adminUser = user[0];
+  (req as any).adminUser = adminUser;
   next();
 }
 

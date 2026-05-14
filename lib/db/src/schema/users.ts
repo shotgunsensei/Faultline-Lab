@@ -12,6 +12,16 @@ export const usersTable = pgTable("users", {
   stripeSubscriptionId: text("stripe_subscription_id"),
   isAdmin: boolean("is_admin").default(false).notNull(),
   isSuperAdmin: boolean("is_super_admin").default(false).notNull(),
+  // OperatorOS SSO identity. operator_identity_id is the stable subject from
+  // the OperatorOS-issued JWT (claim `sub`). It is unique across users so
+  // every OperatorOS account maps to exactly one row. The remaining fields
+  // mirror the most recent SSO launch payload — they are descriptive only;
+  // local entitlement state remains the source of truth.
+  operatorIdentityId: text("operator_identity_id").unique(),
+  operatorPlanSlug: text("operator_plan_slug"),
+  operatorOrganizationId: text("operator_organization_id"),
+  operatorRole: text("operator_role"),
+  operatorLastLaunchAt: timestamp("operator_last_launch_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

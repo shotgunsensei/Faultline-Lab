@@ -16,6 +16,39 @@ async function apiFetch(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
+/**
+ * Fetches the current user from the local session cookie. Returns `null`
+ * when no session is present (HTTP 401). Used by the SPA to detect
+ * OperatorOS-cookie sign-in when Clerk is unavailable or the user has not
+ * gone through the Clerk widget.
+ */
+export async function fetchMe(): Promise<{
+  user: {
+    id: string;
+    email: string | null;
+    displayName: string | null;
+    avatarUrl: string | null;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+    authSource: 'operatoros' | 'clerk' | 'unknown';
+    operator: {
+      planSlug: string | null;
+      organizationId: string | null;
+      role: string | null;
+      lastLaunchAt: string | null;
+    } | null;
+  };
+} | null> {
+  const res = await fetch(`${API_BASE}/me`, { credentials: 'include' });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function logoutSsoSession(): Promise<void> {
+  await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
+}
+
 export async function fetchProfile() {
   return apiFetch('/profile');
 }

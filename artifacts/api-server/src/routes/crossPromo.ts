@@ -45,20 +45,12 @@ router.post("/cross-promo/click", optionalAuth, async (req, res): Promise<void> 
     return;
   }
 
-  const clerkId = (req as any).userId as string | null;
-  let userId: string | null = null;
-  if (clerkId) {
-    try {
-      const rows = await db
-        .select({ id: usersTable.id })
-        .from(usersTable)
-        .where(eq(usersTable.clerkId, clerkId))
-        .limit(1);
-      if (rows.length > 0) userId = rows[0].id;
-    } catch (err) {
-      req.log.warn({ err }, "Cross-promo click: user lookup failed");
-    }
-  }
+  // requireAuth/optionalAuth resolves the local app user, exposed as
+  // req.appUser. We pull both ids so analytics keeps the legacy `clerkId`
+  // column populated for Clerk-backed sessions.
+  const appUser = (req as any).appUser as { id: string; clerkId: string | null } | null;
+  const userId: string | null = appUser?.id ?? null;
+  const clerkId: string | null = appUser?.clerkId ?? null;
 
   try {
     await db.insert(crossPromoClicksTable).values({

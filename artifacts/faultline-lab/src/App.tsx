@@ -6,6 +6,8 @@ import { resetEntitlements } from '@/lib/entitlements';
 import { useRouteSeo } from '@/lib/seo';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
+import { fetchMe } from '@/lib/api';
+import { consumeSsoLandingParams } from '@/lib/ssoLanding';
 
 const IncidentBoard = lazy(() => import('@/components/IncidentBoard'));
 const InvestigationWorkspace = lazy(() => import('@/components/InvestigationWorkspace'));
@@ -114,15 +116,46 @@ function AppContent() {
   useRouteSeo(view);
 
   useEffect(() => {
-    if (isLoaded) {
-      setAuthUser(user ? {
+    if (!isLoaded) return;
+    if (user) {
+      setAuthUser({
         id: user.id,
         email: user.primaryEmailAddress?.emailAddress || null,
         name: user.fullName || user.firstName || null,
         avatarUrl: user.imageUrl || null,
-      } : null);
+      });
       setAuthLoaded(true);
+      return;
     }
+    // No Clerk session: check whether the user arrived via OperatorOS SSO
+    // (signed cookie set by the api-server's /sso endpoint). If so, hydrate
+    // signed-in state from /api/me so cloud sync, entitlements, and admin
+    // routes work without Clerk credentials.
+    let cancelled = false;
+    consumeSsoLandingParams();
+    fetchMe()
+      .then((me) => {
+        if (cancelled) return;
+        if (me) {
+          setAuthUser({
+            id: me.user.id,
+            email: me.user.email,
+            name: me.user.displayName,
+            avatarUrl: me.user.avatarUrl,
+          });
+        } else {
+          setAuthUser(null);
+        }
+        setAuthLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuthUser(null);
+        setAuthLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, isLoaded, setAuthUser, setAuthLoaded]);
 
   return (
@@ -144,22 +177,61 @@ function AppContent() {
 function AppContentWithoutClerk() {
   const view = useAppStore(s => s.view);
   const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
+  const setAuthUser = useAppStore(s => s.setAuthUser);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
   useRouteSeo(view);
 
   useEffect(() => {
-    resetEntitlements();
-    setAuthLoaded(true);
-  }, [setAuthLoaded]);
+    let cancelled = false;
+    consumeSsoLandingParams();
+    fetchMe()
+      .then((me) => {
+        if (cancelled) return;
+        if (me) {
+          setAuthUser({
+            id: me.user.id,
+            email: me.user.email,
+            name: me.user.displayName,
+            avatarUrl: me.user.avatarUrl,
+          });
+        } else {
+          resetEntitlements();
+          setAuthUser(null);
+        }
+        setAuthLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        resetEntitlements();
+        setAuthLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [setAuthLoaded, setAuthUser]);
 
   return (
     <Suspense fallback={<ScreenFallback />}>
       <UpgradePromptProvider>
-        <Suspense fallback={<ScreenFallback />}>
-          {view === 'auth' ? <IncidentBoard /> : renderView(view)}
-        </Suspense>
-        <InstallAppButton />
-        <GlobalOnboardingTour />
-        <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
+        {isSignedIn ? (
+          <CloudSyncProvider>
+            <Suspense fallback={<ScreenFallback />}>
+              {view === 'auth' ? <IncidentBoard /> : renderView(view)}
+            </Suspense>
+            <InstallAppButton />
+            <GlobalOnboardingTour />
+            <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
+          </CloudSyncProvider>
+        ) : (
+          <>
+            <Suspense fallback={<ScreenFallback />}>
+              {view === 'auth' ? <IncidentBoard /> : renderView(view)}
+            </Suspense>
+            <InstallAppButton />
+            <GlobalOnboardingTour />
+            <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
+          </>
+        )}
       </UpgradePromptProvider>
     </Suspense>
   );

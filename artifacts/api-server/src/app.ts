@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
@@ -7,7 +8,11 @@ import { WebhookHandlers } from "./webhookHandlers";
 import { grantEntitlementFromCheckout, recordPurchase, revokeEntitlement } from "./lib/grantEntitlement";
 import { handleStripeEvent } from "./lib/stripeEventHandler";
 import router from "./routes";
+import ssoRouter from "./routes/sso";
 import { logger } from "./lib/logger";
+import { assertSsoConfigOrExit } from "./lib/ssoConfig";
+
+assertSsoConfigOrExit();
 
 const app: Express = express();
 
@@ -94,8 +99,14 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 app.use(clerkMiddleware());
+
+// OperatorOS SSO landing endpoint. Mounted at the root (NOT under `/api`)
+// because OperatorOS sends users to `<app_origin>/sso?token=...`. The
+// artifact.toml routes both `/sso` and `/api` to this server.
+app.use("/", ssoRouter);
 
 app.use("/api", router);
 

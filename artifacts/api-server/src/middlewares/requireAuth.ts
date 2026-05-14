@@ -1,5 +1,9 @@
 import { getAuth } from "@clerk/express";
 import type { Request, Response, NextFunction } from "express";
+import { db, usersTable, type User } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { ensureUserRow } from "../lib/userSync";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "../lib/sessionCookie";
 
 // Test-only auth bypass for the scripted Stripe purchase E2E
 // (`scripts/src/test-stripe-flow.ts`). DISABLED in production deployments
@@ -23,32 +27,74 @@ function tryE2ETestBypass(req: Request): string | null {
   return clerkId;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+/**
+ * Resolve the local app User for this request, supporting both auth modes:
+ *   1. OperatorOS SSO session cookie (HMAC-signed, set by /sso).
+ *   2. Clerk session (cookie or header, processed by clerkMiddleware).
+ *
+ * The cookie path is checked first because OperatorOS users may not have
+ * Clerk credentials at all. Returns `null` when no valid session is present.
+ */
+async function resolveUser(req: Request): Promise<User | null> {
   const bypassClerkId = tryE2ETestBypass(req);
   if (bypassClerkId) {
-    (req as any).userId = bypassClerkId;
-    next();
-    return;
+    return await ensureUserRow(bypassClerkId);
   }
+
+  const cookieToken = (req as any).cookies?.[SESSION_COOKIE_NAME] as string | undefined;
+  if (cookieToken) {
+    const payload = verifySessionToken(cookieToken);
+    if (payload) {
+      const rows = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, payload.uid))
+        .limit(1);
+      if (rows.length > 0) return rows[0];
+      // Stale cookie pointing at a deleted user: fall through (no session).
+    }
+  }
+
   const auth = getAuth(req);
-  const userId = auth?.sessionClaims?.userId || auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+  const clerkId = (auth?.sessionClaims?.userId as string | undefined) || auth?.userId;
+  if (clerkId) {
+    return await ensureUserRow(clerkId);
   }
-  (req as any).userId = userId;
-  next();
+
+  return null;
 }
 
-export function optionalAuth(req: Request, res: Response, next: NextFunction) {
-  const bypassClerkId = tryE2ETestBypass(req);
-  if (bypassClerkId) {
-    (req as any).userId = bypassClerkId;
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await resolveUser(req);
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    (req as any).appUser = user;
+    (req as any).userId = user.id;
     next();
-    return;
+  } catch (err) {
+    req.log?.error({ err }, "requireAuth resolve failed");
+    res.status(500).json({ error: "Auth resolve failed" });
   }
-  const auth = getAuth(req);
-  const userId = auth?.sessionClaims?.userId || auth?.userId;
-  (req as any).userId = userId || null;
-  next();
+}
+
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await resolveUser(req);
+    if (user) {
+      (req as any).appUser = user;
+      (req as any).userId = user.id;
+    } else {
+      (req as any).appUser = null;
+      (req as any).userId = null;
+    }
+    next();
+  } catch (err) {
+    req.log?.error({ err }, "optionalAuth resolve failed");
+    (req as any).appUser = null;
+    (req as any).userId = null;
+    next();
+  }
 }
