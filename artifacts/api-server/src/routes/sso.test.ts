@@ -39,6 +39,7 @@ function makeToken(overrides: Record<string, unknown> = {}, secret = SECRET): st
     sub: TEST_PREFIX + randomUUID(),
     iss: ISSUER,
     aud: AUDIENCE,
+    module_slug: AUDIENCE,
     env: ENV_CLAIM,
     iat: now,
     exp: now + 60,
@@ -195,6 +196,79 @@ describe("/sso", () => {
     const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
     expect(res.status).toBe(502);
     expect(res.headers["location"]).toContain("reason=sso_consume_unavailable");
+  });
+
+  it("rejects missing token with reason=missing_token", async () => {
+    const consumeSpy = vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const res = await get(buildApp(), `/sso`);
+    expect(res.status).toBe(302);
+    expect(res.headers["location"]).toContain("reason=missing_token");
+    expect(consumeSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects wrong issuer with reason=wrong_issuer", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ iss: "https://evil.example" });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_issuer");
+  });
+
+  it("rejects mismatched module_slug with reason=wrong_module", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ module_slug: "some-other-module" });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_module");
+  });
+
+  it("rejects missing module_slug with reason=wrong_module", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ module_slug: undefined });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_module");
+  });
+
+  it("rejects iat far in the future with reason=invalid_token", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const now = Math.floor(Date.now() / 1000);
+    const token = makeToken({ iat: now + 60, exp: now + 120 });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=invalid_token");
+  });
+
+  it("maps consume TOKEN_UNKNOWN to reason=consume_failed", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockRejectedValue(
+      new sso.SsoVerificationError("consume_failed", "unknown", "jti-u"),
+    );
+    const token = makeToken();
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=consume_failed");
+  });
+
+  it("maps consume TOKEN_EXPIRED to reason=expired", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockRejectedValue(
+      new sso.SsoVerificationError("expired", "upstream-expired", "jti-e"),
+    );
+    const token = makeToken();
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=expired");
+  });
+
+  it("maps consume AUDIENCE_MISMATCH to reason=wrong_audience", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockRejectedValue(
+      new sso.SsoVerificationError("aud_mismatch", "upstream-aud", "jti-a"),
+    );
+    const token = makeToken();
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_audience");
+  });
+
+  it("maps consume ENV_MISMATCH to reason=wrong_env", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockRejectedValue(
+      new sso.SsoVerificationError("env_mismatch", "upstream-env", "jti-v"),
+    );
+    const token = makeToken();
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_env");
   });
 
   it("upserts on relaunch (same operator_identity_id => same row, refreshed plan)", async () => {

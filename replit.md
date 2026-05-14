@@ -105,7 +105,9 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
   `fl_session` cookie and is redirected to `?sso=ok`; on failure to
   `?sso=error&reason=<code>`.
 - HS256 verification (`lib/operatorOsSso.ts`) enforces alg, iss, aud
-  (lowercased), env, iat freshness, exp, jti/sub presence, then performs a
+  (lowercased), `module_slug` (lowercased; must equal both `aud` and the
+  configured audience), env, iat freshness in **both** directions
+  (max 90s old, max 5s future), exp, jti/sub presence, then performs a
   **mandatory** `POST {OPERATOROS_API_URL}/v1/modules/sso/consume` for
   single-use enforcement. Network/5xx → HTTP 502.
 - Required env: `MODULE_SSO_SECRET` (≥16 chars), `OPERATOROS_BASE_URL`,

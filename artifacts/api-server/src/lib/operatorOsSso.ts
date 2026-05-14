@@ -22,8 +22,10 @@ export type SsoFailureCode =
   | "invalid_alg"
   | "expired"
   | "iat_too_old"
+  | "iat_in_future"
   | "iss_mismatch"
   | "aud_mismatch"
+  | "module_mismatch"
   | "env_mismatch"
   | "missing_jti"
   | "missing_sub"
@@ -104,11 +106,22 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     throw new SsoVerificationError("iss_mismatch", "Issuer mismatch", jti);
   }
   const aud = Array.isArray(payload.aud) ? payload.aud[0] : payload.aud;
-  if (typeof aud !== "string" || aud.toLowerCase() !== cfg.audience) {
+  const audLower = typeof aud === "string" ? aud.toLowerCase() : "";
+  if (!audLower || audLower !== cfg.audience) {
     throw new SsoVerificationError("aud_mismatch", "Audience mismatch", jti);
   }
 
-  const envClaim = (payload as any).env;
+  // OperatorOS contract: every token carries an explicit `module_slug` and the
+  // child app MUST enforce `aud === module_slug === configured audience`. This
+  // prevents a token minted for a different module (but with a forged or
+  // mistakenly broad aud) from being accepted here.
+  const moduleSlugRaw = (payload as Record<string, unknown>).module_slug;
+  const moduleSlug = typeof moduleSlugRaw === "string" ? moduleSlugRaw.toLowerCase() : "";
+  if (!moduleSlug || moduleSlug !== cfg.audience || moduleSlug !== audLower) {
+    throw new SsoVerificationError("module_mismatch", "module_slug mismatch", jti);
+  }
+
+  const envClaim = (payload as Record<string, unknown>).env;
   if (typeof envClaim !== "string" || envClaim !== cfg.env) {
     throw new SsoVerificationError("env_mismatch", "Env mismatch", jti);
   }
@@ -116,6 +129,9 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
   const now = Math.floor(Date.now() / 1000);
   if (typeof payload.iat !== "number") {
     throw new SsoVerificationError("invalid_signature", "Missing iat", jti);
+  }
+  if (payload.iat - now > SKEW_SECONDS) {
+    throw new SsoVerificationError("iat_in_future", "iat in future", jti);
   }
   if (now - payload.iat > MAX_IAT_AGE_SECONDS + SKEW_SECONDS) {
     throw new SsoVerificationError("iat_too_old", "iat too old", jti);
@@ -128,7 +144,7 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     jti,
     sub,
     iss: payload.iss as string,
-    aud: aud.toLowerCase(),
+    aud: audLower,
     env: envClaim,
     iat: payload.iat,
     exp: payload.exp,

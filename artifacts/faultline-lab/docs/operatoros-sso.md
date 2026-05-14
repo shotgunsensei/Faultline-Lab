@@ -33,8 +33,13 @@ rows in `users` — linking is intentionally out of scope for this change.
 1. Decode header — reject anything other than `alg=HS256` (rejects `none`,
    `RS256`, etc. before any signature work).
 2. `jwt.verify` with `MODULE_SSO_SECRET`, ±5s clock skew.
-3. Claim assertions: `iss`, `aud` (lowercased), `env`, `iat` not older than
-   90s, `exp` in the future, non-empty `jti` and `sub`.
+3. Claim assertions: `iss`, `aud` (lowercased), `module_slug` (lowercased,
+   **must equal both `aud` and the configured audience**), `env`, `iat` not
+   older than 90s and not more than 5s in the future, `exp` in the future,
+   non-empty `jti` and `sub`. Failure codes:
+   `wrong_issuer` / `wrong_audience` / `wrong_module` / `wrong_env` /
+   `expired` / `invalid_token` (covers `iat_in_future`, missing claims,
+   bad signature, alg mismatch).
 4. Mandatory `POST {OPERATOROS_API_URL}/v1/modules/sso/consume` with
    `{ jti, aud, env }`. Upstream codes map to local failure reasons:
 
