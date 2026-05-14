@@ -125,9 +125,10 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
   `lib/ssoLanding.ts` consumes `?sso=` query and shows a Sonner toast.
   Bootstrap super-admin emails apply to OperatorOS users too.
 - Reference: `artifacts/faultline-lab/docs/operatoros-sso.md`.
-- Tests: `artifacts/api-server/src/routes/sso.test.ts` (9 cases — happy
-  path, wrong secret, alg=none, expired, aud/env mismatch, replay, 502
-  unavailable, relaunch upsert).
+- Tests: `artifacts/api-server/src/routes/sso.test.ts` (18 cases — happy
+  path, missing token, wrong secret, alg=none, expired, future iat, wrong
+  issuer/audience/module/env, replay, 502 unavailable, full consume API
+  matrix, relaunch upsert).
 
 ### Cloud Sync
 - CloudSyncProvider wraps app content when Clerk is available
