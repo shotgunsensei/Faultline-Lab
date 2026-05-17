@@ -162,6 +162,55 @@ router.post('/portal-session', requireAuth, async (req: any, res): Promise<void>
   }
 });
 
+async function resolveReceiptUrl(
+  p: typeof purchasesTable.$inferSelect,
+  log: { warn: (...args: any[]) => void },
+): Promise<string | null> {
+  let paymentIntentId = p.stripePaymentIntentId;
+  if (!paymentIntentId && p.stripeSessionId) {
+    try {
+      paymentIntentId = await stripeStorage.getPaymentIntentBySession(p.stripeSessionId);
+    } catch (err) {
+      log.warn({ err, sessionId: p.stripeSessionId }, 'getPaymentIntentBySession failed');
+    }
+  }
+  if (paymentIntentId) {
+    try {
+      const fromMirror = await stripeStorage.findChargeReceiptByPaymentIntent(paymentIntentId);
+      if (fromMirror) return fromMirror;
+    } catch (err) {
+      log.warn({ err, paymentIntentId }, 'findChargeReceiptByPaymentIntent failed');
+    }
+  }
+  // Fall back to live Stripe API (mirror may be behind on a fresh purchase).
+  try {
+    const stripe = await getUncachableStripeClient();
+    if (paymentIntentId) {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ['latest_charge'],
+      });
+      const charge = pi.latest_charge;
+      if (charge && typeof charge !== 'string' && charge.receipt_url) {
+        return charge.receipt_url;
+      }
+    } else if (p.stripeSessionId) {
+      const session = await stripe.checkout.sessions.retrieve(p.stripeSessionId, {
+        expand: ['payment_intent.latest_charge'],
+      });
+      const pi = session.payment_intent;
+      if (pi && typeof pi !== 'string') {
+        const charge = pi.latest_charge;
+        if (charge && typeof charge !== 'string' && charge.receipt_url) {
+          return charge.receipt_url;
+        }
+      }
+    }
+  } catch (err) {
+    log.warn({ err, purchaseId: p.id }, 'stripe receipt lookup failed');
+  }
+  return null;
+}
+
 type BillingHistoryEntry = {
   kind: 'invoice' | 'purchase';
   id: string;
@@ -226,7 +275,24 @@ router.get('/invoices', requireAuth, async (req: any, res): Promise<void> => {
       .orderBy(desc(purchasesTable.createdAt))
       .limit(20);
 
-    const purchaseHistory: BillingHistoryEntry[] = purchases.map((p) => ({
+    const enrichedPurchases = await Promise.all(
+      purchases.map(async (p) => {
+        if (p.receiptUrl) return p;
+        const receiptUrl = await resolveReceiptUrl(p, req.log);
+        if (!receiptUrl) return p;
+        try {
+          await db
+            .update(purchasesTable)
+            .set({ receiptUrl })
+            .where(eq(purchasesTable.id, p.id));
+        } catch (err) {
+          req.log.warn({ err, purchaseId: p.id }, 'failed to cache receipt url');
+        }
+        return { ...p, receiptUrl };
+      }),
+    );
+
+    const purchaseHistory: BillingHistoryEntry[] = enrichedPurchases.map((p) => ({
       kind: 'purchase',
       id: p.id,
       productId: p.productId,
@@ -234,7 +300,7 @@ router.get('/invoices', requireAuth, async (req: any, res): Promise<void> => {
       currency: p.currency ?? null,
       status: p.status,
       createdAt: (p.fulfilledAt ?? p.createdAt)?.toISOString() ?? null,
-      hostedInvoiceUrl: null,
+      hostedInvoiceUrl: p.receiptUrl ?? null,
       invoicePdf: null,
       number: null,
     }));

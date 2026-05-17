@@ -46,6 +46,30 @@ export class StripeStorage {
     return result.rows[0] || null;
   }
 
+  async findChargeReceiptByPaymentIntent(paymentIntentId: string): Promise<string | null> {
+    const result = await db.execute(
+      sql`SELECT _raw_data->>'receipt_url' AS receipt_url
+          FROM stripe.charges
+          WHERE payment_intent = ${paymentIntentId}
+            AND _raw_data->>'receipt_url' IS NOT NULL
+          ORDER BY created DESC NULLS LAST
+          LIMIT 1`
+    );
+    const row = result.rows[0] as { receipt_url?: string | null } | undefined;
+    return row?.receipt_url ?? null;
+  }
+
+  async getPaymentIntentBySession(sessionId: string): Promise<string | null> {
+    const result = await db.execute(
+      sql`SELECT payment_intent
+          FROM stripe.checkout_sessions
+          WHERE id = ${sessionId}
+          LIMIT 1`
+    );
+    const row = result.rows[0] as { payment_intent?: string | null } | undefined;
+    return row?.payment_intent ?? null;
+  }
+
   async listInvoicesByCustomer(customerId: string, limit = 10) {
     const result = await db.execute(
       sql`SELECT id, customer, subscription, status, total, currency, period_start, period_end, created, attrs

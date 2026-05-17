@@ -73,6 +73,7 @@ export const purchasesTable = pgTable("purchases", {
   amount: integer("amount"),
   currency: text("currency").default("usd"),
   status: text("status").notNull().default("pending"),
+  receiptUrl: text("receipt_url"),
   fulfilledAt: timestamp("fulfilled_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
