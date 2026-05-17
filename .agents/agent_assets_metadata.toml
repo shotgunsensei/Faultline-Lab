@@ -6,3 +6,21 @@ id = "MT5A9GJR_HzqoDzngB7OI"
 uri = "file://artifacts/faultline-lab/.local-assets/case-authors/domain-auth-failure.png"
 type = "image"
 title = "case author portrait"
+
+[[generated]]
+id = "9Tblu5HYw28ukxvStyFVg"
+uri = "file://attached_assets/generated_images/remote-vpn-tunnel-flap.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "LvsN7-MZQiDFEvU76kJdc"
+uri = "file://attached_assets/generated_images/intermittent-misfire-cyl3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "J1a510WZU-zxb2sbRXjF2"
+uri = "file://attached_assets/generated_images/sensor-mesh-dropout.png"
+type = "image"
+title = "generated_image"
