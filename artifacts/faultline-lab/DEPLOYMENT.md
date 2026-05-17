@@ -196,6 +196,31 @@ pnpm --filter @workspace/scripts run seed-products      # one-time per Stripe ac
 pnpm --filter @workspace/scripts run test-stripe-flow
 ```
 
+The same flow is wired into **`scripts/post-merge.sh`** so it runs
+automatically on every task merge in the dev workspace. The wrapper
+(`scripts/run-stripe-e2e.sh`) can also be invoked manually any time:
+
+```bash
+bash scripts/run-stripe-e2e.sh
+```
+
+`run-stripe-e2e.sh` refuses to run in production, probes the api-server's
+`/api/healthz`, confirms the dev-only auth-bypass token has been written by
+the api-server bootstrap, re-seeds Stripe products (idempotent — existing
+products are skipped), and then runs `test-stripe-flow`. When invoked from
+post-merge (`POST_MERGE=1`) it exits 0 with a warning if the API Server
+workflow happens to be down, so a paused dev workspace can never block a
+merge — but the moment the workflow IS up, every merge runs the full
+end-to-end test and a real failure exits non-zero, which post-merge
+surfaces to the agent.
+
+The api-server's development env in
+`artifacts/api-server/.replit-artifact/artifact.toml` sets
+`ENABLE_E2E_AUTH_BYPASS=1` so the bypass token is written on boot with no
+operator setup; the bypass is still hard-disabled in production by
+`requireAuth.ts`. The post-merge timeout in `.replit` is set to 120000ms to
+comfortably fit `pnpm install` + `db push` + the ~16s E2E run.
+
 This script (`scripts/src/test-stripe-flow.ts`):
 
 - Calls the real `/api/stripe/checkout-by-catalog` app endpoint via a

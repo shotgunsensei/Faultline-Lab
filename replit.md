@@ -189,6 +189,7 @@ All four MVP cases (`windows-ad-case.ts`, `networking-vpn-case.ts`, `automotive-
 - `pnpm --filter @workspace/faultline-lab run dev` — run Faultline Lab dev server
 - `pnpm --filter @workspace/api-server run dev` — run API server
 - `pnpm --filter @workspace/db run push` — push DB schema changes
+- `bash scripts/run-stripe-e2e.sh` — runs `test-stripe-flow` end-to-end against the test-mode Stripe Connector. Probes api-server health, re-seeds Stripe products (idempotent), then runs the test. Also invoked automatically from `scripts/post-merge.sh` on every task merge (with `POST_MERGE=1`, which makes it exit 0 with a warning when the API Server workflow is down so paused dev workspaces never block a merge). Refuses to run in production deployments. The api-server's dev env in `artifacts/api-server/.replit-artifact/artifact.toml` sets `ENABLE_E2E_AUTH_BYPASS=1` so the bypass token is written on boot with no operator setup.
 
 ## Design System
 - Dark background: `#0a0e14`

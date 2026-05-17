@@ -12,6 +12,13 @@ paths = ["/api", "/sso"]
 [services.development]
 run = "pnpm --filter @workspace/api-server run dev"
 
+[services.development.env]
+# Enable the test-only auth bypass used by the scripted Stripe purchase E2E
+# (`scripts/src/test-stripe-flow.ts`, run via the `stripe-e2e` validation).
+# Hard-disabled in production by requireAuth.ts (REPLIT_DEPLOYMENT=1 check)
+# even if this value leaked into a production env.
+ENABLE_E2E_AUTH_BYPASS = "1"
+
 [services.production]
 
 [services.production.build]
