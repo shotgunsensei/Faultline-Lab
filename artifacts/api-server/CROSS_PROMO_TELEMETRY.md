@@ -69,10 +69,47 @@ ORDER BY created_at DESC
 LIMIT 50;
 ```
 
+## Outbound URL tagging (conversion attribution)
+
+Click telemetry above tells us which placements get *tapped*. To attribute
+sign-ups and purchases on the destination products back to a specific
+placement on faultline-lab, every outbound cross-promo URL is decorated
+with a stable set of query params before it is rendered or sent to
+telemetry.
+
+Helper: `decorateCrossPromoUrl(url, placementId)` in
+`artifacts/faultline-lab/src/lib/crossPromoTelemetry.ts`.
+
+Params appended (existing values on the URL are preserved):
+
+| Param          | Value                  | Notes                                              |
+| -------------- | ---------------------- | -------------------------------------------------- |
+| `ref`          | `faultlinelab`         | Short source slug (`CROSS_PROMO_SOURCE` constant). |
+| `placement`    | `<placementId>`        | Matches `cross_promo_clicks.placement_id` exactly. |
+| `utm_source`   | `faultlinelab`         | Standard UTM, same as `ref`.                       |
+| `utm_medium`   | `cross-promo`          | Constant across all placements.                    |
+| `utm_campaign` | `<placementId>`        | Same placement id, in UTM-standard slot.           |
+
+Example: the footer grid link to TechDeck (placement `footer-grid-techdeck`)
+renders as:
+
+```
+https://techdeck.app/?ref=faultlinelab&placement=footer-grid-techdeck&utm_source=faultlinelab&utm_medium=cross-promo&utm_campaign=footer-grid-techdeck
+```
+
+Sibling Shotgun Ninjas products should persist `ref` / `placement` (or the
+UTM equivalents) on landing, attach them to any resulting sign-up or order
+record, and join back to `cross_promo_clicks.placement_id` for end-to-end
+funnel analysis.
+
 ## Adding a new cross-promo placement
 
-1. Render the link in faultline-lab and import `trackCrossPromoClick` from
-   `@/lib/crossPromoTelemetry`.
-2. Call it in the `onClick` handler with a stable, unique `placementId`
-   (kebab-case, scoped by surface — e.g. `pricing-hero-techdeck`).
-3. No backend change is required; the endpoint accepts any short string.
+1. Render the link in faultline-lab and import `trackCrossPromoClick` and
+   `decorateCrossPromoUrl` from `@/lib/crossPromoTelemetry`.
+2. Choose a stable, unique `placementId` (kebab-case, scoped by surface —
+   e.g. `pricing-hero-techdeck`).
+3. Compute `const decoratedHref = decorateCrossPromoUrl(href, placementId)`
+   and use it for **both** the anchor's `href` and the `targetUrl` passed
+   to `trackCrossPromoClick`. This keeps the click row and the destination
+   URL pointing at the same attribution string.
+4. No backend change is required; the endpoint accepts any short string.

@@ -1,5 +1,11 @@
 import { ExternalLink } from 'lucide-react';
-import { trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
+import { decorateCrossPromoUrl, trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
+
+const BUILTBY_COMPACT_PLACEMENT = 'footer-compact-builtby';
+const BUILTBY_FULL_PLACEMENT = 'footer-full-builtby';
+const BUILTBY_HREF = 'https://shotgunninjas.com';
+const BUILTBY_COMPACT_HREF = decorateCrossPromoUrl(BUILTBY_HREF, BUILTBY_COMPACT_PLACEMENT);
+const BUILTBY_FULL_HREF = decorateCrossPromoUrl(BUILTBY_HREF, BUILTBY_FULL_PLACEMENT);
 
 interface EcosystemLink {
   name: string;
@@ -29,14 +35,14 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
           <span>
             Built by{' '}
             <a
-              href="https://shotgunninjas.com"
+              href={BUILTBY_COMPACT_HREF}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
                 trackCrossPromoClick({
-                  placementId: 'footer-compact-builtby',
+                  placementId: BUILTBY_COMPACT_PLACEMENT,
                   targetProduct: 'shotgunninjas',
-                  targetUrl: 'https://shotgunninjas.com',
+                  targetUrl: BUILTBY_COMPACT_HREF,
                 })
               }
               className="text-red-400/80 hover:text-red-300 transition-colors"
@@ -61,17 +67,20 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          {ECOSYSTEM_LINKS.map((link) => (
+          {ECOSYSTEM_LINKS.map((link) => {
+            const placementId = `footer-grid-${link.product}`;
+            const decoratedHref = decorateCrossPromoUrl(link.href, placementId);
+            return (
             <a
               key={link.name}
-              href={link.href}
+              href={decoratedHref}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
                 trackCrossPromoClick({
-                  placementId: `footer-grid-${link.product}`,
+                  placementId,
                   targetProduct: link.product,
-                  targetUrl: link.href,
+                  targetUrl: decoratedHref,
                 })
               }
               className="group flex flex-col gap-1 p-3 rounded border border-zinc-800/50 hover:border-red-500/30 bg-[#0d1219]/60 hover:bg-[#111822] transition-all"
@@ -84,21 +93,22 @@ export default function EcosystemFooter({ variant = 'full' }: Props) {
                 {link.blurb}
               </span>
             </a>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex items-center justify-between gap-4 flex-wrap text-xs text-zinc-500 font-mono pt-4 border-t border-zinc-800/30">
           <span>
             Built by{' '}
             <a
-              href="https://shotgunninjas.com"
+              href={BUILTBY_FULL_HREF}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() =>
                 trackCrossPromoClick({
-                  placementId: 'footer-full-builtby',
+                  placementId: BUILTBY_FULL_PLACEMENT,
                   targetProduct: 'shotgunninjas',
-                  targetUrl: 'https://shotgunninjas.com',
+                  targetUrl: BUILTBY_FULL_HREF,
                 })
               }
               className="text-red-400/80 hover:text-red-300 transition-colors"

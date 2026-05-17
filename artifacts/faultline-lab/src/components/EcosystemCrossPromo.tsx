@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import type { CaseCategory } from '@/types';
-import { trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
+import { decorateCrossPromoUrl, trackCrossPromoClick } from '@/lib/crossPromoTelemetry';
 
 interface AppliedLink {
   name: string;
@@ -65,17 +65,20 @@ export default function EcosystemCrossPromo({ category }: Props) {
         </h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        {links.map((link) => (
+        {links.map((link) => {
+          const placementId = `debrief-${category}-${link.product}`;
+          const decoratedHref = decorateCrossPromoUrl(link.href, placementId);
+          return (
           <a
             key={link.name}
-            href={link.href}
+            href={decoratedHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
               trackCrossPromoClick({
-                placementId: `debrief-${category}-${link.product}`,
+                placementId,
                 targetProduct: link.product,
-                targetUrl: link.href,
+                targetUrl: decoratedHref,
               })
             }
             className="group rounded-lg border border-zinc-800/60 bg-[#0d1219]/60 hover:border-red-500/30 hover:bg-[#111822] p-4 transition-all"
@@ -89,7 +92,8 @@ export default function EcosystemCrossPromo({ category }: Props) {
             <p className="text-xs text-zinc-400 mb-1.5 leading-relaxed">{link.blurb}</p>
             <p className="text-[11px] text-zinc-500 italic leading-relaxed">{link.tagline}</p>
           </a>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
