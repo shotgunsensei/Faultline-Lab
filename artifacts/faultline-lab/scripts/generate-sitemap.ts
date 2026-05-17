@@ -6,7 +6,10 @@ import type { AppView } from '../src/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const OUT = resolve(ROOT, 'public', 'sitemap.xml');
+export const SITEMAP_OUT_PATH = resolve(ROOT, 'public', 'sitemap.xml');
+
+export const SITEMAP_GENERATED_COMMENT =
+  '<!-- GENERATED FILE — do not edit by hand. Run `pnpm --filter @workspace/faultline-lab run prebuild` to regenerate. Source: scripts/generate-sitemap.ts -->';
 
 interface RouteMeta {
   changefreq: string;
@@ -43,7 +46,7 @@ function escapeXml(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function build(): string {
+export function buildSitemapXml(): string {
   const seen = new Set<string>();
   const entries: { loc: string; meta: RouteMeta }[] = [];
 
@@ -65,13 +68,17 @@ function build(): string {
     )
     .join('\n');
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${SITEMAP_GENERATED_COMMENT}\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
 function main(): void {
-  const xml = build();
-  writeFileSync(OUT, xml, 'utf8');
-  console.log(`[sitemap] wrote ${OUT}`);
+  const xml = buildSitemapXml();
+  writeFileSync(SITEMAP_OUT_PATH, xml, 'utf8');
+  console.log(`[sitemap] wrote ${SITEMAP_OUT_PATH}`);
 }
 
-main();
+const isDirectRun =
+  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isDirectRun) {
+  main();
+}

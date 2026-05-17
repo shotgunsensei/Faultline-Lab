@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- GENERATED FILE — do not edit by hand. Run `pnpm --filter @workspace/faultline-lab run prebuild` to regenerate. Source: scripts/generate-sitemap.ts -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://faultlinelab.com/</loc>
