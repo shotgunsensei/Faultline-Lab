@@ -168,4 +168,90 @@ router.get(
   },
 );
 
+const CSV_ROW_CAP = 10_000;
+const WINDOW_DAYS: Record<string, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+const FORMULA_PREFIXES = new Set(["=", "+", "-", "@", "\t", "\r"]);
+
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  let s = String(value);
+  // Neutralize spreadsheet formula injection: any cell starting with a
+  // formula trigger character is prefixed with a single quote so Excel /
+  // Google Sheets treat it as literal text. Field values originate from
+  // anonymous /cross-promo/click POSTs, so they must be considered untrusted.
+  if (s.length > 0 && FORMULA_PREFIXES.has(s[0]!)) {
+    s = `'${s}`;
+  }
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+router.get(
+  "/admin/cross-promo/clicks.csv",
+  requireAuth,
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    const windowParam = typeof req.query.window === "string" ? req.query.window : "7d";
+    const days = WINDOW_DAYS[windowParam];
+    if (!days) {
+      res.status(400).json({ error: "Invalid window. Use 7d, 30d, or 90d." });
+      return;
+    }
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    try {
+      const rows = await db
+        .select({
+          createdAt: crossPromoClicksTable.createdAt,
+          placementId: crossPromoClicksTable.placementId,
+          targetProduct: crossPromoClicksTable.targetProduct,
+          targetUrl: crossPromoClicksTable.targetUrl,
+          route: crossPromoClicksTable.route,
+          userTier: crossPromoClicksTable.userTier,
+        })
+        .from(crossPromoClicksTable)
+        .where(gte(crossPromoClicksTable.createdAt, since))
+        .orderBy(desc(crossPromoClicksTable.createdAt))
+        .limit(CSV_ROW_CAP + 1);
+
+      if (rows.length > CSV_ROW_CAP) {
+        res.status(413).json({
+          error: `Too many rows for export (over ${CSV_ROW_CAP}). Narrow the time window or contact engineering for a SQL export.`,
+          cap: CSV_ROW_CAP,
+        });
+        return;
+      }
+
+      const header = "created_at,placement_id,target_product,target_url,route,user_tier";
+      const lines = rows.map((r) =>
+        [
+          r.createdAt?.toISOString?.() ?? "",
+          r.placementId,
+          r.targetProduct,
+          r.targetUrl,
+          r.route ?? "",
+          r.userTier,
+        ]
+          .map(csvEscape)
+          .join(","),
+      );
+      const csv = [header, ...lines].join("\n") + "\n";
+
+      const filename = `cross-promo-clicks-${windowParam}-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).send(csv);
+    } catch (err) {
+      req.log.error({ err }, "Failed to export cross-promo clicks CSV");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
 export default router;

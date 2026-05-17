@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
+  adminDownloadCrossPromoClicksCsv,
   adminFetchCrossPromoClicks,
   type CrossPromoDashboard,
+  type CrossPromoExportWindow,
 } from '@/lib/api';
 import { formatRelativeTime } from './formatRelativeTime';
-import { RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Window = '7d' | '30d';
+const EXPORT_WINDOWS: CrossPromoExportWindow[] = ['7d', '30d', '90d'];
 
 function CountTable({
   rows,
@@ -49,6 +53,8 @@ export default function CrossPromoTab() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [win, setWin] = useState<Window>('7d');
+  const [exportWin, setExportWin] = useState<CrossPromoExportWindow>('7d');
+  const [exporting, setExporting] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -64,6 +70,27 @@ export default function CrossPromoTab() {
   useEffect(() => {
     load();
   }, []);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { blob, filename } = await adminDownloadCrossPromoClicksCsv(exportWin);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported cross-promo clicks (${exportWin}).`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to export CSV';
+      toast.error(message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const placements = win === '7d' ? data?.topPlacements7d ?? [] : data?.topPlacements30d ?? [];
   const targets = win === '7d' ? data?.topTargets7d ?? [] : data?.topTargets30d ?? [];
@@ -97,6 +124,35 @@ export default function CrossPromoTab() {
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           Refresh
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-zinc-500 font-mono uppercase tracking-wider">
+          Export raw clicks
+        </span>
+        <div className="flex bg-zinc-900 border border-zinc-800 rounded overflow-hidden text-xs">
+          {EXPORT_WINDOWS.map((w) => (
+            <button
+              key={w}
+              onClick={() => setExportWin(w)}
+              className={`px-3 py-1.5 font-mono uppercase tracking-wider ${
+                exportWin === w
+                  ? 'bg-zinc-800 text-emerald-300'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {w}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-emerald-600/80 text-zinc-50 hover:bg-emerald-600 text-xs disabled:opacity-50"
+        >
+          <Download size={12} className={exporting ? 'animate-pulse' : ''} />
+          {exporting ? 'Preparing…' : 'Download CSV'}
         </button>
       </div>
 

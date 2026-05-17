@@ -284,6 +284,32 @@ export async function adminFetchCrossPromoClicks(): Promise<CrossPromoDashboard>
   return apiFetch('/admin/cross-promo/clicks');
 }
 
+export type CrossPromoExportWindow = '7d' | '30d' | '90d';
+
+export async function adminDownloadCrossPromoClicksCsv(
+  window: CrossPromoExportWindow,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(
+    `${API_BASE}/admin/cross-promo/clicks.csv?window=${encodeURIComponent(window)}`,
+    { credentials: 'include' },
+  );
+  if (!res.ok) {
+    let message = `Export failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { error?: string };
+      if (body?.error) message = body.error;
+    } catch {
+      // not JSON, keep default message
+    }
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const match = /filename="?([^"]+)"?/i.exec(disposition);
+  const filename = match?.[1] ?? `cross-promo-clicks-${window}.csv`;
+  return { blob, filename };
+}
+
 export type CrossPromoClickEvent = {
   placementId: string;
   targetProduct: string;
