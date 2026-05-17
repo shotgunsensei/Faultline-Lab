@@ -256,10 +256,28 @@ one route with the
 [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) or
 [Twitter/X Card Validator](https://cards-dev.twitter.com/validator) — paste e.g.
 `https://faultlinelab.com/pricing` and confirm the per-route title and
-description are returned. (Note: because the SPA sets meta tags client-side,
-crawlers that do not execute JS will only see the defaults baked into
-`index.html`. The runtime overrides cover modern social-share crawlers that do
-execute JS, plus the in-app `document.title` shown in browser tabs and history.)
+description are returned.
+
+For crawlers that don't execute JS (most classic search-engine indexers and a
+lot of link previewers), per-route metadata is **also baked into static HTML
+snapshots at build time**. The `postbuild` step
+(`scripts/prerender-seo.ts`) reads the built `dist/public/index.html` and
+emits a per-route copy for `/`, `/store`, `/pricing`, `/daily`, and `/sandbox`,
+each with the correct `<title>`, meta description, OG/Twitter tags, and
+`<link rel="canonical">` injected. The SPA fallback rewrite in
+`.replit-artifact/artifact.toml` (`from = "/*" → to = "/index.html"`) only
+fires when no literal file exists, so `https://<your-domain>/store` is served
+from `dist/public/store/index.html` (per-route metadata) while deeper SPA
+state paths still fall through to the root SPA shell. A non-JS smoke test:
+
+```bash
+curl -s https://faultlinelab.com/pricing | grep -E '<title>|og:url|canonical'
+# expect: Pricing & Plans — Faultline Lab, og:url=.../pricing, canonical=.../pricing
+```
+
+If you add a new route to `ROUTE_SEO` that should also be discoverable by
+non-JS crawlers, add a matching entry to the `TARGETS` list in
+`scripts/prerender-seo.ts` (and to `public/sitemap.xml`).
 
 `/sitemap.xml` and `/robots.txt` are served as static files from
 `artifacts/faultline-lab/public/` — confirm they are reachable at
