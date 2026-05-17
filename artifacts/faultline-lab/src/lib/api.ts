@@ -49,6 +49,39 @@ export async function logoutSsoSession(): Promise<void> {
   await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
 }
 
+export type LinkedIdentities = {
+  primaryUserId: string;
+  clerk: { linked: boolean; clerkId: string | null };
+  operatoros: {
+    linked: boolean;
+    operatorIdentityId: string | null;
+    planSlug: string | null;
+    organizationId: string | null;
+    role: string | null;
+  };
+};
+
+export async function fetchLinkedIdentities(): Promise<LinkedIdentities> {
+  return apiFetch('/account/identities');
+}
+
+export async function linkClerkAccount(): Promise<{
+  success: boolean;
+  alreadyLinked: boolean;
+  identities: LinkedIdentities;
+}> {
+  return apiFetch('/account/link', { method: 'POST', body: JSON.stringify({}) });
+}
+
+export async function unlinkAccountIdentity(
+  identity: 'clerk' | 'operatoros'
+): Promise<{ success: boolean; identities: LinkedIdentities }> {
+  return apiFetch('/account/unlink', {
+    method: 'POST',
+    body: JSON.stringify({ identity }),
+  });
+}
+
 export async function fetchProfile() {
   return apiFetch('/profile');
 }

@@ -130,6 +130,39 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
   issuer/audience/module/env, replay, 502 unavailable, full consume API
   matrix, relaunch upsert).
 
+### Account Linking (Clerk ↔ OperatorOS)
+- A single human who signs in via both methods can unify their two `users`
+  rows into one shared account with merged entitlements, profile, and
+  purchases.
+- Server: `mergeUserRows(primary, other)` in `userSync.ts` runs in a single
+  DB transaction — nulls unique identity cols on `other`, copies missing
+  identity fields onto `primary`, ORs admin flags, picks the profile with
+  the newer `lastActiveAt`, reassigns entitlements (dropping active
+  duplicates by `(entitlementType, productId)`), reassigns all purchases,
+  then deletes `other`.
+- New routes (`artifacts/api-server/src/routes/account.ts`, mounted under
+  `/api`):
+  - `GET /api/account/identities` — returns linkage state for the current
+    account.
+  - `POST /api/account/link` — if the request also carries a Clerk session
+    that resolves to a different local row, merges the Clerk row into the
+    currently-authenticated row. Returns 409 if a different Clerk login is
+    already linked.
+  - `POST /api/account/unlink { identity }` — nulls the `clerk_id` or all
+    `operator_*` columns. Refuses when only one identity is linked or when
+    you'd unlink the identity you're currently signed in with. Unlinking
+    OperatorOS also clears the `fl_session` cookie.
+- The `/sso` landing route now also performs link-on-arrival: if a Clerk
+  session is present when an OperatorOS launch lands, the freshly-ensured
+  OperatorOS row is folded into the Clerk row before the session cookie is
+  set. This is the inverse direction (OperatorOS → Clerk) of the
+  `/api/account/link` endpoint.
+- Client: `AccountScreen` shows a "Linked Sign-In Methods" section with
+  per-method link/unlink buttons. Linking Clerk pops the Clerk modal and
+  then polls `/api/account/link`; linking OperatorOS is done by launching
+  Faultline Lab from the OperatorOS shell while signed in here. The button
+  for the currently-active identity is disabled to prevent self-lockout.
+
 ### Cloud Sync
 - CloudSyncProvider wraps app content when Clerk is available
 - On sign-in: fetches profile, settings, caseStates from cloud; merges with local (newer wins by lastActiveAt)

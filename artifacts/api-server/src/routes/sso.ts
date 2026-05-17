@@ -1,5 +1,9 @@
 import { Router, type IRouter } from "express";
-import { ensureOperatorOsUserRow } from "../lib/userSync";
+import {
+  ensureOperatorOsUserRow,
+  mergeUserRows,
+  resolveClerkUserFromRequest,
+} from "../lib/userSync";
 // Imported as a namespace so test suites can vi.spyOn(sso, "consumeSsoToken")
 // without having to vi.mock the entire module.
 import * as sso from "../lib/operatorOsSso";
@@ -80,12 +84,34 @@ router.get("/sso", async (req, res) => {
     jti = verified.jti;
     await sso.consumeSsoToken(verified, cfg);
 
-    const user = await ensureOperatorOsUserRow(verified);
+    let user = await ensureOperatorOsUserRow(verified);
+
+    // Account linking: if a Clerk session is also present on this request
+    // and resolves to a different local row, fold the freshly-ensured
+    // OperatorOS row into the Clerk row. This is the "I'm signed in via
+    // Clerk and just launched myself from OperatorOS" path. The resulting
+    // session cookie still points at the unified row.
+    let merged = false;
+    try {
+      const clerkUser = await resolveClerkUserFromRequest(req);
+      if (clerkUser && clerkUser.id !== user.id) {
+        user = await mergeUserRows(clerkUser, user);
+        merged = true;
+      }
+    } catch (linkErr) {
+      log.warn({ err: linkErr }, "SSO Clerk-link attempt failed (non-fatal)");
+    }
+
     const sessionToken = mintSessionToken(user.id, "operatoros");
     setSessionCookie(res, sessionToken);
 
     log.info(
-      { jti: verified.jti, userId: user.id, planSlug: verified.planSlug ?? null },
+      {
+        jti: verified.jti,
+        userId: user.id,
+        planSlug: verified.planSlug ?? null,
+        linkedClerk: merged,
+      },
       "OperatorOS SSO launch accepted",
     );
 

@@ -1,7 +1,15 @@
 import crypto from "crypto";
-import { db, usersTable, type User } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  userProfilesTable,
+  userEntitlementsTable,
+  purchasesTable,
+  type User,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { clerkClient } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
+import type { Request } from "express";
 import { logger } from "./logger";
 import type { VerifiedSsoToken } from "./operatorOsSso";
 
@@ -201,4 +209,178 @@ export async function ensureOperatorOsUserRow(token: VerifiedSsoToken): Promise<
     .where(eq(usersTable.operatorIdentityId, token.sub))
     .limit(1);
   return inserted[0];
+}
+
+/**
+ * Merge two `users` rows that turn out to represent the same human (e.g.
+ * one created via Clerk sign-up, the other via OperatorOS SSO). The
+ * `primary` row is kept; the `other` row is deleted after its identity
+ * columns, profile, entitlements, and purchases are folded into the primary.
+ *
+ * Conflict policy (deliberately conservative — we'd rather over-keep than
+ * silently drop a paid entitlement or progress):
+ *   - Identity columns (clerk_id, operator_identity_id, stripe_customer_id,
+ *     stripe_subscription_id, operator_*): primary wins unless null, in
+ *     which case other's value is copied in.
+ *   - Admin flags: OR'd together (linking should never demote).
+ *   - user_profiles: if both rows have a profile, the one with the newer
+ *     `lastActiveAt` becomes the kept profile; otherwise just move other's
+ *     onto primary. Either way `other.user_profiles` is removed.
+ *   - user_entitlements: every row reassigned to primary, except active
+ *     duplicates keyed on (entitlement_type, product_id) which are dropped.
+ *   - purchases: all reassigned to primary.
+ *   - The `other` users row is deleted last (cascade FKs are already
+ *     resolved manually above).
+ *
+ * Returns the refreshed primary row.
+ */
+export async function mergeUserRows(primary: User, other: User): Promise<User> {
+  if (primary.id === other.id) return primary;
+
+  const updates: Partial<User> = { updatedAt: new Date() };
+  if (!primary.clerkId && other.clerkId) updates.clerkId = other.clerkId;
+  if (!primary.operatorIdentityId && other.operatorIdentityId)
+    updates.operatorIdentityId = other.operatorIdentityId;
+  if (!primary.email && other.email) updates.email = other.email;
+  if (!primary.displayName && other.displayName)
+    updates.displayName = other.displayName;
+  if (!primary.avatarUrl && other.avatarUrl) updates.avatarUrl = other.avatarUrl;
+  if (!primary.stripeCustomerId && other.stripeCustomerId)
+    updates.stripeCustomerId = other.stripeCustomerId;
+  if (!primary.stripeSubscriptionId && other.stripeSubscriptionId)
+    updates.stripeSubscriptionId = other.stripeSubscriptionId;
+  if (other.isAdmin) updates.isAdmin = true;
+  if (other.isSuperAdmin) updates.isSuperAdmin = true;
+  if (!primary.operatorPlanSlug && other.operatorPlanSlug)
+    updates.operatorPlanSlug = other.operatorPlanSlug;
+  if (!primary.operatorOrganizationId && other.operatorOrganizationId)
+    updates.operatorOrganizationId = other.operatorOrganizationId;
+  if (!primary.operatorRole && other.operatorRole)
+    updates.operatorRole = other.operatorRole;
+  if (
+    other.operatorLastLaunchAt &&
+    (!primary.operatorLastLaunchAt ||
+      other.operatorLastLaunchAt > primary.operatorLastLaunchAt)
+  ) {
+    updates.operatorLastLaunchAt = other.operatorLastLaunchAt;
+  }
+
+  await db.transaction(async (tx) => {
+    // Clear unique identity columns on `other` first to avoid violating the
+    // unique constraints when we copy them onto `primary`.
+    await tx
+      .update(usersTable)
+      .set({ clerkId: null, operatorIdentityId: null })
+      .where(eq(usersTable.id, other.id));
+
+    const primaryProfileRows = await tx
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, primary.id))
+      .limit(1);
+    const otherProfileRows = await tx
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, other.id))
+      .limit(1);
+    if (otherProfileRows.length > 0) {
+      if (primaryProfileRows.length === 0) {
+        await tx
+          .update(userProfilesTable)
+          .set({ userId: primary.id })
+          .where(eq(userProfilesTable.userId, other.id));
+      } else {
+        const pData = primaryProfileRows[0].profileData as
+          | { lastActiveAt?: number }
+          | null;
+        const oData = otherProfileRows[0].profileData as
+          | { lastActiveAt?: number }
+          | null;
+        const pLast = pData?.lastActiveAt ?? 0;
+        const oLast = oData?.lastActiveAt ?? 0;
+        if (oLast > pLast) {
+          await tx
+            .update(userProfilesTable)
+            .set({
+              profileData: otherProfileRows[0].profileData,
+              caseStates: otherProfileRows[0].caseStates,
+              settings: otherProfileRows[0].settings,
+              updatedAt: new Date(),
+            })
+            .where(eq(userProfilesTable.userId, primary.id));
+        }
+        await tx
+          .delete(userProfilesTable)
+          .where(eq(userProfilesTable.userId, other.id));
+      }
+    }
+
+    const primaryEnts = await tx
+      .select()
+      .from(userEntitlementsTable)
+      .where(eq(userEntitlementsTable.userId, primary.id));
+    const activePrimaryKeys = new Set(
+      primaryEnts
+        .filter((e) => e.isActive)
+        .map((e) => `${e.entitlementType}::${e.productId}`),
+    );
+    const otherEnts = await tx
+      .select()
+      .from(userEntitlementsTable)
+      .where(eq(userEntitlementsTable.userId, other.id));
+    for (const ent of otherEnts) {
+      const key = `${ent.entitlementType}::${ent.productId}`;
+      if (ent.isActive && activePrimaryKeys.has(key)) {
+        await tx
+          .delete(userEntitlementsTable)
+          .where(eq(userEntitlementsTable.id, ent.id));
+      } else {
+        await tx
+          .update(userEntitlementsTable)
+          .set({ userId: primary.id })
+          .where(eq(userEntitlementsTable.id, ent.id));
+      }
+    }
+
+    await tx
+      .update(purchasesTable)
+      .set({ userId: primary.id })
+      .where(eq(purchasesTable.userId, other.id));
+
+    await tx
+      .update(usersTable)
+      .set(updates)
+      .where(eq(usersTable.id, primary.id));
+
+    await tx.delete(usersTable).where(eq(usersTable.id, other.id));
+  });
+
+  logger.info(
+    { primaryId: primary.id, mergedId: other.id },
+    "Merged duplicate user rows",
+  );
+
+  const refreshed = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, primary.id))
+    .limit(1);
+  return refreshed[0];
+}
+
+/**
+ * Resolve the local user row corresponding to the Clerk session present on
+ * this request, if any. Unlike `resolveUser` in the auth middleware, this
+ * helper IGNORES any local session cookie — it strictly returns the Clerk
+ * side of the request. Useful for account-linking endpoints, where the
+ * request may carry both an OperatorOS session cookie AND a Clerk session.
+ */
+export async function resolveClerkUserFromRequest(
+  req: Request,
+): Promise<User | null> {
+  const auth = getAuth(req);
+  const clerkId: string | undefined =
+    (auth?.sessionClaims?.userId as string | undefined) || auth?.userId || undefined;
+  if (!clerkId) return null;
+  return await ensureUserRow(clerkId);
 }
