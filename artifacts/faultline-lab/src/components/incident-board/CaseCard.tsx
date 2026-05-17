@@ -26,6 +26,7 @@ import {
   FlaskConical,
 } from 'lucide-react';
 import { ChaosBadge } from './ChaosBadge';
+import { CaseAuthorAvatar } from '../CaseAuthorAvatar';
 
 const categoryIconMap: Record<string, React.ReactNode> = {
   'windows-ad': <Monitor size={20} />,
@@ -156,6 +157,7 @@ export function CaseCard({
       )}
 
       <div className="flex items-center gap-3 mb-3">
+        <CaseAuthorAvatar entry={entry} size={40} />
         <div className={`p-2 rounded shrink-0 ${isPlayable ? 'bg-zinc-800/60 text-cyan-400' : 'bg-zinc-800/40 text-zinc-500'}`}>
           {categoryIconMap[entry.category]}
         </div>

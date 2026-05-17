@@ -24,6 +24,7 @@ export const CASE_CATALOG_ENTRIES: CaseCatalogEntry[] = [
     previewSystems: ['Active Directory', 'Kerberos', 'W32Time'],
     redHerringLevel: 'medium',
     implementationRef: 'windowsAdCase',
+    authorImagePath: 'case-authors/domain-auth-failure.png',
     tags: ['kerberos', 'authentication'],
     isStarter: true,
     isFeatured: true,

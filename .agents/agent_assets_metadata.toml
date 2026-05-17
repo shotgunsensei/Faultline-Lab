@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "MT5A9GJR_HzqoDzngB7OI"
+uri = "file://artifacts/faultline-lab/.local-assets/case-authors/domain-auth-failure.png"
+type = "image"
+title = "case author portrait"

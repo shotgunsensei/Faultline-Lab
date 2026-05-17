@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { Briefcase, X } from 'lucide-react';
 import { categoryLabels, difficultyColors } from '@/data/cases';
+import { getCaseEntryById } from '@/data/caseCatalog';
+import { CaseAuthorAvatar } from '../CaseAuthorAvatar';
 import type { CaseDefinition } from '@/types';
 
 interface Props {
@@ -37,17 +39,34 @@ export function BriefingModal({ caseDef, onClose }: Props) {
         </div>
 
         <div className="p-4 sm:p-6">
-          <h3 className="text-lg font-semibold text-zinc-100 mb-2">{caseDef.title}</h3>
-          <div className="flex items-center gap-2 mb-4 text-xs">
-            <span className="text-zinc-500">{categoryLabels[caseDef.category]}</span>
-            <span className="text-zinc-700">|</span>
-            <span
-              className={`uppercase tracking-wider ${difficultyColors[caseDef.difficulty]}`}
-            >
-              {caseDef.difficulty}
-            </span>
-          </div>
-
+          {(() => {
+            const entry = getCaseEntryById(caseDef.id);
+            const avatarEntry = entry ?? {
+              title: caseDef.title,
+              authorImagePath: undefined,
+            };
+            return (
+              <div className="flex items-start gap-4 mb-4">
+                <CaseAuthorAvatar entry={avatarEntry} size={64} />
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-zinc-100 mb-2">
+                    {caseDef.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-zinc-500">
+                      {categoryLabels[caseDef.category]}
+                    </span>
+                    <span className="text-zinc-700">|</span>
+                    <span
+                      className={`uppercase tracking-wider ${difficultyColors[caseDef.difficulty]}`}
+                    >
+                      {caseDef.difficulty}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           <pre className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap font-sans mb-6">
             {caseDef.briefing}
           </pre>
