@@ -2,7 +2,14 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AppView } from '../src/types';
-import { ROUTE_SEO, CANONICAL_ORIGIN } from '../src/lib/seo';
+import {
+  ROUTE_SEO,
+  CANONICAL_ORIGIN,
+  buildCaseSeo,
+  type CaseSeo,
+} from '../src/lib/seo';
+import { CASE_CATALOG_ENTRIES } from '../src/data/caseCatalog/entries';
+import type { CaseCatalogEntry } from '../src/data/caseCatalog/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -85,6 +92,41 @@ function renderRoute(sourceHtml: string, view: AppView): string {
   return html;
 }
 
+function renderCase(sourceHtml: string, seo: CaseSeo): string {
+  const url = `${CANONICAL_ORIGIN}${seo.path}`;
+  const ogImageUrl = `${CANONICAL_ORIGIN}${seo.ogImage}`;
+
+  let html = sourceHtml;
+  html = replaceTitle(html, seo.title);
+  html = replaceMetaName(html, 'description', seo.description);
+  html = replaceMetaProperty(html, 'og:title', seo.ogTitle);
+  html = replaceMetaProperty(html, 'og:description', seo.ogDescription);
+  html = replaceMetaProperty(html, 'og:url', url);
+  html = replaceMetaProperty(html, 'og:image', ogImageUrl);
+  html = replaceMetaProperty(html, 'og:image:width', String(seo.ogImageWidth));
+  html = replaceMetaProperty(html, 'og:image:height', String(seo.ogImageHeight));
+  html = replaceMetaProperty(html, 'og:type', seo.ogType);
+  html = replaceMetaName(html, 'twitter:title', seo.ogTitle);
+  html = replaceMetaName(html, 'twitter:description', seo.ogDescription);
+  html = replaceMetaName(html, 'twitter:image', ogImageUrl);
+  html = setCanonical(html, url);
+  return html;
+}
+
+function playableCases(): CaseCatalogEntry[] {
+  const seen = new Set<string>();
+  const out: CaseCatalogEntry[] = [];
+  for (const entry of CASE_CATALOG_ENTRIES) {
+    if (entry.status !== 'playable') continue;
+    if (seen.has(entry.slug)) {
+      throw new Error(`[prerender-seo] Duplicate case slug: ${entry.slug}`);
+    }
+    seen.add(entry.slug);
+    out.push(entry);
+  }
+  return out;
+}
+
 function main(): void {
   if (!existsSync(SOURCE_INDEX)) {
     throw new Error(
@@ -93,17 +135,27 @@ function main(): void {
   }
   const sourceHtml = readFileSync(SOURCE_INDEX, 'utf8');
 
-  let written = 0;
+  let routeCount = 0;
   for (const target of TARGETS) {
     const html = renderRoute(sourceHtml, target.view);
     const outFile = resolve(DIST, target.outPath);
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, html);
-    written++;
+    routeCount++;
+  }
+
+  let caseCount = 0;
+  for (const entry of playableCases()) {
+    const seo = buildCaseSeo(entry);
+    const html = renderCase(sourceHtml, seo);
+    const outFile = resolve(DIST, 'case', entry.slug, 'index.html');
+    mkdirSync(dirname(outFile), { recursive: true });
+    writeFileSync(outFile, html);
+    caseCount++;
   }
 
   console.log(
-    `[prerender-seo] wrote ${written} per-route HTML snapshots into ${DIST}`,
+    `[prerender-seo] wrote ${routeCount} route snapshots and ${caseCount} per-case snapshots into ${DIST}`,
   );
 }
 

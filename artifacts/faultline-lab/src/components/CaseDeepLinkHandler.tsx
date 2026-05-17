@@ -12,13 +12,31 @@ function consumeCaseSlugFromUrl(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     const url = new URL(window.location.href);
-    const slug = url.searchParams.get('case');
-    if (!slug) return null;
-    url.searchParams.delete('case');
-    const search = url.searchParams.toString();
-    const next = url.pathname + (search ? `?${search}` : '') + url.hash;
-    window.history.replaceState(window.history.state, '', next);
-    return slug;
+    const queryslug = url.searchParams.get('case');
+    if (queryslug) {
+      url.searchParams.delete('case');
+      const search = url.searchParams.toString();
+      const next = url.pathname + (search ? `?${search}` : '') + url.hash;
+      window.history.replaceState(window.history.state, '', next);
+      return queryslug;
+    }
+    // Also recognise pre-rendered share-landing URLs of the form
+    // `<base>case/<slug>/` so direct visitors to the SEO snapshot
+    // start the case after the SPA hydrates.
+    const base = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '') + '/';
+    const path = url.pathname;
+    if (path.startsWith(base)) {
+      const rest = path.slice(base.length);
+      const match = rest.match(/^case\/([^/]+)\/?$/);
+      if (match) {
+        const slug = decodeURIComponent(match[1]);
+        const search = url.searchParams.toString();
+        const next = base + (search ? `?${search}` : '') + url.hash;
+        window.history.replaceState(window.history.state, '', next);
+        return slug;
+      }
+    }
+    return null;
   } catch {
     return null;
   }

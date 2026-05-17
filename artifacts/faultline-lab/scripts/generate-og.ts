@@ -8,7 +8,6 @@ import type { CaseCatalogEntry } from '../src/data/caseCatalog/types';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const OG_DIR = resolve(ROOT, 'public', 'og');
-const CASE_DIR = resolve(ROOT, 'public', 'case');
 
 const CATEGORY_LABELS: Record<string, string> = {
   'windows-ad': 'Windows / Active Directory',
@@ -45,10 +44,6 @@ function escapeXml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
-function escapeHtml(s: string): string {
-  return escapeXml(s);
 }
 
 function wrapText(text: string, maxCharsPerLine: number, maxLines: number): string[] {
@@ -144,66 +139,16 @@ function renderPng(svg: string): Buffer {
   return resvg.render().asPng();
 }
 
-function buildHtmlStub(entry: CaseCatalogEntry, basePath: string): string {
-  const ogImage = `${basePath}og/case-${entry.slug}.png`;
-  const canonical = `${basePath}case/${entry.slug}/`;
-  const title = `${entry.title} — Faultline Lab`;
-  const description = entry.shortSummary;
-  const appUrl = `${basePath}?case=${encodeURIComponent(entry.slug)}`;
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="theme-color" content="#0a0e14" />
-<title>${escapeHtml(title)}</title>
-<meta name="description" content="${escapeHtml(description)}" />
-<link rel="canonical" href="${escapeHtml(canonical)}" />
-<meta property="og:site_name" content="Faultline Lab" />
-<meta property="og:type" content="article" />
-<meta property="og:title" content="${escapeHtml(title)}" />
-<meta property="og:description" content="${escapeHtml(description)}" />
-<meta property="og:url" content="${escapeHtml(canonical)}" />
-<meta property="og:image" content="${escapeHtml(ogImage)}" />
-<meta property="og:image:width" content="${W}" />
-<meta property="og:image:height" content="${H}" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${escapeHtml(title)}" />
-<meta name="twitter:description" content="${escapeHtml(description)}" />
-<meta name="twitter:image" content="${escapeHtml(ogImage)}" />
-<meta http-equiv="refresh" content="0; url=${escapeHtml(appUrl)}" />
-<link rel="icon" type="image/svg+xml" href="${basePath}favicon.svg" />
-<style>
-  body { background: #0a0e14; color: #e4e4e7; font-family: 'JetBrains Mono', Menlo, monospace; padding: 48px; }
-  a { color: #22d3ee; }
-</style>
-</head>
-<body>
-<noscript>
-<h1>${escapeHtml(entry.title)}</h1>
-<p>${escapeHtml(description)}</p>
-<p><a href="${escapeHtml(appUrl)}">Open Faultline Lab →</a></p>
-</noscript>
-<script>window.location.replace(${JSON.stringify(appUrl)});</script>
-</body>
-</html>`;
-}
-
 function ensureCleanDir(dir: string): void {
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   mkdirSync(dir, { recursive: true });
 }
 
 function main(): void {
-  const basePath = process.env.BASE_PATH ?? '/';
-  const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
-
   ensureCleanDir(OG_DIR);
-  ensureCleanDir(CASE_DIR);
 
   const seenSlugs = new Set<string>();
   let pngCount = 0;
-  let htmlCount = 0;
 
   for (const entry of CASE_CATALOG_ENTRIES) {
     if (entry.status !== 'playable') continue;
@@ -216,15 +161,9 @@ function main(): void {
     const png = renderPng(svg);
     writeFileSync(resolve(OG_DIR, `case-${entry.slug}.png`), png);
     pngCount++;
-
-    const html = buildHtmlStub(entry, normalizedBase);
-    const htmlDir = resolve(CASE_DIR, entry.slug);
-    mkdirSync(htmlDir, { recursive: true });
-    writeFileSync(resolve(htmlDir, 'index.html'), html);
-    htmlCount++;
   }
 
-  console.log(`[og] generated ${pngCount} OG PNGs and ${htmlCount} share stubs (basePath=${normalizedBase})`);
+  console.log(`[og] generated ${pngCount} per-case OG PNGs into ${OG_DIR}`);
 }
 
 main();

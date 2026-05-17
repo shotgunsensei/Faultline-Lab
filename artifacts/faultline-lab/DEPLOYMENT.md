@@ -304,6 +304,20 @@ If you add a new route to `ROUTE_SEO` that should also be discoverable by
 non-JS crawlers, add a matching entry to the `TARGETS` list in
 `scripts/prerender-seo.ts` (and to `public/sitemap.xml`).
 
+Per-case landing pages are pre-rendered the same way: for every playable
+entry in `CASE_CATALOG_ENTRIES`, `prerender-seo.ts` writes a real SPA
+snapshot to `dist/public/case/<slug>/index.html` with case-specific
+`<title>`, meta description, OG/Twitter tags, `og:image` pointing at
+`/og/case-<slug>.png` (produced by `scripts/generate-og.ts` during
+`prebuild`), and `<link rel="canonical">`. These snapshots hydrate into
+the SPA — `CaseDeepLinkHandler` reads the slug from the `/case/<slug>/`
+pathname and starts the case. A non-JS smoke test:
+
+```bash
+curl -s https://faultlinelab.com/case/domain-auth-failure/ \
+  | grep -E '<title>|og:url|og:image|canonical'
+```
+
 `/sitemap.xml` and `/robots.txt` are served as static files from
 `artifacts/faultline-lab/public/` — confirm they are reachable at
 `https://<your-domain>/sitemap.xml` and `https://<your-domain>/robots.txt`

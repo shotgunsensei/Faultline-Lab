@@ -1,8 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ROUTE_SEO, CANONICAL_ORIGIN } from '../src/lib/seo';
+import { ROUTE_SEO, CANONICAL_ORIGIN, buildCaseSeo } from '../src/lib/seo';
 import type { AppView } from '../src/types';
+import { CASE_CATALOG_ENTRIES } from '../src/data/caseCatalog/entries';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -59,6 +60,19 @@ export function buildSitemapXml(): string {
       loc: `${CANONICAL_ORIGIN}${seo.path}`,
       meta: ROUTE_META[view] ?? DEFAULT_META,
     });
+  }
+
+  const caseMeta: RouteMeta = { changefreq: 'monthly', priority: '0.7' };
+  const seenCaseSlugs = new Set<string>();
+  for (const entry of CASE_CATALOG_ENTRIES) {
+    if (entry.status !== 'playable') continue;
+    if (seenCaseSlugs.has(entry.slug)) continue;
+    seenCaseSlugs.add(entry.slug);
+    const seo = buildCaseSeo(entry);
+    const loc = `${CANONICAL_ORIGIN}${seo.path}`;
+    if (seen.has(seo.path)) continue;
+    seen.add(seo.path);
+    entries.push({ loc, meta: caseMeta });
   }
 
   const urls = entries

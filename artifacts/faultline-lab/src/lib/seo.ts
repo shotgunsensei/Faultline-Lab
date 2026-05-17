@@ -1,7 +1,38 @@
 import { useEffect } from 'react';
 import type { AppView } from '@/types';
+import type { CaseCatalogEntry } from '@/data/caseCatalog/types';
 
 export const CANONICAL_ORIGIN = 'https://faultlinelab.com';
+
+export interface CaseSeo {
+  path: string;
+  title: string;
+  description: string;
+  ogTitle: string;
+  ogDescription: string;
+  ogImage: string;
+  ogImageWidth: number;
+  ogImageHeight: number;
+  ogType: 'article';
+}
+
+export const CASE_OG_IMAGE_WIDTH = 1200;
+export const CASE_OG_IMAGE_HEIGHT = 630;
+
+export function buildCaseSeo(entry: CaseCatalogEntry): CaseSeo {
+  const title = `${entry.title} — Faultline Lab`;
+  return {
+    path: `/case/${entry.slug}/`,
+    title,
+    description: entry.shortSummary,
+    ogTitle: title,
+    ogDescription: entry.shortSummary,
+    ogImage: `/og/case-${entry.slug}.png`,
+    ogImageWidth: CASE_OG_IMAGE_WIDTH,
+    ogImageHeight: CASE_OG_IMAGE_HEIGHT,
+    ogType: 'article',
+  };
+}
 
 export interface RouteSeo {
   path: string;
