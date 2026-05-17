@@ -61,6 +61,8 @@ interface AppState {
   pendingStoreProduct: { productId: string; reason: string; billingInterval?: 'month' | 'year' } | null;
   sandboxRunCaseId: string | null;
   dailyRunCaseId: string | null;
+  pricingIntroActive: boolean;
+  setPricingIntroActive: (active: boolean) => void;
 
   trackToolUsage: (signal: string) => void;
   setView: (view: AppView) => void;
@@ -107,6 +109,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   pendingStoreProduct: null,
   sandboxRunCaseId: null,
   dailyRunCaseId: null,
+  pricingIntroActive: false,
+  setPricingIntroActive: (active) => set({ pricingIntroActive: active }),
 
   openStoreWithProduct: (productId, reason, billingInterval) =>
     set({ pendingStoreProduct: { productId, reason, billingInterval }, view: 'store' }),

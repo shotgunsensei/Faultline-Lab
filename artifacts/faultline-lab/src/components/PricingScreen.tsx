@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   CATALOG,
@@ -175,8 +175,18 @@ function Cell({ on }: { on: boolean }) {
 export default function PricingScreen() {
   const setView = useAppStore((s) => s.setView);
   const openStoreWithProduct = useAppStore((s) => s.openStoreWithProduct);
+  const pricingIntroActive = useAppStore((s) => s.pricingIntroActive);
+  const setPricingIntroActive = useAppStore((s) => s.setPricingIntroActive);
   useEntitlementsTick();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
+
+  useEffect(() => {
+    return () => {
+      if (useAppStore.getState().pricingIntroActive) {
+        useAppStore.getState().setPricingIntroActive(false);
+      }
+    };
+  }, []);
 
   const proProduct = CATALOG.find((p) => p.id === 'pro-subscription') as CatalogProduct;
   const bundleProduct = CATALOG.find((p) => p.id === 'bundle-master-investigator') as CatalogProduct;
@@ -227,6 +237,31 @@ export default function PricingScreen() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-10 pb-24">
+        {pricingIntroActive && (
+          <section
+            role="status"
+            aria-live="polite"
+            className="max-w-3xl mx-auto rounded-lg border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-zinc-900/40 to-zinc-900/20 px-4 py-4 sm:px-5 sm:py-4 flex items-start gap-3"
+          >
+            <Sparkles className="w-5 h-5 text-cyan-300 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-mono text-sm text-cyan-200 uppercase tracking-wider">
+                Welcome to Faultline Lab
+              </div>
+              <p className="text-sm text-zinc-300 mt-1 leading-relaxed">
+                Pick the plan that fits your investigation cadence — or continue free
+                with the four hand-crafted starter cases. You can upgrade any time.
+              </p>
+            </div>
+            <button
+              onClick={() => setPricingIntroActive(false)}
+              className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 hover:text-cyan-300 transition-colors px-2 py-1 rounded border border-zinc-700 hover:border-cyan-500/40 shrink-0"
+              aria-label="Dismiss welcome banner"
+            >
+              Dismiss
+            </button>
+          </section>
+        )}
         <section className="text-center space-y-3 max-w-2xl mx-auto">
           <h2 className="font-mono text-2xl sm:text-3xl text-zinc-100 tracking-tight">
             Pick the tier that fits your investigation cadence.

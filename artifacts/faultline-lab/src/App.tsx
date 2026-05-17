@@ -97,6 +97,7 @@ function PricingIntroRedirect() {
   const settings = useAppStore(s => s.settings);
   const setView = useAppStore(s => s.setView);
   const updateSettings = useAppStore(s => s.updateSettings);
+  const setPricingIntroActive = useAppStore(s => s.setPricingIntroActive);
 
   useEffect(() => {
     if (!authLoaded || !isSignedIn || !cloudSyncReady) return;
@@ -110,6 +111,7 @@ function PricingIntroRedirect() {
       return;
     }
     updateSettings({ pricingIntroSeenAt: Date.now() });
+    setPricingIntroActive(true);
     setView('pricing');
   }, [
     authLoaded,
@@ -119,6 +121,7 @@ function PricingIntroRedirect() {
     view,
     setView,
     updateSettings,
+    setPricingIntroActive,
   ]);
 
   return null;
