@@ -287,6 +287,73 @@ describe("GET /admin/cross-promo/clicks.csv", () => {
     expect(res.body).toContain('"has\nnewline"');
   });
 
+  it.each([
+    { label: "equals", char: "=" },
+    { label: "plus", char: "+" },
+    { label: "minus", char: "-" },
+    { label: "at-sign", char: "@" },
+    { label: "tab", char: "\t" },
+    { label: "carriage return", char: "\r" },
+  ])(
+    "prefixes formula-trigger value starting with $label with a single quote",
+    async ({ char }) => {
+      const prefix = TEST_ROW_PREFIX + randomUUID();
+      await insertRow({
+        placementId: prefix,
+        createdAt: new Date(Date.now() - 1 * DAY_MS),
+        targetProduct: `${char}cmd|'/c calc'!A1`,
+        targetUrl: `${char}https://evil.example.com`,
+        route: `${char}/pwned`,
+      });
+
+      const res = await httpGet(
+        buildApp(),
+        "/admin/cross-promo/clicks.csv?window=7d",
+        cookieHeader(ADMIN_COOKIE),
+      );
+      expect(res.status).toBe(200);
+
+      // Each neutralized value begins with a single-quote prefix. We don't
+      // care whether csvEscape additionally wraps the cell in double quotes
+      // (which happens for CR but not for =/+/-/@/tab here, since those
+      // values don't contain comma/quote/newline/CR after the prefix). What
+      // matters is that the literal `'<trigger>` sequence appears, which is
+      // what makes Excel/Sheets treat the cell as plain text.
+      expect(res.body).toContain(`'${char}cmd|`);
+      expect(res.body).toContain(`'${char}https://evil.example.com`);
+      expect(res.body).toContain(`'${char}/pwned`);
+    },
+  );
+
+  it("leaves benign values starting with a letter untouched", async () => {
+    const prefix = TEST_ROW_PREFIX + randomUUID();
+    await insertRow({
+      placementId: prefix,
+      createdAt: new Date(Date.now() - 1 * DAY_MS),
+      targetProduct: "safe-product",
+      targetUrl: "https://example.com/safe",
+      route: "/safe",
+    });
+
+    const res = await httpGet(
+      buildApp(),
+      "/admin/cross-promo/clicks.csv?window=7d",
+      cookieHeader(ADMIN_COOKIE),
+    );
+    expect(res.status).toBe(200);
+    const { rows } = parseCsv(res.body);
+    const ours = rowsForPrefix(rows, prefix);
+    expect(ours).toHaveLength(1);
+    const line = ours[0]!;
+    // No single-quote neutralization should appear around our values.
+    expect(line).toContain(",safe-product,");
+    expect(line).toContain(",https://example.com/safe,");
+    expect(line).toContain(",/safe,");
+    expect(line).not.toContain("'safe-product");
+    expect(line).not.toContain("'https://example.com/safe");
+    expect(line).not.toContain("'/safe");
+  });
+
   it("returns 413 with a friendly message when row count exceeds the 10k cap", async () => {
     const prefix = TEST_CAP_PREFIX + randomUUID();
     // Use a single SQL statement so we don't pay 10k round trips. Times
