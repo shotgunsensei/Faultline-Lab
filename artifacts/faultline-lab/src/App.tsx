@@ -28,6 +28,9 @@ const UpgradePromptProvider = lazy(() =>
   import('@/components/UpgradePrompt').then(m => ({ default: m.UpgradePromptProvider })),
 );
 const InstallAppButton = lazy(() => import('@/components/InstallAppButton'));
+const CaseDeepLinkHandler = lazy(() =>
+  import('@/components/CaseDeepLinkHandler').then(m => ({ default: m.CaseDeepLinkHandler })),
+);
 const Toaster = lazy(() => import('sonner').then(m => ({ default: m.Toaster })));
 const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
 
@@ -196,6 +199,7 @@ function AppContent() {
   return (
     <Suspense fallback={<ScreenFallback />}>
       <UpgradePromptProvider>
+        <CaseDeepLinkHandler />
         <CloudSyncProvider>
           <div className="dark">
             <Suspense fallback={<ScreenFallback />}>{renderView(view)}</Suspense>
@@ -249,6 +253,7 @@ function AppContentWithoutClerk() {
   return (
     <Suspense fallback={<ScreenFallback />}>
       <UpgradePromptProvider>
+        <CaseDeepLinkHandler />
         {isSignedIn ? (
           <CloudSyncProvider>
             <Suspense fallback={<ScreenFallback />}>
