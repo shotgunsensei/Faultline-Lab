@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { recommendForCase } from '@/lib/recommendations';
 import { formatPrice } from '@/data/catalog';
+import { getCaseEntryById } from '@/data/caseCatalog';
+import { CaseAuthorAvatar } from './CaseAuthorAvatar';
 import EcosystemCrossPromo from './EcosystemCrossPromo';
 import EcosystemFooter from './EcosystemFooter';
 import {
@@ -46,6 +48,11 @@ export default function DebriefScreen() {
   const score = debrief.scoreBreakdown;
   const config = tierConfig[score.tier];
   const timeMinutes = Math.floor(debrief.totalTime / 60000);
+  const catalogEntry = getCaseEntryById(currentCaseDef.id);
+  const avatarEntry = catalogEntry ?? {
+    title: currentCaseDef.title,
+    authorImagePath: undefined,
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -82,7 +89,10 @@ export default function DebriefScreen() {
               {score.total}
               <span className="text-lg sm:text-xl text-zinc-600">/{score.maxPossible}</span>
             </div>
-            <p className="text-xs sm:text-sm text-zinc-500">{currentCaseDef.title}</p>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <CaseAuthorAvatar entry={avatarEntry} size={28} />
+              <p className="text-xs sm:text-sm text-zinc-500">{currentCaseDef.title}</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
