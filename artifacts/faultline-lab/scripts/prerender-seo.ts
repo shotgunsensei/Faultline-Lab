@@ -13,16 +13,16 @@ import type { CaseCatalogEntry } from '../src/data/caseCatalog/types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
-const DIST = resolve(ROOT, 'dist', 'public');
-const SOURCE_INDEX = resolve(DIST, 'index.html');
-const DEFAULT_OG_IMAGE = '/og-image.jpg';
+export const DIST = resolve(ROOT, 'dist', 'public');
+export const SOURCE_INDEX = resolve(DIST, 'index.html');
+export const DEFAULT_OG_IMAGE = '/og-image.jpg';
 
-interface PrerenderTarget {
+export interface PrerenderTarget {
   view: AppView;
   outPath: string;
 }
 
-const TARGETS: PrerenderTarget[] = [
+export const PRERENDER_TARGETS: PrerenderTarget[] = [
   { view: 'boot', outPath: 'index.html' },
   { view: 'store', outPath: 'store/index.html' },
   { view: 'pricing', outPath: 'pricing/index.html' },
@@ -70,7 +70,7 @@ function setCanonical(html: string, href: string): string {
   return re.test(html) ? html.replace(re, tag) : html.replace('</head>', `    ${tag}\n  </head>`);
 }
 
-function renderRoute(sourceHtml: string, view: AppView): string {
+export function renderRoute(sourceHtml: string, view: AppView): string {
   const seo = ROUTE_SEO[view];
   const url = `${CANONICAL_ORIGIN}${seo.path}`;
   const ogTitle = seo.ogTitle ?? seo.title;
@@ -136,7 +136,7 @@ function main(): void {
   const sourceHtml = readFileSync(SOURCE_INDEX, 'utf8');
 
   let routeCount = 0;
-  for (const target of TARGETS) {
+  for (const target of PRERENDER_TARGETS) {
     const html = renderRoute(sourceHtml, target.view);
     const outFile = resolve(DIST, target.outPath);
     mkdirSync(dirname(outFile), { recursive: true });
@@ -159,4 +159,8 @@ function main(): void {
   );
 }
 
-main();
+const isDirectRun =
+  process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isDirectRun) {
+  main();
+}
