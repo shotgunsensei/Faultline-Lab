@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/react';
 import { useAppStore } from '@/stores/useAppStore';
 import BootScreen from '@/components/BootScreen';
-import { resetEntitlements } from '@/lib/entitlements';
+import { resetEntitlements, hasEntitlement } from '@/lib/entitlements';
 import { useRouteSeo } from '@/lib/seo';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
@@ -86,6 +86,41 @@ const TOASTER_STYLE = {
   color: '#e4e4e7',
 } as const;
 
+function PricingIntroRedirect() {
+  const view = useAppStore(s => s.view);
+  const isSignedIn = useAppStore(s => s.isSignedIn);
+  const authLoaded = useAppStore(s => s.authLoaded);
+  const cloudSyncReady = useAppStore(s => s.cloudSyncReady);
+  const settings = useAppStore(s => s.settings);
+  const setView = useAppStore(s => s.setView);
+  const updateSettings = useAppStore(s => s.updateSettings);
+
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn || !cloudSyncReady) return;
+    if (settings.pricingIntroSeenAt) return;
+    // Only intercept the first landing on the incident board (or the
+    // transient 'auth' view that renders the board after sign-in).
+    if (view !== 'incident-board' && view !== 'auth') return;
+    // Existing Pro/Bundle owners already chose a plan; don't nag them.
+    if (hasEntitlement('pro-subscription') || hasEntitlement('bundle-master-investigator')) {
+      updateSettings({ pricingIntroSeenAt: Date.now() });
+      return;
+    }
+    updateSettings({ pricingIntroSeenAt: Date.now() });
+    setView('pricing');
+  }, [
+    authLoaded,
+    isSignedIn,
+    cloudSyncReady,
+    settings.pricingIntroSeenAt,
+    view,
+    setView,
+    updateSettings,
+  ]);
+
+  return null;
+}
+
 function GlobalOnboardingTour() {
   const view = useAppStore(s => s.view);
   const settings = useAppStore(s => s.settings);
@@ -166,6 +201,7 @@ function AppContent() {
             <Suspense fallback={<ScreenFallback />}>{renderView(view)}</Suspense>
             <InstallAppButton />
             <GlobalOnboardingTour />
+            <PricingIntroRedirect />
             <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
           </div>
         </CloudSyncProvider>
@@ -220,6 +256,7 @@ function AppContentWithoutClerk() {
             </Suspense>
             <InstallAppButton />
             <GlobalOnboardingTour />
+            <PricingIntroRedirect />
             <Toaster position="bottom-right" toastOptions={{ style: TOASTER_STYLE }} />
           </CloudSyncProvider>
         ) : (

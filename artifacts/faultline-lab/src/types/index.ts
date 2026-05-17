@@ -211,6 +211,12 @@ export interface AppSettings {
   animationsEnabled: boolean;
   terminalFontSize: number;
   onboardingTourCompletedAt?: number | null;
+  /**
+   * Millisecond timestamp at which the user dismissed (or acted on) the
+   * post-sign-up pricing intro. When unset, signed-in users get routed to
+   * the pricing screen once before the incident board.
+   */
+  pricingIntroSeenAt?: number | null;
   lastVisitedAt?: number | null;
   /**
    * Map of caseId -> millisecond timestamp at which the user last

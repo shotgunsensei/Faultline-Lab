@@ -93,6 +93,7 @@ export function loadSettings(): AppSettings {
     animationsEnabled: true,
     terminalFontSize: 16,
     onboardingTourCompletedAt: null,
+    pricingIntroSeenAt: null,
     lastVisitedAt: null,
     seenNewCases: {},
   });
