@@ -96,6 +96,7 @@ export function loadSettings(): AppSettings {
     pricingIntroSeenAt: null,
     lastVisitedAt: null,
     seenNewCases: {},
+    dismissedRenewalNoticeKey: null,
   });
 }
 

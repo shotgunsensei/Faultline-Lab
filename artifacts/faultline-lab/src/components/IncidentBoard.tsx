@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import EcosystemFooter from './EcosystemFooter';
 import { CaseCard } from './incident-board/CaseCard';
+import RenewalBanner from './RenewalBanner';
 
 // Cache the authored-entries snapshot so useSyncExternalStore sees a stable
 // reference between renders. The cached value is only refreshed when the
@@ -195,6 +196,8 @@ export default function IncidentBoard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          <RenewalBanner />
+
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-zinc-100 mb-2">
               Incident Board

@@ -224,6 +224,13 @@ export interface AppSettings {
    * the case is updated again after this timestamp.
    */
   seenNewCases?: Record<string, number>;
+  /**
+   * Stable key identifying the most recently dismissed subscription
+   * renewal/expiration banner. Format:
+   * `${subscriptionId}:${current_period_end}:${cancel|renew}`.
+   * Changing any component (new cycle, cancel flip) re-shows the banner.
+   */
+  dismissedRenewalNoticeKey?: string | null;
 }
 
 export type AppView = 
