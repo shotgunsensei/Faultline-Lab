@@ -164,6 +164,11 @@ let createdUserId: string | null = null;
 let createdCustomerId: string | null = null;
 const createdClerkId = `test_clerk_e2e_${randomUUID()}`;
 
+// Additional users provisioned by the yearly-preselect verification block.
+// Tracked separately so cleanup removes them too.
+const extraCreatedUserIds: string[] = [];
+const extraCreatedCustomerIds: string[] = [];
+
 async function step<T>(label: string, fn: () => Promise<T>): Promise<T> {
   process.stdout.write(`  • ${label} ... `);
   try {
@@ -403,12 +408,195 @@ async function cleanup(stripe: Stripe): Promise<void> {
   if (createdUserId) {
     await pool.query(`DELETE FROM users WHERE id = $1`, [createdUserId]);
   }
+  for (const id of extraCreatedUserIds) {
+    await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+  }
   if (createdCustomerId) {
     try {
       await stripe.customers.del(createdCustomerId);
     } catch {
       /* best-effort */
     }
+  }
+  for (const id of extraCreatedCustomerIds) {
+    try {
+      await stripe.customers.del(id);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+interface ProSubscriptionPrices {
+  monthlyPriceId: string;
+  monthlyAmount: number;
+  yearlyPriceId: string;
+  yearlyAmount: number;
+  currency: string;
+}
+
+async function loadProSubscriptionPrices(): Promise<ProSubscriptionPrices> {
+  const productRow = await pool.query<{ id: string }>(
+    `SELECT id FROM stripe.products
+       WHERE active = true AND metadata->>'catalogId' = 'pro-subscription'
+       LIMIT 1`,
+  );
+  if (productRow.rows.length === 0) {
+    throw new Error(
+      `No active stripe.products row with metadata.catalogId=pro-subscription. ` +
+        `Run "pnpm --filter @workspace/scripts run seed-products" first.`,
+    );
+  }
+  const stripeProductId = productRow.rows[0].id;
+  const priceRows = await pool.query<{
+    id: string;
+    unit_amount: number | null;
+    currency: string;
+    recurring: unknown;
+  }>(
+    `SELECT id, unit_amount, currency, recurring FROM stripe.prices
+       WHERE product = $1 AND active = true`,
+    [stripeProductId],
+  );
+  type PriceRow = { id: string; unit_amount: number | null; currency: string };
+  let monthly: PriceRow | undefined;
+  let yearly: PriceRow | undefined;
+  for (const p of priceRows.rows) {
+    const parsed: unknown =
+      typeof p.recurring === 'string' ? JSON.parse(p.recurring) : p.recurring;
+    const interval =
+      parsed && typeof parsed === 'object' && 'interval' in parsed
+        ? (parsed as { interval?: unknown }).interval
+        : undefined;
+    if (interval === 'month') monthly = p;
+    if (interval === 'year') yearly = p;
+  }
+  if (!monthly || !yearly) {
+    throw new Error(
+      `pro-subscription is missing a monthly or yearly price in stripe.prices ` +
+        `(monthly=${!!monthly}, yearly=${!!yearly}). Re-run seed-products.`,
+    );
+  }
+  return {
+    monthlyPriceId: monthly.id,
+    monthlyAmount: monthly.unit_amount ?? 0,
+    yearlyPriceId: yearly.id,
+    yearlyAmount: yearly.unit_amount ?? 0,
+    currency: (monthly.currency || yearly.currency).toLowerCase(),
+  };
+}
+
+async function callCheckoutForProSubscription(
+  clerkId: string,
+  interval: 'month' | 'year',
+): Promise<{ url: string; id: string }> {
+  const res = await fetch(`${API_BASE}/api/stripe/checkout-by-catalog`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-e2e-test-token': process.env.E2E_AUTH_TOKEN as string,
+      'x-e2e-clerk-id': clerkId,
+    },
+    body: JSON.stringify({ catalogProductId: 'pro-subscription', interval }),
+  });
+  const text = await res.text();
+  if (res.status !== 200) {
+    throw new Error(`checkout-by-catalog returned HTTP ${res.status}: ${text}`);
+  }
+  const body = JSON.parse(text) as { url?: string; id?: string };
+  if (!body.id || !body.url) {
+    throw new Error(`checkout-by-catalog missing id/url in response: ${text}`);
+  }
+  return { url: body.url, id: body.id };
+}
+
+async function trackExtraUser(clerkId: string): Promise<void> {
+  const row = await pool.query<{ id: string; stripe_customer_id: string | null }>(
+    `SELECT id, stripe_customer_id FROM users WHERE clerk_id = $1`,
+    [clerkId],
+  );
+  if (row.rows.length === 0) {
+    throw new Error(`Endpoint did not provision a user row for ${clerkId}`);
+  }
+  extraCreatedUserIds.push(row.rows[0].id);
+  if (row.rows[0].stripe_customer_id) {
+    extraCreatedCustomerIds.push(row.rows[0].stripe_customer_id);
+  }
+}
+
+async function verifyProSubscriptionIntervalRouting(stripe: Stripe): Promise<void> {
+  // Verifies that the billing-interval toggle on the pricing page (which is
+  // passed end-to-end via openStoreWithProduct → ProductDetail →
+  // startStripeCheckout → /api/stripe/checkout-by-catalog) actually causes
+  // the resulting Stripe Checkout Session to use the matching recurring
+  // Stripe Price. A regression here would silently bill the wrong cadence.
+  const prices = await step(
+    'look up pro-subscription monthly & yearly prices in stripe.prices',
+    () => loadProSubscriptionPrices(),
+  );
+
+  for (const interval of ['year', 'month'] as const) {
+    const expectedPriceId =
+      interval === 'year' ? prices.yearlyPriceId : prices.monthlyPriceId;
+    const expectedAmount =
+      interval === 'year' ? prices.yearlyAmount : prices.monthlyAmount;
+    const clerkId = `test_clerk_e2e_${interval}_${randomUUID()}`;
+
+    const checkout = await step(
+      `POST /checkout-by-catalog { pro-subscription, interval: ${interval} }`,
+      () => callCheckoutForProSubscription(clerkId, interval),
+    );
+    await step(`verify endpoint provisioned user for ${interval} flow`, () =>
+      trackExtraUser(clerkId),
+    );
+
+    const session = await step(
+      `retrieve ${interval} Checkout Session from Stripe`,
+      () => stripe.checkout.sessions.retrieve(checkout.id),
+    );
+    if (session.mode !== 'subscription') {
+      throw new Error(
+        `Expected ${interval} session.mode='subscription', got '${session.mode}'`,
+      );
+    }
+    if (session.metadata?.interval !== interval) {
+      throw new Error(
+        `session.metadata.interval=${session.metadata?.interval} !== expected ${interval}`,
+      );
+    }
+    await step(
+      `verify ${interval} Checkout Session line item uses the ${interval} Stripe price`,
+      async () => {
+        const items = await stripe.checkout.sessions.listLineItems(checkout.id, {
+          limit: 5,
+        });
+        if (items.data.length !== 1) {
+          throw new Error(`Expected 1 line item, got ${items.data.length}`);
+        }
+        const li = items.data[0];
+        if (li.price?.id !== expectedPriceId) {
+          throw new Error(
+            `${interval} session line item price ${li.price?.id} !== expected ` +
+              `${expectedPriceId} (this means the billing interval was NOT ` +
+              `honored end-to-end — yearly toggle would silently charge the ` +
+              `wrong price).`,
+          );
+        }
+        const recurring = li.price?.recurring;
+        if (recurring?.interval !== interval) {
+          throw new Error(
+            `${interval} session line item recurring.interval=` +
+              `${recurring?.interval} !== expected ${interval}`,
+          );
+        }
+        if (li.amount_total !== expectedAmount) {
+          throw new Error(
+            `${interval} session line item amount_total ${li.amount_total} !== ` +
+              `expected ${expectedAmount}`,
+          );
+        }
+      },
+    );
   }
 }
 
@@ -509,6 +697,9 @@ async function main(): Promise<void> {
   await step('verify stripe.checkout_sessions row synced', () =>
     assertCheckoutSessionSynced(checkout.id),
   );
+
+  console.log('\n— Yearly preselect verification (pro-subscription) —');
+  await verifyProSubscriptionIntervalRouting(stripe);
 
   console.log('\nAll checks passed.');
 }
