@@ -41,9 +41,17 @@ const FAILURE_REASONS: Record<SsoFailureCode, string> = {
 
 function safeReturnTo(input: unknown): string {
   // Only allow same-origin absolute paths to prevent open-redirect.
+  // Must start with `/` followed by a non-slash, non-backslash character.
+  // This rejects:
+  //   - non-strings / empty strings
+  //   - absolute URLs like "https://evil.com"
+  //   - protocol-relative URLs like "//evil.com" (also catches the encoded
+  //     form "%2F%2Fevil.com" since Express decodes query strings)
+  //   - backslash tricks like "/\evil.com" which some browsers normalize
+  //     into "//evil.com" when used in a Location header
   if (typeof input !== "string") return "/";
-  if (!input.startsWith("/")) return "/";
-  if (input.startsWith("//")) return "/";
+  if (input === "/") return "/";
+  if (!/^\/[^/\\]/.test(input)) return "/";
   return input;
 }
 

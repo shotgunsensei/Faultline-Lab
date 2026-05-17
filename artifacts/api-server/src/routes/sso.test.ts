@@ -271,6 +271,55 @@ describe("/sso", () => {
     expect(res.headers["location"]).toContain("reason=wrong_env");
   });
 
+  describe("returnTo open-redirect hardening", () => {
+    async function getRedirectLocation(returnTo: string): Promise<string> {
+      vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+      const token = makeToken();
+      const res = await get(
+        buildApp(),
+        `/sso?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+      expect(res.status).toBe(302);
+      return res.headers["location"] || "";
+    }
+
+    it("rejects protocol-relative //evil.com and falls back to /", async () => {
+      expect(await getRedirectLocation("//evil.com")).toBe("/?sso=ok");
+    });
+
+    it("rejects percent-encoded protocol-relative %2F%2Fevil.com", async () => {
+      // Send the encoded form RAW in the URL (do not re-encode) so Express's
+      // query parser is the one decoding "%2F%2Fevil.com" -> "//evil.com".
+      // The runtime guard must still reject it.
+      vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+      const token = makeToken();
+      const res = await get(
+        buildApp(),
+        `/sso?token=${encodeURIComponent(token)}&returnTo=%2F%2Fevil.com`,
+      );
+      expect(res.status).toBe(302);
+      expect(res.headers["location"]).toBe("/?sso=ok");
+    });
+
+    it("rejects backslash-prefix /\\evil.com that browsers normalize to //evil.com", async () => {
+      expect(await getRedirectLocation("/\\evil.com")).toBe("/?sso=ok");
+    });
+
+    it("rejects absolute URLs like https://evil.com", async () => {
+      expect(await getRedirectLocation("https://evil.com/path")).toBe("/?sso=ok");
+    });
+
+    it("rejects bare \\evil.com (no leading slash)", async () => {
+      expect(await getRedirectLocation("\\\\evil.com")).toBe("/?sso=ok");
+    });
+
+    it("preserves a valid same-origin path and merges sso=ok with existing query", async () => {
+      expect(await getRedirectLocation("/cases/foo?ref=launch")).toBe(
+        "/cases/foo?ref=launch&sso=ok",
+      );
+    });
+  });
+
   it("upserts on relaunch (same operator_identity_id => same row, refreshed plan)", async () => {
     vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
     const sub = TEST_PREFIX + randomUUID();
