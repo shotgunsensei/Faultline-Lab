@@ -3,8 +3,8 @@ import { requireAuth } from '../middlewares/requireAuth';
 import { getUncachableStripeClient } from '../stripeClient';
 import { stripeStorage } from '../stripeStorage';
 import { db } from '@workspace/db';
-import { usersTable } from '@workspace/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { usersTable, purchasesTable } from '@workspace/db/schema';
+import { eq, sql, desc } from 'drizzle-orm';
 
 const router: IRouter = Router();
 
@@ -159,6 +159,127 @@ router.post('/portal-session', requireAuth, async (req: any, res): Promise<void>
   } catch (err: any) {
     console.error('portal-session error:', err.message);
     res.status(500).json({ error: 'Failed to create billing portal session' });
+  }
+});
+
+type BillingHistoryEntry = {
+  kind: 'invoice' | 'purchase';
+  id: string;
+  productId: string | null;
+  amount: number | null;
+  currency: string | null;
+  status: string | null;
+  createdAt: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+  number: string | null;
+};
+
+function safeJsonParse(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+function asString(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+function asNumberOrNull(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v.length > 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function extractAttrField(attrs: unknown, key: string): string | null {
+  if (attrs !== null && typeof attrs === 'object' && key in (attrs as Record<string, unknown>)) {
+    return asString((attrs as Record<string, unknown>)[key]);
+  }
+  return null;
+}
+
+function coerceCreatedAt(v: unknown): string | null {
+  if (v instanceof Date) return v.toISOString();
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const ms = v > 1e12 ? v : v * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  return null;
+}
+
+router.get('/invoices', requireAuth, async (req: any, res): Promise<void> => {
+  try {
+    const userId = req.userId as string;
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+
+    const purchases = await db
+      .select()
+      .from(purchasesTable)
+      .where(eq(purchasesTable.userId, userId))
+      .orderBy(desc(purchasesTable.createdAt))
+      .limit(20);
+
+    const purchaseHistory: BillingHistoryEntry[] = purchases.map((p) => ({
+      kind: 'purchase',
+      id: p.id,
+      productId: p.productId,
+      amount: p.amount ?? null,
+      currency: p.currency ?? null,
+      status: p.status,
+      createdAt: (p.fulfilledAt ?? p.createdAt)?.toISOString() ?? null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+      number: null,
+    }));
+
+    let invoiceHistory: BillingHistoryEntry[] = [];
+
+    if (user?.stripeCustomerId) {
+      try {
+        const rows = await stripeStorage.listInvoicesByCustomer(user.stripeCustomerId, 10);
+        invoiceHistory = rows.map((row): BillingHistoryEntry => {
+          const r = row as Record<string, unknown>;
+          const rawAttrs = r.attrs;
+          const attrs: unknown =
+            typeof rawAttrs === 'string' ? safeJsonParse(rawAttrs) : (rawAttrs ?? null);
+          return {
+            kind: 'invoice',
+            id: String(r.id ?? ''),
+            productId: null,
+            amount: asNumberOrNull(r.total),
+            currency: asString(r.currency),
+            status: asString(r.status),
+            createdAt: coerceCreatedAt(r.created),
+            hostedInvoiceUrl: extractAttrField(attrs, 'hosted_invoice_url'),
+            invoicePdf: extractAttrField(attrs, 'invoice_pdf'),
+            number: extractAttrField(attrs, 'number'),
+          };
+        });
+      } catch (err) {
+        req.log.warn({ err }, 'listInvoicesByCustomer failed');
+      }
+    }
+
+    const merged = [...invoiceHistory, ...purchaseHistory]
+      .filter((entry) => entry.createdAt !== null)
+      .sort((a, b) => {
+        const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+        const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+        return tb - ta;
+      })
+      .slice(0, 10);
+
+    res.json({ history: merged });
+  } catch (err) {
+    req.log.error({ err }, 'invoices endpoint error');
+    res.status(500).json({ error: 'Failed to list invoices' });
   }
 });
 

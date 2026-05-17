@@ -45,6 +45,17 @@ export class StripeStorage {
     );
     return result.rows[0] || null;
   }
+
+  async listInvoicesByCustomer(customerId: string, limit = 10) {
+    const result = await db.execute(
+      sql`SELECT id, customer, subscription, status, total, currency, period_start, period_end, created, attrs
+          FROM stripe.invoices
+          WHERE customer = ${customerId}
+          ORDER BY created DESC
+          LIMIT ${limit}`
+    );
+    return result.rows;
+  }
 }
 
 export const stripeStorage = new StripeStorage();

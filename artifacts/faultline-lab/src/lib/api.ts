@@ -93,6 +93,23 @@ export async function createBillingPortalSession(): Promise<{ url: string }> {
   return apiFetch('/stripe/portal-session', { method: 'POST' });
 }
 
+export type BillingHistoryEntry = {
+  kind: 'invoice' | 'purchase';
+  id: string;
+  productId: string | null;
+  amount: number | null;
+  currency: string | null;
+  status: string | null;
+  createdAt: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+  number: string | null;
+};
+
+export async function fetchBillingHistory(): Promise<{ history: BillingHistoryEntry[] }> {
+  return apiFetch('/stripe/invoices');
+}
+
 export async function adminFetchUsers() {
   return apiFetch('/admin/users');
 }
