@@ -102,6 +102,19 @@ UTM equivalents) on landing, attach them to any resulting sign-up or order
 record, and join back to `cross_promo_clicks.placement_id` for end-to-end
 funnel analysis.
 
+## Retention
+
+To keep the table small and ad-hoc queries fast, the api-server runs a
+background prune job that deletes rows older than **180 days** from
+`cross_promo_clicks`. The job is started by
+`startCrossPromoRetentionJob()` in `artifacts/api-server/src/index.ts`
+(implementation in `artifacts/api-server/src/lib/crossPromoRetention.ts`).
+It runs once at server boot and then every 24 hours.
+
+If you need a different retention window, update
+`CROSS_PROMO_RETENTION_DAYS` in
+`artifacts/api-server/src/lib/crossPromoRetention.ts` and this doc.
+
 ## Adding a new cross-promo placement
 
 1. Render the link in faultline-lab and import `trackCrossPromoClick` and
