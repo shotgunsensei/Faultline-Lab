@@ -1,8 +1,8 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
-import { db, crossPromoClicksTable, usersTable } from "@workspace/db";
-import { optionalAuth } from "../middlewares/requireAuth";
+import { desc, gte, sql } from "drizzle-orm";
+import { db, crossPromoClicksTable } from "@workspace/db";
+import { optionalAuth, requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -71,5 +71,101 @@ router.post("/cross-promo/click", optionalAuth, async (req, res): Promise<void> 
 
   res.status(202).json({ ok: true });
 });
+
+async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const adminUser = (req as any).appUser as { id: string; isAdmin?: boolean } | undefined;
+  if (!adminUser || !adminUser.isAdmin) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  next();
+}
+
+router.get(
+  "/admin/cross-promo/clicks",
+  requireAuth,
+  requireAdmin,
+  async (req, res): Promise<void> => {
+    try {
+      const now = Date.now();
+      const since7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const since30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+      const countCol = sql<number>`count(*)::int`;
+
+      const [
+        topPlacements7d,
+        topPlacements30d,
+        topTargets7d,
+        topTargets30d,
+        recentRows,
+        totals,
+      ] = await Promise.all([
+        db
+          .select({ placementId: crossPromoClicksTable.placementId, clicks: countCol })
+          .from(crossPromoClicksTable)
+          .where(gte(crossPromoClicksTable.createdAt, since7))
+          .groupBy(crossPromoClicksTable.placementId)
+          .orderBy(desc(countCol))
+          .limit(20),
+        db
+          .select({ placementId: crossPromoClicksTable.placementId, clicks: countCol })
+          .from(crossPromoClicksTable)
+          .where(gte(crossPromoClicksTable.createdAt, since30))
+          .groupBy(crossPromoClicksTable.placementId)
+          .orderBy(desc(countCol))
+          .limit(20),
+        db
+          .select({ targetProduct: crossPromoClicksTable.targetProduct, clicks: countCol })
+          .from(crossPromoClicksTable)
+          .where(gte(crossPromoClicksTable.createdAt, since7))
+          .groupBy(crossPromoClicksTable.targetProduct)
+          .orderBy(desc(countCol))
+          .limit(20),
+        db
+          .select({ targetProduct: crossPromoClicksTable.targetProduct, clicks: countCol })
+          .from(crossPromoClicksTable)
+          .where(gte(crossPromoClicksTable.createdAt, since30))
+          .groupBy(crossPromoClicksTable.targetProduct)
+          .orderBy(desc(countCol))
+          .limit(20),
+        db
+          .select({
+            id: crossPromoClicksTable.id,
+            placementId: crossPromoClicksTable.placementId,
+            targetProduct: crossPromoClicksTable.targetProduct,
+            targetUrl: crossPromoClicksTable.targetUrl,
+            route: crossPromoClicksTable.route,
+            userTier: crossPromoClicksTable.userTier,
+            createdAt: crossPromoClicksTable.createdAt,
+          })
+          .from(crossPromoClicksTable)
+          .orderBy(desc(crossPromoClicksTable.createdAt))
+          .limit(50),
+        db
+          .select({
+            total7d: sql<number>`count(*) filter (where ${crossPromoClicksTable.createdAt} >= ${since7})::int`,
+            total30d: sql<number>`count(*) filter (where ${crossPromoClicksTable.createdAt} >= ${since30})::int`,
+          })
+          .from(crossPromoClicksTable),
+      ]);
+
+      res.json({
+        totals: totals[0] ?? { total7d: 0, total30d: 0 },
+        topPlacements7d,
+        topPlacements30d,
+        topTargets7d,
+        topTargets30d,
+        recent: recentRows.map((r) => ({
+          ...r,
+          createdAt: r.createdAt?.toISOString?.() ?? null,
+        })),
+      });
+    } catch (err) {
+      req.log.error({ err }, "Failed to load cross-promo dashboard");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 export default router;

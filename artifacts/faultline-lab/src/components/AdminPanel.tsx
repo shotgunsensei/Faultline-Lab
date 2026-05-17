@@ -29,9 +29,10 @@ import {
   type CatalogOverrideHistoryEntry,
 } from '@/lib/api';
 import { toast } from 'sonner';
-import { ArrowLeft, FilePlus, Shield } from 'lucide-react';
+import { ArrowLeft, FilePlus, Shield, BarChart3 } from 'lucide-react';
 import AdminCaseAuthoringPanel from './AdminCaseAuthoringPanel';
 import { CatalogTab, type CatalogOverrideMeta } from './admin/CatalogTab';
+import CrossPromoTab from './admin/CrossPromoTab';
 import {
   UsersTab,
   type AdminUser,
@@ -87,7 +88,7 @@ export default function AdminPanel() {
     (cb) => subscribeEntitlements(cb),
     () => getEntitlements()
   );
-  const [tab, setTab] = useState<'catalog' | 'users' | 'authoring'>('catalog');
+  const [tab, setTab] = useState<'catalog' | 'users' | 'authoring' | 'cross-promo'>('catalog');
   const [overrides, setOverrides] = useState<Record<string, CatalogOverride>>({});
   const [overrideMeta, setOverrideMeta] = useState<Record<string, CatalogOverrideMeta>>({});
   const [editing, setEditing] = useState<string | null>(null);
@@ -404,6 +405,16 @@ export default function AdminPanel() {
             >
               <FilePlus size={12} /> Authoring
             </button>
+            <button
+              onClick={() => setTab('cross-promo')}
+              className={`px-3 py-1.5 font-mono uppercase tracking-wider flex items-center gap-1 ${
+                tab === 'cross-promo'
+                  ? 'bg-zinc-800 text-emerald-300'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <BarChart3 size={12} /> Cross-promo
+            </button>
           </div>
         </div>
       </header>
@@ -448,6 +459,7 @@ export default function AdminPanel() {
           />
         )}
         {tab === 'authoring' && <AdminCaseAuthoringPanel />}
+        {tab === 'cross-promo' && <CrossPromoTab />}
       </main>
 
       {historyFor && (

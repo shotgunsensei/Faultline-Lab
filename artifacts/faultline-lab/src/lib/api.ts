@@ -245,6 +245,28 @@ export async function adminDeleteUser(userId: string): Promise<{ success: boolea
   });
 }
 
+export type CrossPromoRecentRow = {
+  id: string;
+  placementId: string;
+  targetProduct: string;
+  targetUrl: string;
+  route: string | null;
+  userTier: 'anonymous' | 'free' | 'pro';
+  createdAt: string | null;
+};
+export type CrossPromoDashboard = {
+  totals: { total7d: number; total30d: number };
+  topPlacements7d: Array<{ placementId: string; clicks: number }>;
+  topPlacements30d: Array<{ placementId: string; clicks: number }>;
+  topTargets7d: Array<{ targetProduct: string; clicks: number }>;
+  topTargets30d: Array<{ targetProduct: string; clicks: number }>;
+  recent: CrossPromoRecentRow[];
+};
+
+export async function adminFetchCrossPromoClicks(): Promise<CrossPromoDashboard> {
+  return apiFetch('/admin/cross-promo/clicks');
+}
+
 export type CrossPromoClickEvent = {
   placementId: string;
   targetProduct: string;
