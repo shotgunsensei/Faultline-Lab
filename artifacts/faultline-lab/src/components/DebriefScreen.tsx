@@ -1,35 +1,12 @@
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/stores/useAppStore';
 import { recommendForCase } from '@/lib/recommendations';
-import { formatPrice } from '@/data/catalog';
-import { getCaseEntryById } from '@/data/caseCatalog';
-import { CaseAuthorAvatar } from './CaseAuthorAvatar';
 import EcosystemCrossPromo from './EcosystemCrossPromo';
 import EcosystemFooter from './EcosystemFooter';
-import {
-  ArrowLeft,
-  Trophy,
-  Target,
-  Search,
-  Wrench,
-  Zap,
-  AlertTriangle,
-  Lightbulb,
-  CheckCircle,
-  XCircle,
-  Award,
-  Shield,
-  Clock,
-  Wand2,
-  ArrowRight,
-} from 'lucide-react';
-
-const tierConfig = {
-  Surgical: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', icon: <Target size={24} /> },
-  Solid: { color: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', icon: <CheckCircle size={24} /> },
-  'Sloppy but Correct': { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', icon: <AlertTriangle size={24} /> },
-  Misdiagnosed: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: <XCircle size={24} /> },
-};
+import { ArrowLeft } from 'lucide-react';
+import { ScoreSummary } from './debrief/ScoreSummary';
+import { DebriefSections } from './debrief/DebriefSections';
+import { NextCaseRecommendations } from './debrief/NextCaseRecommendations';
 
 export default function DebriefScreen() {
   const currentCaseDef = useAppStore(s => s.currentCaseDef);
@@ -43,16 +20,7 @@ export default function DebriefScreen() {
   if (!currentCaseDef || !currentCaseState?.debrief) return null;
 
   const recommendations = recommendForCase(currentCaseDef, profile, toolUsageSignals, 2);
-
   const debrief = currentCaseState.debrief;
-  const score = debrief.scoreBreakdown;
-  const config = tierConfig[score.tier];
-  const timeMinutes = Math.floor(debrief.totalTime / 60000);
-  const catalogEntry = getCaseEntryById(currentCaseDef.id);
-  const avatarEntry = catalogEntry ?? {
-    title: currentCaseDef.title,
-    authorImagePath: undefined,
-  };
 
   return (
     <div className="min-h-screen bg-[#0a0e14]">
@@ -66,9 +34,7 @@ export default function DebriefScreen() {
             <span className="hidden sm:inline">Back to Incident Board</span>
             <span className="sm:hidden">Back</span>
           </button>
-          <span className="text-xs font-mono text-zinc-600">
-            Case Debrief
-          </span>
+          <span className="text-xs font-mono text-zinc-600">Case Debrief</span>
         </div>
       </header>
 
@@ -78,184 +44,14 @@ export default function DebriefScreen() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div data-tour="debrief-summary" className={`text-center py-6 sm:py-8 mb-6 sm:mb-8 rounded-lg border ${config.bg} ${config.border}`}>
-            <div className={`${config.color} mb-3 flex justify-center`}>
-              {config.icon}
-            </div>
-            <h1 className={`text-2xl sm:text-3xl font-bold ${config.color} mb-1`}>
-              {score.tier}
-            </h1>
-            <div className="text-4xl sm:text-5xl font-bold text-zinc-100 font-mono mb-2">
-              {score.total}
-              <span className="text-lg sm:text-xl text-zinc-600">/{score.maxPossible}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-center gap-2">
-              <CaseAuthorAvatar entry={avatarEntry} size={28} />
-              <p className="text-xs sm:text-sm text-zinc-500">{currentCaseDef.title}</p>
-            </div>
-          </div>
+          <ScoreSummary debrief={debrief} caseState={currentCaseState} caseDef={currentCaseDef} />
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-            <ScoreCard icon={<Target size={16} />} label="Diagnosis" value={score.diagnosisAccuracy} max={40} color="text-cyan-400" />
-            <ScoreCard icon={<Search size={16} />} label="Evidence" value={score.evidenceQuality} max={25} color="text-blue-400" />
-            <ScoreCard icon={<Wrench size={16} />} label="Remediation" value={score.remediationQuality} max={20} color="text-emerald-400" />
-            <ScoreCard icon={<Zap size={16} />} label="Efficiency" value={score.efficiency} max={15} color="text-amber-400" />
-            <ScoreCard icon={<Lightbulb size={16} />} label="Hint Penalty" value={-score.hintPenalty} max={0} color="text-red-400" negative />
-            <ScoreCard icon={<Clock size={16} />} label="Time" value={timeMinutes} max={0} color="text-zinc-400" suffix=" min" />
-          </div>
+          <DebriefSections debrief={debrief} />
 
-          {(score.timePenalty > 0 || score.chaosMultiplier > 1) && (
-            <div className="mb-8 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap size={14} className="text-amber-400" />
-                <span className="text-xs font-mono text-amber-300 uppercase tracking-wider">
-                  Chaos Mode adjustments
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                {currentCaseState.chaos && (
-                  <div className="text-zinc-400">
-                    <div className="text-zinc-500">Intensity</div>
-                    <div className="font-mono text-amber-200">×{currentCaseState.chaos.intensity.toFixed(1)}</div>
-                  </div>
-                )}
-                {score.timePenalty > 0 && (
-                  <div className="text-zinc-400">
-                    <div className="text-zinc-500">Time penalty</div>
-                    <div className="font-mono text-red-300">-{score.timePenalty}</div>
-                  </div>
-                )}
-                {score.chaosMultiplier > 1 && (
-                  <div className="text-zinc-400">
-                    <div className="text-zinc-500">Score multiplier</div>
-                    <div className="font-mono text-emerald-300">
-                      ×{score.chaosMultiplier.toFixed(2)} (base {score.baseTotal})
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-6">
-            <Section title="Actual Root Cause" icon={<Target size={16} />}>
-              <h3 className="text-base font-semibold text-zinc-100 mb-2">
-                {debrief.actualRootCause.title}
-              </h3>
-              <p className="text-sm text-zinc-400 mb-3">
-                {debrief.actualRootCause.description}
-              </p>
-              <div className="bg-[#0c1017] border border-zinc-800/40 rounded p-3">
-                <p className="text-xs font-mono text-zinc-500 leading-relaxed">
-                  {debrief.actualRootCause.technicalDetail}
-                </p>
-              </div>
-            </Section>
-
-            <Section title="Key Evidence" icon={<Search size={16} />}>
-              <div className="space-y-2">
-                {debrief.cluesThatMattered.map(clue => (
-                  <div
-                    key={clue.id}
-                    className="flex items-start gap-2 text-sm"
-                  >
-                    <CheckCircle size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <span className="text-zinc-200 font-medium">
-                        {clue.title}:
-                      </span>{' '}
-                      <span className="text-zinc-400">{clue.description}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="Red Herrings" icon={<AlertTriangle size={16} />}>
-              <div className="space-y-2">
-                {debrief.misleadingClues.map((clue, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-zinc-400">{clue}</span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="Recommended Remediation" icon={<Wrench size={16} />}>
-              <p className="text-sm text-zinc-400">
-                {debrief.recommendedRemediation}
-              </p>
-            </Section>
-
-            <Section title="Preventative Measures" icon={<Shield size={16} />}>
-              <ul className="space-y-1">
-                {debrief.preventativeMeasures.map((measure, i) => (
-                  <li key={i} className="text-sm text-zinc-400 flex items-start gap-2">
-                    <span className="text-cyan-500 mt-1">-</span>
-                    {measure}
-                  </li>
-                ))}
-              </ul>
-            </Section>
-
-            {debrief.achievementsUnlocked.length > 0 && (
-              <Section title="Achievements Unlocked" icon={<Award size={16} />}>
-                <div className="flex flex-wrap gap-2">
-                  {debrief.achievementsUnlocked.map(achievement => (
-                    <motion.div
-                      key={achievement}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', bounce: 0.5 }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-full text-xs text-amber-400"
-                    >
-                      <Trophy size={12} />
-                      {achievement}
-                    </motion.div>
-                  ))}
-                </div>
-              </Section>
-            )}
-          </div>
-
-          {recommendations.length > 0 && (
-            <div className="mt-8">
-              <div className="flex items-center gap-2 mb-3 text-cyan-400">
-                <Wand2 size={16} />
-                <h2 className="text-sm font-mono uppercase tracking-wider">What to play next</h2>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {recommendations.map((r, idx) => (
-                  <motion.button
-                    key={r.product.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + idx * 0.08 }}
-                    onClick={() => openStoreWithProduct(r.product.id, r.reason)}
-                    className="text-left rounded-lg border border-cyan-700/30 bg-gradient-to-br from-cyan-950/30 via-[#111822] to-[#111822] p-4 hover:border-cyan-500/60 transition-colors group"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="text-sm font-semibold text-zinc-100">{r.product.name}</h3>
-                      <span className="text-cyan-400 font-mono text-xs font-bold shrink-0">
-                        {r.product.pricingType === 'free'
-                          ? 'Free'
-                          : r.product.pricingType === 'subscription-monthly'
-                            ? `${formatPrice(r.product.priceAmountCents)}/mo`
-                            : formatPrice(r.product.priceAmountCents)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-zinc-400 line-clamp-2 mb-2">{r.product.shortDescription}</p>
-                    <p className="text-[11px] text-cyan-300/90 italic line-clamp-2">{r.reason}</p>
-                    <div className="mt-3 flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-zinc-500 group-hover:text-cyan-300 transition-colors">
-                      View in store
-                      <ArrowRight size={12} />
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-          )}
+          <NextCaseRecommendations
+            recommendations={recommendations}
+            onOpen={openStoreWithProduct}
+          />
 
           <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <button
@@ -276,57 +72,6 @@ export default function DebriefScreen() {
         </motion.div>
       </main>
       <EcosystemFooter variant="compact" />
-    </div>
-  );
-}
-
-function ScoreCard({
-  icon,
-  label,
-  value,
-  max,
-  color,
-  negative,
-  suffix,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  negative?: boolean;
-  suffix?: string;
-}) {
-  return (
-    <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-3">
-      <div className={`flex items-center gap-1.5 mb-1 ${color}`}>
-        {icon}
-        <span className="text-xs uppercase tracking-wider">{label}</span>
-      </div>
-      <div className="text-xl font-bold font-mono text-zinc-100">
-        {negative && value !== 0 ? value : value}
-        {suffix || (max > 0 ? <span className="text-sm text-zinc-600">/{max}</span> : '')}
-      </div>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-[#111822] border border-zinc-800/40 rounded-lg p-5">
-      <div className="flex items-center gap-2 mb-3 text-cyan-400">
-        {icon}
-        <h2 className="text-sm font-mono uppercase tracking-wider">{title}</h2>
-      </div>
-      {children}
     </div>
   );
 }
