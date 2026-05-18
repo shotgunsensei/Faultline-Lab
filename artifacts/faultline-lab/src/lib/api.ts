@@ -82,6 +82,21 @@ export async function unlinkAccountIdentity(
   });
 }
 
+export async function fetchEmailPreferences(): Promise<{
+  renewalEmailsEnabled: boolean;
+}> {
+  return apiFetch('/account/email-preferences');
+}
+
+export async function updateEmailPreferences(patch: {
+  renewalEmailsEnabled: boolean;
+}): Promise<{ renewalEmailsEnabled: boolean }> {
+  return apiFetch('/account/email-preferences', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+}
+
 export async function fetchProfile() {
   return apiFetch('/profile');
 }

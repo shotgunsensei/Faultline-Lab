@@ -6,6 +6,7 @@ import adminRouter from "./admin";
 import storageRouter from "./storage";
 import crossPromoRouter from "./crossPromo";
 import accountRouter from "./account";
+import emailPreferencesRouter from "./emailPreferences";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,7 @@ router.use(adminRouter);
 router.use(storageRouter);
 router.use(crossPromoRouter);
 router.use(accountRouter);
+router.use(emailPreferencesRouter);
 router.use("/stripe", stripeRouter);
 
 export default router;

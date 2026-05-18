@@ -22,6 +22,15 @@ export const usersTable = pgTable("users", {
   operatorOrganizationId: text("operator_organization_id"),
   operatorRole: text("operator_role"),
   operatorLastLaunchAt: timestamp("operator_last_launch_at"),
+  // Per-user opt-in toggle for renewal / expiration emails. Defaults to true
+  // so existing users keep getting heads-up notices, but a single-click
+  // unsubscribe link in every email (or the Account screen toggle) flips
+  // this off and the scheduled scan skips the user.
+  renewalEmailsEnabled: boolean("renewal_emails_enabled").default(true).notNull(),
+  // Opaque per-user secret embedded in the unsubscribe link. Generated
+  // lazily the first time we mail the user. Unique so a link can be
+  // reversed back to exactly one account.
+  unsubscribeToken: text("unsubscribe_token").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { randomBytes, randomUUID } from "node:crypto";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { subscriptionRenewalNoticesTable } from "@workspace/db/schema";
+import { subscriptionRenewalNoticesTable, usersTable } from "@workspace/db/schema";
 import { logger } from "./logger";
 import { sendEmail, type SendEmailFn } from "./email";
 import { getUncachableStripeClient } from "../stripeClient";
@@ -24,6 +24,37 @@ export interface SubscriptionCandidate {
   unitAmount: number | null; // minor units
   currency: string | null;
   interval: "month" | "year" | null;
+  // Pre-existing unsubscribe token. May be null for users we haven't mailed
+  // before; the scan loop will materialize one before sending.
+  unsubscribeToken: string | null;
+}
+
+/**
+ * Returns the user's unsubscribe token, generating and persisting a fresh
+ * one on first use. Safe to call concurrently — uses a unique-index conflict
+ * to avoid races, then re-reads.
+ */
+export async function ensureUnsubscribeToken(userId: string): Promise<string> {
+  const existing = await db
+    .select({ token: usersTable.unsubscribeToken })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  const current = existing[0]?.token;
+  if (current) return current;
+  const token = randomBytes(24).toString("base64url");
+  await db
+    .update(usersTable)
+    .set({ unsubscribeToken: token, updatedAt: new Date() })
+    .where(
+      sql`${usersTable.id} = ${userId} AND ${usersTable.unsubscribeToken} IS NULL`,
+    );
+  const refreshed = await db
+    .select({ token: usersTable.unsubscribeToken })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+  return refreshed[0]?.token ?? token;
 }
 
 export interface DecisionContext {
@@ -129,6 +160,7 @@ export async function listSubscriptionCandidates(): Promise<
       s.customer        AS customer,
       u.id              AS user_id,
       u.email           AS email,
+      u.unsubscribe_token AS unsubscribe_token,
       pr.unit_amount    AS unit_amount,
       pr.currency       AS currency,
       pr.recurring->>'interval' AS interval
@@ -139,6 +171,7 @@ export async function listSubscriptionCandidates(): Promise<
     WHERE s.status IN ('active', 'trialing')
       AND s.current_period_end IS NOT NULL
       AND u.email IS NOT NULL
+      AND u.renewal_emails_enabled = true
       AND (
         -- Filter to Pro subscriptions only. Subscriptions created by our
         -- checkout flow always carry catalogProductId='pro-subscription' in
@@ -179,6 +212,8 @@ export async function listSubscriptionCandidates(): Promise<
             : null,
       currency: typeof r.currency === "string" ? r.currency : null,
       interval,
+      unsubscribeToken:
+        typeof r.unsubscribe_token === "string" ? r.unsubscribe_token : null,
     });
   }
   return candidates;
@@ -216,6 +251,7 @@ export function renderNoticeEmail(
   kind: NoticeKind,
   sub: SubscriptionCandidate,
   manageUrl: string,
+  unsubscribeUrl?: string,
 ): RenderedEmail {
   const dateLabel = formatDate(sub.currentPeriodEnd);
   const amount = formatAmount(sub.unitAmount, sub.currency);
@@ -224,6 +260,13 @@ export function renderNoticeEmail(
   const chargeLine = amount
     ? `${amount}${intervalWord ? ` (${intervalWord})` : ""} will be charged to your card on file.`
     : "Your card on file will be charged the usual amount.";
+
+  const unsubText = unsubscribeUrl
+    ? ["", `Don't want these reminders? Unsubscribe with one click: ${unsubscribeUrl}`]
+    : [];
+  const unsubHtml = unsubscribeUrl
+    ? `<p style="margin:16px 0 0;color:#666;font-size:12px;">Don't want these reminders? <a href="${unsubscribeUrl}" style="color:#666;text-decoration:underline;">Unsubscribe with one click</a>.</p>`
+    : "";
 
   if (kind === "renewal-t5") {
     const subject = `Your Faultline Lab Pro subscription renews on ${dateLabel}`;
@@ -234,6 +277,7 @@ export function renderNoticeEmail(
       chargeLine,
       "",
       `Manage or cancel your subscription anytime: ${manageUrl}`,
+      ...unsubText,
       "",
       "— Faultline Lab",
     ].join("\n");
@@ -246,6 +290,7 @@ export function renderNoticeEmail(
           <a href="${manageUrl}" style="display:inline-block;background:#22d3ee;color:#0a0e14;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Manage subscription</a>
         </p>
         <p style="margin:0;color:#666;font-size:12px;">You can cancel anytime from the billing portal.</p>
+        ${unsubHtml}
       </div>
     `.trim();
     return { subject, html, text };
@@ -271,6 +316,7 @@ export function renderNoticeEmail(
     "",
     resumeLine,
     `Manage or resume your subscription: ${manageUrl}`,
+    ...unsubText,
     "",
     "— Faultline Lab",
   ].join("\n");
@@ -284,6 +330,7 @@ export function renderNoticeEmail(
         <a href="${manageUrl}" style="display:inline-block;background:#22d3ee;color:#0a0e14;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Resume subscription</a>
       </p>
       <p style="margin:0;color:#666;font-size:12px;">You can resume anytime before your access ends and keep every Pro case.</p>
+      ${unsubHtml}
     </div>
   `.trim();
   return { subject, html, text };
@@ -362,7 +409,10 @@ export async function runRenewalNoticeScan(
       }
       try {
         const manageUrl = await buildUrl(sub);
-        const rendered = renderNoticeEmail(kind, sub, manageUrl);
+        const token =
+          sub.unsubscribeToken ?? (await ensureUnsubscribeToken(sub.userId));
+        const unsubscribeUrl = `${appBaseUrl()}/api/email-preferences/unsubscribe?token=${encodeURIComponent(token)}`;
+        const rendered = renderNoticeEmail(kind, sub, manageUrl, unsubscribeUrl);
         const result = await send({
           to: sub.email,
           subject: rendered.subject,

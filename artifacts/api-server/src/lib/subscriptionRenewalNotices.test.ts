@@ -47,6 +47,7 @@ function candidate(overrides: Partial<SubscriptionCandidate> = {}): Subscription
     unitAmount: 899,
     currency: "usd",
     interval: "month",
+    unsubscribeToken: "tok_" + randomUUID(),
     ...overrides,
   };
 }
@@ -117,6 +118,23 @@ describe("renderNoticeEmail", () => {
     expect(out.text).toContain("annually");
     expect(out.text).toContain("https://portal.example/abc");
     expect(out.html).toContain("Manage subscription");
+  });
+
+  it("includes the unsubscribe link in both html and text when provided", () => {
+    const unsub = "https://example.test/api/email-preferences/unsubscribe?token=abc";
+    const out = renderNoticeEmail("renewal-t5", sub, "https://portal.example/abc", unsub);
+    expect(out.text).toContain(unsub);
+    expect(out.html).toContain(unsub);
+    expect(out.html).toContain("Unsubscribe");
+    const cancel = renderNoticeEmail("cancel-t1", sub, "https://portal.example/abc", unsub);
+    expect(cancel.text).toContain(unsub);
+    expect(cancel.html).toContain(unsub);
+  });
+
+  it("omits the unsubscribe footer when no link is passed", () => {
+    const out = renderNoticeEmail("renewal-t5", sub, "https://portal.example/abc");
+    expect(out.html).not.toContain("Unsubscribe");
+    expect(out.text).not.toContain("Unsubscribe");
   });
 
   it("phrases cancel-t1 as 'tomorrow' but also includes the explicit date, amount, and portal link", () => {
@@ -263,6 +281,45 @@ describe("listSubscriptionCandidates (real DB, Pro filter)", () => {
       VALUES (${JSON.stringify(raw)}::jsonb, ${accountId})
     `);
   }
+
+  it("excludes Pro subscriptions for users who have opted out of renewal emails", async () => {
+    const optedOutId = USER_PREFIX + randomUUID();
+    const optedInId = USER_PREFIX + randomUUID();
+    const optedOutSubId = STRIPE_PREFIX + randomUUID();
+    const optedInSubId = STRIPE_PREFIX + randomUUID();
+    const periodEnd = Math.floor(Date.now() / 1000) + 4 * DAY_S;
+
+    await db.insert(usersTable).values({
+      id: optedOutId,
+      email: "no-thanks@example.com",
+      stripeSubscriptionId: optedOutSubId,
+      renewalEmailsEnabled: false,
+    });
+    await db.insert(usersTable).values({
+      id: optedInId,
+      email: "yes-please@example.com",
+      stripeSubscriptionId: optedInSubId,
+      renewalEmailsEnabled: true,
+    });
+
+    await insertSubscriptionRow({
+      id: optedOutSubId,
+      status: "active",
+      currentPeriodEnd: periodEnd,
+      catalogProductId: "pro-subscription",
+    });
+    await insertSubscriptionRow({
+      id: optedInSubId,
+      status: "active",
+      currentPeriodEnd: periodEnd,
+      catalogProductId: "pro-subscription",
+    });
+
+    const candidates = await listSubscriptionCandidates();
+    const ids = candidates.map((c) => c.subscriptionId);
+    expect(ids).toContain(optedInSubId);
+    expect(ids).not.toContain(optedOutSubId);
+  });
 
   it("includes Pro subscriptions and excludes non-Pro subscriptions", async () => {
     const proUserId = USER_PREFIX + randomUUID();

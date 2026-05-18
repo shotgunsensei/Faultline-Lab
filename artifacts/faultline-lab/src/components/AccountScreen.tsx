@@ -13,6 +13,7 @@ import { ProfileCard } from './account/ProfileCard';
 import { SubscriptionCard } from './account/SubscriptionCard';
 import { BillingHistoryCard } from './account/BillingHistoryCard';
 import { LinkedAccountsSection } from './account/LinkedAccountsSection';
+import { EmailPreferencesCard } from './account/EmailPreferencesCard';
 import { useBillingData } from './account/useBillingData';
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -146,6 +147,8 @@ export default function AccountScreen() {
               onManageBilling={handleManageBilling}
             />
           )}
+
+          {isSignedIn && <EmailPreferencesCard />}
 
           {isSignedIn && <LinkedAccountsSection />}
 
