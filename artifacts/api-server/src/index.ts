@@ -4,6 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureE2EAuthTokenInDev } from "./lib/e2eAuthToken";
 import { startCrossPromoRetentionJob } from "./lib/crossPromoRetention";
+import { startSubscriptionRenewalNoticeJob } from "./lib/subscriptionRenewalNotices";
 
 ensureE2EAuthTokenInDev();
 
@@ -52,6 +53,7 @@ if (Number.isNaN(port) || port <= 0) {
 await initStripe();
 
 startCrossPromoRetentionJob();
+startSubscriptionRenewalNoticeJob();
 
 app.listen(port, (err) => {
   if (err) {

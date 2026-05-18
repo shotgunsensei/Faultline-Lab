@@ -48,6 +48,16 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 - `artifacts/api-server/src/stripeClient.ts` — Stripe client via Replit connector
 - `artifacts/api-server/src/stripeStorage.ts` — Stripe data queries from stripe-replit-sync schema
 - `artifacts/api-server/src/webhookHandlers.ts` — Stripe webhook processing
+- `artifacts/api-server/src/lib/subscriptionRenewalNotices.ts` — Daily job that
+  emails subscribers a few days before `current_period_end` (T-5 renewal heads-up
+  for auto-renewing subs, T-3 and T-1 expiration warnings when
+  `cancel_at_period_end` is true). Idempotent via the
+  `subscription_renewal_notices` table (unique on `subscriptionId + periodEnd + kind`);
+  failed sends release the claimed slot so the next scan retries.
+- `artifacts/api-server/src/lib/email.ts` — Tiny Resend-based transactional
+  email sender. Requires `RESEND_API_KEY` (and optional `RESEND_FROM_EMAIL`)
+  to actually deliver; otherwise logs and reports `delivered: false` so the
+  renewal job releases the slot for a later retry.
 - `lib/db/` — Shared Drizzle ORM package (@workspace/db)
 - `lib/db/src/schema/users.ts` — Users, profiles, entitlements, purchases tables
 - `scripts/src/seed-products.ts` — Script to create Stripe products from catalog
