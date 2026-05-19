@@ -66,7 +66,29 @@ export async function computeEntitlementsPayload(
     .limit(1);
 
   const snap = user?.entitlementSnapshotJson ?? null;
-  if (user?.operatorIdentityId && snap) {
+  // OperatorOS-managed identity is authoritative: never fall back to local
+  // Stripe entitlements for these users. If the snapshot has not been
+  // delivered yet we fail closed to base-free access. Bootstrap super admins
+  // remain admin-capable so they can recover.
+  if (user?.operatorIdentityId) {
+    if (!snap) {
+      const isAdmin = user.localRole === "admin" || !!user.isSuperAdmin;
+      return {
+        ownedProductIds: ["base-free"],
+        activeSubscription: null,
+        isProUser: false,
+        isAdmin,
+        isSuperAdmin: !!user.isSuperAdmin,
+        source: "operatoros",
+        managedByOperatorOs: true,
+        accessLevel: undefined,
+        localRole: (user.localRole as EntitlementsPayload["localRole"]) ?? "standard",
+        features: [],
+        planSlug: user.operatorPlanSlug ?? null,
+        subscriptionStatus: null,
+        lastSyncAt: null,
+      };
+    }
     const expanded = expandBundles(snap.grantedProductIds ?? []);
     if (snap.accessLevel === "pro") expanded.add("pro-subscription");
     const ownedProductIds = ["base-free", ...Array.from(expanded)];

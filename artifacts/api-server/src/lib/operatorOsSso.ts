@@ -143,8 +143,14 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
   // module access at the parent — we surface a dedicated failure so the
   // SPA can render the AccessDenied screen instead of a generic error.
   const targetModuleKeyRaw = (payload as Record<string, unknown>).target_module_key;
-  const targetModuleKey =
-    typeof targetModuleKeyRaw === "string" ? targetModuleKeyRaw.toLowerCase() : moduleSlug;
+  if (typeof targetModuleKeyRaw !== "string" || targetModuleKeyRaw.length === 0) {
+    throw new SsoVerificationError(
+      "module_key_mismatch",
+      "target_module_key is required",
+      jti,
+    );
+  }
+  const targetModuleKey = targetModuleKeyRaw.toLowerCase();
   if (targetModuleKey !== cfg.audience) {
     throw new SsoVerificationError(
       "module_key_mismatch",
@@ -153,15 +159,21 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     );
   }
   const targetModuleEnabledRaw = (payload as Record<string, unknown>).target_module_enabled;
-  const targetModuleEnabled =
-    typeof targetModuleEnabledRaw === "boolean" ? targetModuleEnabledRaw : true;
-  if (!targetModuleEnabled) {
+  if (typeof targetModuleEnabledRaw !== "boolean") {
+    throw new SsoVerificationError(
+      "module_disabled",
+      "target_module_enabled is required",
+      jti,
+    );
+  }
+  if (targetModuleEnabledRaw !== true) {
     throw new SsoVerificationError(
       "module_disabled",
       "target_module_enabled is false",
       jti,
     );
   }
+  const targetModuleEnabled = targetModuleEnabledRaw;
 
   const envClaim = (payload as Record<string, unknown>).env;
   if (typeof envClaim !== "string" || envClaim !== cfg.env) {

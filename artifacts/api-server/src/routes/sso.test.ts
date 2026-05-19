@@ -337,6 +337,22 @@ describe("/sso", () => {
     expect(res.headers["location"]).toContain("reason=wrong_module");
   });
 
+  it("rejects tokens that omit target_module_key entirely", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ target_module_key: undefined });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_module");
+    expect(res.headers["set-cookie"]).toBeFalsy();
+  });
+
+  it("rejects tokens that omit target_module_enabled entirely", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ target_module_enabled: undefined });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=module_disabled");
+    expect(res.headers["set-cookie"]).toBeFalsy();
+  });
+
   it("rejects target_module_enabled=false with reason=module_disabled", async () => {
     vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
     const token = makeToken({ target_module_enabled: false });
