@@ -62,6 +62,9 @@ interface AppState {
     tenantRole: string | null;
     accessLevel: 'pro' | 'standard' | 'read-only' | 'denied' | null;
     subscriptionStatus: string | null;
+    localRole: 'admin' | 'standard' | 'read-only' | 'deny' | null;
+    features: string[];
+    moduleEnabled: boolean;
   } | null;
   accessDeniedReason: string | null;
   setAccessDeniedReason: (reason: string | null) => void;

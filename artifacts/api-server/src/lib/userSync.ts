@@ -285,17 +285,18 @@ export async function mergeUserRows(primary: User, other: User): Promise<User> {
   // Snapshot, localRole and lastEntitlementSyncAt move as a unit. Pick whichever
   // row has the newer sync timestamp so that authz state can never silently
   // regress to an older view after a link.
-  const primarySyncAt = primary.lastEntitlementSyncAt ?? 0;
-  const otherSyncAt = other.lastEntitlementSyncAt ?? 0;
+  const primarySyncMs = primary.lastEntitlementSyncAt?.getTime() ?? 0;
+  const otherSyncMs = other.lastEntitlementSyncAt?.getTime() ?? 0;
   const otherSnap = other.entitlementSnapshotJson;
-  if (otherSnap && otherSyncAt >= primarySyncAt) {
+  if (otherSnap && otherSyncMs >= primarySyncMs) {
     updates.entitlementSnapshotJson = otherSnap;
-    updates.lastEntitlementSyncAt = otherSyncAt || primarySyncAt;
+    updates.lastEntitlementSyncAt =
+      other.lastEntitlementSyncAt ?? primary.lastEntitlementSyncAt ?? null;
     if (other.localRole) updates.localRole = other.localRole;
   } else if (!primary.entitlementSnapshotJson && otherSnap) {
     // Primary has nothing; even an older snapshot is better than none.
     updates.entitlementSnapshotJson = otherSnap;
-    updates.lastEntitlementSyncAt = otherSyncAt;
+    updates.lastEntitlementSyncAt = other.lastEntitlementSyncAt ?? null;
     if (other.localRole && !primary.localRole) updates.localRole = other.localRole;
   }
   if (!primary.localRole && other.localRole && updates.localRole === undefined) {

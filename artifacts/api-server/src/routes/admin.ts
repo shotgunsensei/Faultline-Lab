@@ -15,16 +15,34 @@ import { notifyCatalogOverridesChanged } from "../lib/catalogEvents";
 
 const router: IRouter = Router();
 
-async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
   // requireAuth has already resolved the local user row (`req.appUser`) for
   // both Clerk and OperatorOS-cookie sessions. We only need to gate on the
   // admin flag here.
-  const adminUser = (req as any).appUser as { id: string; isAdmin?: boolean; isSuperAdmin?: boolean } | undefined;
-  if (!adminUser || !adminUser.isAdmin) {
+  const adminUser = (req as any).appUser as
+    | {
+        id: string;
+        isAdmin?: boolean;
+        isSuperAdmin?: boolean;
+        localRole?: string | null;
+        operatorIdentityId?: string | null;
+      }
+    | undefined;
+  // For OperatorOS-launched users the derived `local_role` is authoritative
+  // — OperatorOS owns role assignment via the entitlement snapshot.
+  // For Clerk / legacy users we keep the existing is_admin flag check.
+  // Bootstrap super admins always pass either path.
+  const isAdmin =
+    !!adminUser &&
+    (adminUser.isSuperAdmin === true ||
+      (adminUser.operatorIdentityId
+        ? adminUser.localRole === "admin"
+        : adminUser.isAdmin === true));
+  if (!adminUser || !isAdmin) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  (req as any).adminUser = adminUser;
+  (req as any).adminUser = { ...adminUser, isAdmin: true };
   next();
 }
 

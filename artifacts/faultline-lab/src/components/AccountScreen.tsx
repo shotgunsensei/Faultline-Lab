@@ -12,6 +12,7 @@ import { createBillingPortalSession } from '@/lib/api';
 import { ProfileCard } from './account/ProfileCard';
 import { SubscriptionCard } from './account/SubscriptionCard';
 import { BillingHistoryCard } from './account/BillingHistoryCard';
+import ManagedByOperatorOS from './ManagedByOperatorOS';
 import { LinkedAccountsSection } from './account/LinkedAccountsSection';
 import { EmailPreferencesCard } from './account/EmailPreferencesCard';
 import { useBillingData } from './account/useBillingData';
@@ -46,6 +47,7 @@ export default function AccountScreen() {
   const isSignedIn = useAppStore((s) => s.isSignedIn);
   const authUser = useAppStore((s) => s.authUser);
   const profile = useAppStore((s) => s.profile);
+  const managedByOperatorOs = useAppStore((s) => s.managedByOperatorOs);
   const ent = useSyncExternalStore(
     (cb) => subscribeEntitlements(cb),
     () => getEntitlements()
@@ -126,26 +128,32 @@ export default function AccountScreen() {
             avatarUrl={authUser?.avatarUrl ?? null}
           />
 
-          <SubscriptionCard
-            planLabel={planLabel}
-            isProUser={ent.isProUser}
-            isSignedIn={isSignedIn}
-            subscription={subscription}
-            subLoading={subLoading}
-            portalLoading={portalLoading}
-            error={error}
-            onManageBilling={handleManageBilling}
-            onVisitStore={() => setView('store')}
-          />
+          {managedByOperatorOs ? (
+            <ManagedByOperatorOS variant="account" />
+          ) : (
+            <>
+              <SubscriptionCard
+                planLabel={planLabel}
+                isProUser={ent.isProUser}
+                isSignedIn={isSignedIn}
+                subscription={subscription}
+                subLoading={subLoading}
+                portalLoading={portalLoading}
+                error={error}
+                onManageBilling={handleManageBilling}
+                onVisitStore={() => setView('store')}
+              />
 
-          {isSignedIn && (
-            <BillingHistoryCard
-              history={history}
-              historyLoading={historyLoading}
-              historyError={historyError}
-              portalLoading={portalLoading}
-              onManageBilling={handleManageBilling}
-            />
+              {isSignedIn && (
+                <BillingHistoryCard
+                  history={history}
+                  historyLoading={historyLoading}
+                  historyError={historyError}
+                  portalLoading={portalLoading}
+                  onManageBilling={handleManageBilling}
+                />
+              )}
+            </>
           )}
 
           {isSignedIn && <EmailPreferencesCard />}

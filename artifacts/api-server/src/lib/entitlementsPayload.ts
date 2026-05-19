@@ -70,11 +70,16 @@ export async function computeEntitlementsPayload(
     const expanded = expandBundles(snap.grantedProductIds ?? []);
     if (snap.accessLevel === "pro") expanded.add("pro-subscription");
     const ownedProductIds = ["base-free", ...Array.from(expanded)];
+    // For OperatorOS-launched users, derive admin from local_role so
+    // OperatorOS owns the role assignment end-to-end. Bootstrap super-admins
+    // (legacy is_super_admin flag) still get admin so the in-app admin panel
+    // remains reachable for founder accounts even via SSO.
+    const isAdmin = user.localRole === "admin" || !!user.isSuperAdmin;
     return {
       ownedProductIds,
       activeSubscription: snap.accessLevel === "pro" ? "pro-subscription" : null,
       isProUser: snap.accessLevel === "pro",
-      isAdmin: !!user.isAdmin,
+      isAdmin,
       isSuperAdmin: !!user.isSuperAdmin,
       source: "operatoros",
       managedByOperatorOs: true,

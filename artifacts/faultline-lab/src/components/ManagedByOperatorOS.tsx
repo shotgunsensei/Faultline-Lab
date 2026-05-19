@@ -15,13 +15,27 @@ interface Props {
  * Plans, seats, subscriptions, and module access are all owned by the parent
  * app — the child app must not present a billing surface.
  */
-export default function ManagedByOperatorOS({ variant }: Props) {
+type Variant = 'store' | 'pricing' | 'account';
+
+interface PropsExt extends Omit<Props, 'variant'> {
+  variant: Variant;
+}
+
+export default function ManagedByOperatorOS({ variant }: PropsExt) {
   const setView = useAppStore((s) => s.setView);
   const operator = useAppStore((s) => s.operatorIdentity);
   const planSlug = operator?.planSlug ?? '—';
   const accessLevel = operator?.accessLevel ?? 'standard';
   const subscriptionStatus = operator?.subscriptionStatus ?? null;
+  const localRole = operator?.localRole ?? 'standard';
+  const features = operator?.features ?? [];
   const billingUrl = `${OPERATOROS_RETURN_URL.replace(/\/+$/, '')}/billing`;
+  const heading =
+    variant === 'pricing'
+      ? 'Plans & pricing'
+      : variant === 'account'
+        ? 'Subscription'
+        : 'Store';
 
   return (
     <div className="min-h-screen bg-[#0a0e14] text-cyan-100 font-mono">
@@ -41,9 +55,7 @@ export default function ManagedByOperatorOS({ variant }: Props) {
               Managed by OperatorOS
             </span>
           </div>
-          <h1 className="text-3xl text-cyan-200">
-            {variant === 'pricing' ? 'Plans & pricing' : 'Store'}
-          </h1>
+          <h1 className="text-3xl text-cyan-200">{heading}</h1>
           <p className="text-sm text-cyan-100/70 max-w-prose">
             Your Faultline Lab access is provisioned by your OperatorOS
             workspace. Plans, seats, and add-ons are managed in OperatorOS —
@@ -80,7 +92,31 @@ export default function ManagedByOperatorOS({ variant }: Props) {
                 <dd className="text-cyan-100">{operator.moduleRole}</dd>
               </>
             ) : null}
+            <dt className="text-cyan-100/60">App role</dt>
+            <dd className="text-cyan-100 capitalize">{localRole}</dd>
           </dl>
+        </section>
+
+        <section className="border border-cyan-400/20 bg-cyan-400/5 rounded-md p-6 space-y-3">
+          <h2 className="text-sm uppercase tracking-wider text-cyan-300">
+            Enabled features
+          </h2>
+          {features.length === 0 ? (
+            <p className="text-sm text-cyan-100/60">
+              No add-on features granted by OperatorOS for this account.
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-2 text-xs">
+              {features.map((f) => (
+                <li
+                  key={f}
+                  className="px-2 py-1 rounded border border-emerald-400/40 text-emerald-300 bg-emerald-400/5"
+                >
+                  {f}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <a

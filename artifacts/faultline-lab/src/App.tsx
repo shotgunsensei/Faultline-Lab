@@ -7,7 +7,7 @@ import { useRouteSeo } from '@/lib/seo';
 import { logCatalogValidation } from '@/data/caseCatalog';
 import { runAuthoringSelfTest } from '@/data/cases/authoring';
 import { fetchMe } from '@/lib/api';
-import { consumeSsoLandingParams } from '@/lib/ssoLanding';
+import { consumeSsoLandingParams, isAccessDeniedReason } from '@/lib/ssoLanding';
 
 const IncidentBoard = lazy(() => import('@/components/IncidentBoard'));
 const InvestigationWorkspace = lazy(() => import('@/components/InvestigationWorkspace'));
@@ -181,7 +181,13 @@ function AppContent() {
       return;
     }
     let cancelled = false;
-    consumeSsoLandingParams();
+    const landing = consumeSsoLandingParams();
+    if (isAccessDeniedReason(landing.error)) {
+      setAuthUser(null);
+      setAccessDeniedReason(landing.error);
+      setAuthLoaded(true);
+      return;
+    }
     fetchMe()
       .then((me) => {
         if (cancelled) return;
@@ -206,6 +212,9 @@ function AppContent() {
                     tenantRole: me.user.operator.tenantRole,
                     accessLevel: me.user.operator.accessLevel,
                     subscriptionStatus: me.user.operator.subscriptionStatus,
+                    localRole: me.user.localRole,
+                    features: me.user.operator.features,
+                    moduleEnabled: me.user.operator.moduleEnabled,
                   }
                 : null,
             },
@@ -253,7 +262,14 @@ function AppContentWithoutClerk() {
 
   useEffect(() => {
     let cancelled = false;
-    consumeSsoLandingParams();
+    const landing = consumeSsoLandingParams();
+    if (isAccessDeniedReason(landing.error)) {
+      resetEntitlements();
+      setAuthUser(null);
+      setAccessDeniedReason(landing.error);
+      setAuthLoaded(true);
+      return;
+    }
     fetchMe()
       .then((me) => {
         if (cancelled) return;
@@ -279,6 +295,9 @@ function AppContentWithoutClerk() {
                     tenantRole: me.user.operator.tenantRole,
                     accessLevel: me.user.operator.accessLevel,
                     subscriptionStatus: me.user.operator.subscriptionStatus,
+                    localRole: me.user.localRole,
+                    features: me.user.operator.features,
+                    moduleEnabled: me.user.operator.moduleEnabled,
                   }
                 : null,
             },
