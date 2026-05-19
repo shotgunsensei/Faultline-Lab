@@ -45,7 +45,7 @@ catalog still exists for guest mode only.
 | Claim | Type | Purpose |
 | --- | --- | --- |
 | `target_module_key` | string | Must equal the configured module key (lowercased). Mismatch → `reason=wrong_module`. |
-| `target_module_enabled` | boolean | If `false`, `/sso` rejects with `reason=module_disabled` and never sets a cookie. Defaults to `true` for back-compat. |
+| `target_module_enabled` | boolean | **Required.** Must be the boolean literal `true`. Missing or non-boolean → `reason=module_disabled`; `false` → `reason=module_disabled`. No implicit default. |
 | `tenant_id` | string | Persisted to `users.operatoros_tenant_id`. |
 | `module_role` | `module_admin` \| `module_user` \| `viewer` \| `none` | Takes precedence over legacy `role`. |
 | `tenant_role` | string | Persisted to the snapshot only. |
@@ -93,7 +93,7 @@ launches. The handler:
    granted_product_ids? }`. Missing id → 400.
 3. Looks up the user by `users.operator_identity_id`. Not found → 404.
 4. Recomputes the snapshot + `local_role`, persists, and returns
-   `{ ok: true, localRole, snapshot }`.
+   `{ success: true, localRole, snapshot }`.
 
 The endpoint is unaware of Clerk and never sets cookies — it is strictly a
 server-to-server channel.
