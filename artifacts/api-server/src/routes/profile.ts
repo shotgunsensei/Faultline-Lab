@@ -94,6 +94,7 @@ router.get("/entitlements", requireAuth, async (req, res) => {
  */
 router.get("/me", requireAuth, async (req, res) => {
   const user = (req as any).appUser as User;
+  const snap = user.entitlementSnapshotJson ?? null;
   return res.json({
     user: {
       id: user.id,
@@ -103,12 +104,22 @@ router.get("/me", requireAuth, async (req, res) => {
       isAdmin: !!user.isAdmin,
       isSuperAdmin: !!user.isSuperAdmin,
       authSource: user.operatorIdentityId ? "operatoros" : user.clerkId ? "clerk" : "unknown",
+      localRole: user.localRole ?? null,
       operator: user.operatorIdentityId
         ? {
             planSlug: user.operatorPlanSlug,
             organizationId: user.operatorOrganizationId,
+            tenantId: user.operatorosTenantId ?? null,
             role: user.operatorRole,
+            moduleRole: snap?.moduleRole ?? null,
+            tenantRole: snap?.tenantRole ?? null,
+            accessLevel: snap?.accessLevel ?? null,
+            moduleEnabled: snap?.moduleEnabled ?? true,
+            subscriptionStatus: snap?.subscriptionStatus ?? null,
+            features: snap?.features ?? [],
             lastLaunchAt: user.operatorLastLaunchAt?.toISOString?.() ?? null,
+            lastEntitlementSyncAt:
+              user.lastEntitlementSyncAt?.toISOString?.() ?? null,
           }
         : null,
     },

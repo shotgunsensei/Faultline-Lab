@@ -30,7 +30,7 @@ export function LinkedAccountsSection() {
       .then(([res, me]) => {
         if (cancelled) return;
         setIdentities(res);
-        const src = me?.user?.authSource;
+        const src = me.kind === 'session' ? me.user.authSource : null;
         setAuthSource(src === 'clerk' || src === 'operatoros' ? src : 'unknown');
       })
       .catch(() => {

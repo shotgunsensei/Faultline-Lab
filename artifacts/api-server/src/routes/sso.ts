@@ -36,6 +36,8 @@ const FAILURE_REASONS: Record<SsoFailureCode, string> = {
   iss_mismatch: "wrong_issuer",
   aud_mismatch: "wrong_audience",
   module_mismatch: "wrong_module",
+  module_key_mismatch: "wrong_module",
+  module_disabled: "module_disabled",
   env_mismatch: "wrong_env",
   missing_jti: "invalid_token",
   missing_sub: "invalid_token",

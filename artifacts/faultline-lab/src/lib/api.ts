@@ -22,27 +22,52 @@ async function apiFetch(path: string, options: RequestInit = {}) {
  * OperatorOS-cookie sign-in when Clerk is unavailable or the user has not
  * gone through the Clerk widget.
  */
-export async function fetchMe(): Promise<{
-  user: {
-    id: string;
-    email: string | null;
-    displayName: string | null;
-    avatarUrl: string | null;
-    isAdmin: boolean;
-    isSuperAdmin: boolean;
-    authSource: 'operatoros' | 'clerk' | 'unknown';
-    operator: {
-      planSlug: string | null;
-      organizationId: string | null;
-      role: string | null;
-      lastLaunchAt: string | null;
-    } | null;
-  };
-} | null> {
+export interface MeUser {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  authSource: 'operatoros' | 'clerk' | 'unknown';
+  localRole: 'admin' | 'standard' | 'read-only' | 'deny' | null;
+  operator: {
+    planSlug: string | null;
+    organizationId: string | null;
+    tenantId: string | null;
+    role: string | null;
+    moduleRole: string | null;
+    tenantRole: string | null;
+    accessLevel: 'pro' | 'standard' | 'read-only' | 'denied' | null;
+    moduleEnabled: boolean;
+    subscriptionStatus: string | null;
+    features: string[];
+    lastLaunchAt: string | null;
+    lastEntitlementSyncAt: string | null;
+  } | null;
+}
+
+export type MeResult =
+  | { kind: 'session'; user: MeUser }
+  | { kind: 'none' }
+  | { kind: 'denied'; reason: string };
+
+export async function fetchMe(): Promise<MeResult> {
   const res = await fetch(`${API_BASE}/me`, { credentials: 'include' });
-  if (res.status === 401) return null;
+  if (res.status === 401) return { kind: 'none' };
+  if (res.status === 403) {
+    let reason = 'access_denied';
+    try {
+      const body = (await res.json()) as { reason?: string };
+      if (body?.reason) reason = body.reason;
+    } catch {
+      /* ignore */
+    }
+    return { kind: 'denied', reason };
+  }
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-  return res.json();
+  const body = (await res.json()) as { user: MeUser };
+  return { kind: 'session', user: body.user };
 }
 
 export async function logoutSsoSession(): Promise<void> {

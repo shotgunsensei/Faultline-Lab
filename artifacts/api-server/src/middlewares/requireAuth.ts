@@ -64,11 +64,34 @@ async function resolveUser(req: Request): Promise<User | null> {
   return null;
 }
 
+function isAccessDenied(user: User): boolean {
+  if (user.localRole === "deny") return true;
+  const snap = user.entitlementSnapshotJson as
+    | { moduleEnabled?: boolean; accessLevel?: string }
+    | null
+    | undefined;
+  if (!snap) return false;
+  if (snap.moduleEnabled === false) return true;
+  if (snap.accessLevel === "denied") return true;
+  return false;
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const user = await resolveUser(req);
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    if (isAccessDenied(user)) {
+      res.status(403).json({
+        error: "Access denied",
+        code: "access_denied",
+        reason:
+          user.entitlementSnapshotJson?.accessLevel === "denied"
+            ? "access_revoked"
+            : "module_disabled",
+      });
       return;
     }
     (req as any).appUser = user;

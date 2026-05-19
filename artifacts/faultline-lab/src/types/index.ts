@@ -246,7 +246,8 @@ export type AppView =
   | 'auth'
   | 'admin'
   | 'daily'
-  | 'sandbox';
+  | 'sandbox'
+  | 'access-denied';
 
 export interface AuthUser {
   id: string;

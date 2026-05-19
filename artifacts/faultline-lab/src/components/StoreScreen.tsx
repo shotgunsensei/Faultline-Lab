@@ -14,6 +14,7 @@ import {
 } from '@/lib/entitlements';
 import { recommendProducts } from '@/lib/recommendations';
 import EcosystemFooter from './EcosystemFooter';
+import ManagedByOperatorOS from './ManagedByOperatorOS';
 import {
   ArrowLeft,
   Crown,
@@ -39,6 +40,7 @@ export default function StoreScreen() {
   const setView = useAppStore((s) => s.setView);
   const profile = useAppStore((s) => s.profile);
   const toolUsageSignals = useAppStore((s) => s.toolUsageSignals);
+  const managedByOperatorOs = useAppStore((s) => s.managedByOperatorOs);
   const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const [selectedReason, setSelectedReason] = useState<string | undefined>(undefined);
   const [selectedInterval, setSelectedInterval] = useState<'month' | 'year' | undefined>(undefined);
@@ -77,6 +79,10 @@ export default function StoreScreen() {
   const specialty = getProductsBySection('specialty');
   const owned = getOwnedProducts().filter((p) => p.id !== 'base-free');
   const recs = recommendProducts(profile, toolUsageSignals, 4);
+
+  if (managedByOperatorOs) {
+    return <ManagedByOperatorOS variant="store" />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0e14] text-zinc-100">

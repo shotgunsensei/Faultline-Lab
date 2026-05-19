@@ -12,6 +12,11 @@ import { clerkClient, getAuth } from "@clerk/express";
 import type { Request } from "express";
 import { logger } from "./logger";
 import type { VerifiedSsoToken } from "./operatorOsSso";
+import {
+  deriveLocalRole,
+  snapshotFromToken,
+  type EntitlementSnapshot,
+} from "./operatorOsRole";
 
 const BOOTSTRAP_SUPER_ADMIN_EMAILS: ReadonlySet<string> = new Set(
   ["john@shotgunninjas.com"].map((e) => e.toLowerCase()),
@@ -151,6 +156,9 @@ export async function ensureOperatorOsUserRow(token: VerifiedSsoToken): Promise<
     .where(eq(usersTable.operatorIdentityId, token.sub))
     .limit(1);
 
+  const snapshot = snapshotFromToken(token);
+  const localRole = deriveLocalRole(snapshot);
+
   if (existing.length > 0) {
     const user = existing[0];
     const updates: Partial<User> = {
@@ -158,6 +166,10 @@ export async function ensureOperatorOsUserRow(token: VerifiedSsoToken): Promise<
       operatorOrganizationId: token.organizationId ?? user.operatorOrganizationId ?? null,
       operatorRole: token.role ?? user.operatorRole ?? null,
       operatorLastLaunchAt: now,
+      operatorosTenantId: token.tenantId ?? user.operatorosTenantId ?? null,
+      localRole,
+      lastEntitlementSyncAt: now,
+      entitlementSnapshotJson: snapshot,
       updatedAt: now,
     };
     if (token.email && token.email !== user.email) updates.email = token.email;
@@ -193,6 +205,10 @@ export async function ensureOperatorOsUserRow(token: VerifiedSsoToken): Promise<
       operatorOrganizationId: token.organizationId ?? null,
       operatorRole: token.role ?? null,
       operatorLastLaunchAt: now,
+      operatorosTenantId: token.tenantId ?? null,
+      localRole,
+      lastEntitlementSyncAt: now,
+      entitlementSnapshotJson: snapshot,
       isAdmin: isBoot,
       isSuperAdmin: isBoot,
     })
@@ -263,6 +279,27 @@ export async function mergeUserRows(primary: User, other: User): Promise<User> {
       other.operatorLastLaunchAt > primary.operatorLastLaunchAt)
   ) {
     updates.operatorLastLaunchAt = other.operatorLastLaunchAt;
+  }
+  if (!primary.operatorosTenantId && other.operatorosTenantId)
+    updates.operatorosTenantId = other.operatorosTenantId;
+  // Snapshot, localRole and lastEntitlementSyncAt move as a unit. Pick whichever
+  // row has the newer sync timestamp so that authz state can never silently
+  // regress to an older view after a link.
+  const primarySyncAt = primary.lastEntitlementSyncAt ?? 0;
+  const otherSyncAt = other.lastEntitlementSyncAt ?? 0;
+  const otherSnap = other.entitlementSnapshotJson;
+  if (otherSnap && otherSyncAt >= primarySyncAt) {
+    updates.entitlementSnapshotJson = otherSnap;
+    updates.lastEntitlementSyncAt = otherSyncAt || primarySyncAt;
+    if (other.localRole) updates.localRole = other.localRole;
+  } else if (!primary.entitlementSnapshotJson && otherSnap) {
+    // Primary has nothing; even an older snapshot is better than none.
+    updates.entitlementSnapshotJson = otherSnap;
+    updates.lastEntitlementSyncAt = otherSyncAt;
+    if (other.localRole && !primary.localRole) updates.localRole = other.localRole;
+  }
+  if (!primary.localRole && other.localRole && updates.localRole === undefined) {
+    updates.localRole = other.localRole;
   }
 
   await db.transaction(async (tx) => {
@@ -375,6 +412,30 @@ export async function mergeUserRows(primary: User, other: User): Promise<User> {
  * side of the request. Useful for account-linking endpoints, where the
  * request may carry both an OperatorOS session cookie AND a Clerk session.
  */
+/**
+ * Persist a freshly-computed entitlement snapshot for an OperatorOS user.
+ * Recomputes `localRole` and stamps `lastEntitlementSyncAt`. Used by the
+ * `/api/operatoros/entitlements/sync` push endpoint when the parent app
+ * needs to flip entitlements out-of-band (subscription cancelled, module
+ * disabled, plan upgraded, etc.).
+ */
+export async function applyEntitlementSnapshot(
+  user: User,
+  snapshot: EntitlementSnapshot,
+): Promise<User> {
+  const now = new Date();
+  const localRole = deriveLocalRole(snapshot);
+  const updates: Partial<User> = {
+    entitlementSnapshotJson: snapshot,
+    localRole,
+    lastEntitlementSyncAt: now,
+    operatorPlanSlug: snapshot.planSlug ?? user.operatorPlanSlug ?? null,
+    updatedAt: now,
+  };
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id));
+  return { ...user, ...updates } as User;
+}
+
 export async function resolveClerkUserFromRequest(
   req: Request,
 ): Promise<User | null> {

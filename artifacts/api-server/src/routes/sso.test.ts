@@ -40,6 +40,8 @@ function makeToken(overrides: Record<string, unknown> = {}, secret = SECRET): st
     iss: ISSUER,
     aud: AUDIENCE,
     module_slug: AUDIENCE,
+    target_module_key: AUDIENCE,
+    target_module_enabled: true,
     env: ENV_CLAIM,
     iat: now,
     exp: now + 60,
@@ -48,6 +50,13 @@ function makeToken(overrides: Record<string, unknown> = {}, secret = SECRET): st
     name: "Test Operator",
     plan_slug: "ops-pro",
     role: "admin",
+    module_role: "module_admin",
+    tenant_role: "tenant_admin",
+    tenant_id: "tenant-test",
+    access_level: "pro",
+    features: ["pro-analytics"],
+    granted_product_ids: ["pack-network-ops"],
+    subscription_status: "active",
     ...overrides,
   };
   return jwt.sign(payload, secret, { algorithm: "HS256" });
@@ -121,7 +130,8 @@ describe("/sso", () => {
       .where(eq(usersTable.operatorIdentityId, decoded.sub as string));
     expect(rows).toHaveLength(1);
     expect(rows[0].operatorPlanSlug).toBe("ops-pro");
-    expect(rows[0].operatorRole).toBe("admin");
+    // module_role wins over legacy `role` per the new entitlement contract
+    expect(rows[0].operatorRole).toBe("module_admin");
   });
 
   it("rejects tokens signed with the wrong secret as invalid_token", async () => {
@@ -318,6 +328,58 @@ describe("/sso", () => {
         "/cases/foo?ref=launch&sso=ok",
       );
     });
+  });
+
+  it("rejects target_module_key mismatch with reason=wrong_module", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ target_module_key: "different-child-app" });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=wrong_module");
+  });
+
+  it("rejects target_module_enabled=false with reason=module_disabled", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ target_module_enabled: false });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.headers["location"]).toContain("reason=module_disabled");
+    expect(res.headers["set-cookie"]).toBeFalsy();
+  });
+
+  it("persists the entitlement snapshot + local role from the SSO token", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ access_level: "pro", module_role: "module_admin" });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    expect(res.status).toBe(302);
+    const decoded = jwt.decode(token) as Record<string, unknown>;
+    const rows = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.operatorIdentityId, decoded.sub as string));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].localRole).toBe("admin");
+    expect(rows[0].operatorosTenantId).toBe("tenant-test");
+    expect(rows[0].entitlementSnapshotJson?.accessLevel).toBe("pro");
+    expect(rows[0].entitlementSnapshotJson?.grantedProductIds).toContain(
+      "pack-network-ops",
+    );
+    expect(rows[0].lastEntitlementSyncAt).toBeTruthy();
+  });
+
+  it("derives localRole=deny when module_role is none", async () => {
+    vi.spyOn(sso, "consumeSsoToken").mockResolvedValue(undefined);
+    const token = makeToken({ module_role: "none", access_level: "denied" });
+    const res = await get(buildApp(), `/sso?token=${encodeURIComponent(token)}`);
+    // Verifier rejects access_level=denied not before — token still verifies
+    // but the snapshot persisted should make localRole=deny so any
+    // subsequent requireAuth call returns 403. /sso itself does NOT enforce
+    // localRole — that's requireAuth's job. We just assert persistence here.
+    expect(res.status).toBe(302);
+    const decoded = jwt.decode(token) as Record<string, unknown>;
+    const rows = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.operatorIdentityId, decoded.sub as string));
+    expect(rows[0].localRole).toBe("deny");
   });
 
   it("upserts on relaunch (same operator_identity_id => same row, refreshed plan)", async () => {

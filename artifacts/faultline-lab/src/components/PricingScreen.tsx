@@ -11,6 +11,7 @@ import {
   subscribeEntitlements,
 } from '@/lib/entitlements';
 import EcosystemFooter from './EcosystemFooter';
+import ManagedByOperatorOS from './ManagedByOperatorOS';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { buildFeatureRows } from './pricing/featureRows';
 import { TierCard } from './pricing/TierCard';
@@ -28,6 +29,7 @@ export default function PricingScreen() {
   const openStoreWithProduct = useAppStore((s) => s.openStoreWithProduct);
   const pricingIntroActive = useAppStore((s) => s.pricingIntroActive);
   const setPricingIntroActive = useAppStore((s) => s.setPricingIntroActive);
+  const managedByOperatorOs = useAppStore((s) => s.managedByOperatorOs);
   useEntitlementsTick();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
@@ -62,6 +64,10 @@ export default function PricingScreen() {
     openStoreWithProduct('pro-subscription', 'pricing-page', billingInterval);
   const onChooseBundle = () =>
     openStoreWithProduct('bundle-master-investigator', 'pricing-page');
+
+  if (managedByOperatorOs) {
+    return <ManagedByOperatorOS variant="pricing" />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0e14] text-zinc-100">

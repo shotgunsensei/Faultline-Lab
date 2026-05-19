@@ -22,6 +22,26 @@ export const usersTable = pgTable("users", {
   operatorOrganizationId: text("operator_organization_id"),
   operatorRole: text("operator_role"),
   operatorLastLaunchAt: timestamp("operator_last_launch_at"),
+  operatorosTenantId: text("operatoros_tenant_id"),
+  // Derived role mapping: 'admin' | 'standard' | 'read-only' | 'deny'.
+  // Recomputed on every OperatorOS launch + entitlement sync from the
+  // module_role / tenant_role / access_level claims. requireAuth returns
+  // 403 access_denied when this is 'deny'.
+  localRole: text("local_role"),
+  lastEntitlementSyncAt: timestamp("last_entitlement_sync_at"),
+  // Raw OperatorOS-issued entitlement snapshot. Source of truth for
+  // OperatorOS-managed users (replaces user_entitlements lookup for them).
+  entitlementSnapshotJson: jsonb("entitlement_snapshot_json").$type<{
+    accessLevel: 'pro' | 'standard' | 'read-only' | 'denied';
+    moduleEnabled: boolean;
+    moduleRole: string | null;
+    tenantRole: string | null;
+    planSlug: string | null;
+    subscriptionStatus: string | null;
+    features: string[];
+    grantedProductIds: string[];
+    syncedAt: number;
+  } | null>(),
   // Per-user opt-in toggle for renewal / expiration emails. Defaults to true
   // so existing users keep getting heads-up notices, but a single-click
   // unsubscribe link in every email (or the Account screen toggle) flips

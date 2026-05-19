@@ -53,6 +53,18 @@ interface AppState {
   showDiagnosisForm: boolean;
   authUser: AuthUser | null;
   isSignedIn: boolean;
+  authSource: 'operatoros' | 'clerk' | 'unknown' | null;
+  managedByOperatorOs: boolean;
+  operatorIdentity: {
+    planSlug: string | null;
+    tenantId: string | null;
+    moduleRole: string | null;
+    tenantRole: string | null;
+    accessLevel: 'pro' | 'standard' | 'read-only' | 'denied' | null;
+    subscriptionStatus: string | null;
+  } | null;
+  accessDeniedReason: string | null;
+  setAccessDeniedReason: (reason: string | null) => void;
   cloudSyncReady: boolean;
   setCloudSyncReady: (ready: boolean) => void;
   authLoaded: boolean;
@@ -68,7 +80,13 @@ interface AppState {
   setView: (view: AppView) => void;
   openStoreWithProduct: (productId: string, reason: string, billingInterval?: 'month' | 'year') => void;
   consumePendingStoreProduct: () => { productId: string; reason: string; billingInterval?: 'month' | 'year' } | null;
-  setAuthUser: (user: AuthUser | null) => void;
+  setAuthUser: (
+    user: AuthUser | null,
+    meta?: {
+      authSource?: 'operatoros' | 'clerk' | 'unknown';
+      operator?: AppState['operatorIdentity'];
+    },
+  ) => void;
   startCase: (caseId: string) => void;
   resumeCase: (caseId: string) => void;
   startSandboxRun: (caseId: string) => void;
@@ -101,6 +119,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   showDiagnosisForm: false,
   authUser: null,
   isSignedIn: false,
+  authSource: null,
+  managedByOperatorOs: false,
+  operatorIdentity: null,
+  accessDeniedReason: null,
+  setAccessDeniedReason: (reason) =>
+    set({
+      accessDeniedReason: reason,
+      view: reason ? 'access-denied' : 'incident-board',
+    }),
   cloudSyncReady: false,
   setCloudSyncReady: (ready) => set({ cloudSyncReady: ready }),
   authLoaded: false,
@@ -131,9 +158,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setView: (view) => set({ view }),
 
-  setAuthUser: (user) => set({
+  setAuthUser: (user, meta) => set({
     authUser: user,
     isSignedIn: !!user,
+    authSource: user ? meta?.authSource ?? get().authSource ?? 'unknown' : null,
+    managedByOperatorOs: !!user && (meta?.authSource ?? get().authSource) === 'operatoros',
+    operatorIdentity: user ? meta?.operator ?? get().operatorIdentity ?? null : null,
   }),
 
   startCase: (caseId) => {

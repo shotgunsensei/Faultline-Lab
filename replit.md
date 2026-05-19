@@ -63,12 +63,21 @@ Faultline Lab is a cinematic browser-based troubleshooting simulator for technic
 - `scripts/src/seed-products.ts` — Script to create Stripe products from catalog
 
 ### Entitlement System
+- **OperatorOS-owned for signed-in users.** When `authSource === "operatoros"`,
+  entitlements are sourced from the SSO token snapshot
+  (`users.entitlement_snapshot_json`) and refreshed via
+  `POST /api/operatoros/entitlements/sync`. The `/store` and `/pricing`
+  screens render `ManagedByOperatorOS` instead of any local checkout UI.
+  `users.local_role` is derived from the snapshot:
+  `module_admin → admin`, `module_user → standard`, `viewer → read-only`,
+  `none` / disabled module / `access_level=denied` → `deny`. `deny` users
+  hit HTTP 403 on protected routes and are routed to `AccessDeniedScreen`.
+- **Guest / Clerk legacy path** still uses the local catalog below.
 - `FREE_CASE_IDS`: the four built-in starter case IDs (`case-windows-ad-001`,
   `case-networking-vpn-001`, `case-automotive-001`, `case-electronics-001`).
   As real pack-exclusive cases are authored, they go into the corresponding
   pack's `includedCaseIds` instead of this list.
 - `base-free` product owned by all users
-- Pro subscription ($8.99/mo, $79/yr) grants every case + Pro features
 - Content packs, feature upgrades, and bundles are `coming-soon` in catalog
 - `isCaseAccessible()` is **fail-closed**: a case is accessible only if it's
   in `FREE_CASE_IDS`, the user has Pro, or it's listed in `includedCaseIds`

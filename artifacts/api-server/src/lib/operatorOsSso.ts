@@ -26,6 +26,8 @@ export type SsoFailureCode =
   | "iss_mismatch"
   | "aud_mismatch"
   | "module_mismatch"
+  | "module_key_mismatch"
+  | "module_disabled"
   | "env_mismatch"
   | "missing_jti"
   | "missing_sub"
@@ -53,6 +55,18 @@ export interface VerifiedSsoToken {
   organizationId?: string | null;
   planSlug?: string | null;
   role?: string | null;
+  // OperatorOS entitlement-pivot claims (Task #108). The parent app is the
+  // source of truth for module access; the child app maps these claims to
+  // a local role + entitlement snapshot.
+  targetModuleKey: string;
+  targetModuleEnabled: boolean;
+  tenantId: string | null;
+  moduleRole: string | null;
+  tenantRole: string | null;
+  accessLevel: 'pro' | 'standard' | 'read-only' | 'denied';
+  features: string[];
+  grantedProductIds: string[];
+  subscriptionStatus: string | null;
   raw: JwtPayload;
 }
 
@@ -121,6 +135,34 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     throw new SsoVerificationError("module_mismatch", "module_slug mismatch", jti);
   }
 
+  // OperatorOS entitlement pivot: every launch carries an explicit
+  // `target_module_key` (the canonical OperatorOS-side key for this child)
+  // that MUST match `module_slug` / `aud` / configured audience. A
+  // mismatch is treated as if the token were minted for a different module.
+  // `target_module_enabled === false` means the operator has revoked
+  // module access at the parent — we surface a dedicated failure so the
+  // SPA can render the AccessDenied screen instead of a generic error.
+  const targetModuleKeyRaw = (payload as Record<string, unknown>).target_module_key;
+  const targetModuleKey =
+    typeof targetModuleKeyRaw === "string" ? targetModuleKeyRaw.toLowerCase() : moduleSlug;
+  if (targetModuleKey !== cfg.audience) {
+    throw new SsoVerificationError(
+      "module_key_mismatch",
+      "target_module_key mismatch",
+      jti,
+    );
+  }
+  const targetModuleEnabledRaw = (payload as Record<string, unknown>).target_module_enabled;
+  const targetModuleEnabled =
+    typeof targetModuleEnabledRaw === "boolean" ? targetModuleEnabledRaw : true;
+  if (!targetModuleEnabled) {
+    throw new SsoVerificationError(
+      "module_disabled",
+      "target_module_enabled is false",
+      jti,
+    );
+  }
+
   const envClaim = (payload as Record<string, unknown>).env;
   if (typeof envClaim !== "string" || envClaim !== cfg.env) {
     throw new SsoVerificationError("env_mismatch", "Env mismatch", jti);
@@ -140,6 +182,35 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     throw new SsoVerificationError("expired", "Token expired", jti);
   }
 
+  const tenantId =
+    pickString(payload, "tenant_id") ||
+    pickString(payload, "organization_id") ||
+    pickString(payload, "org_id");
+  const moduleRole =
+    pickString(payload, "module_role") || pickString(payload, "role");
+  const tenantRole = pickString(payload, "tenant_role");
+  const accessLevelRaw = pickString(payload, "access_level");
+  const accessLevel: VerifiedSsoToken["accessLevel"] =
+    accessLevelRaw === "pro" ||
+    accessLevelRaw === "standard" ||
+    accessLevelRaw === "read-only" ||
+    accessLevelRaw === "denied"
+      ? accessLevelRaw
+      : moduleRole === "viewer"
+        ? "read-only"
+        : moduleRole === "none"
+          ? "denied"
+          : "standard";
+  const featuresRaw = (payload as Record<string, unknown>).features;
+  const features = Array.isArray(featuresRaw)
+    ? featuresRaw.filter((f): f is string => typeof f === "string")
+    : [];
+  const grantedRaw = (payload as Record<string, unknown>).granted_product_ids;
+  const grantedProductIds = Array.isArray(grantedRaw)
+    ? grantedRaw.filter((f): f is string => typeof f === "string")
+    : [];
+  const subscriptionStatus = pickString(payload, "subscription_status");
+
   return {
     jti,
     sub,
@@ -153,7 +224,16 @@ export function verifySsoToken(token: string, cfg: SsoConfig): VerifiedSsoToken 
     avatarUrl: pickString(payload, "avatar_url") || pickString(payload, "picture"),
     organizationId: pickString(payload, "organization_id") || pickString(payload, "org_id"),
     planSlug: pickString(payload, "plan_slug") || pickString(payload, "plan"),
-    role: pickString(payload, "role"),
+    role: moduleRole,
+    targetModuleKey,
+    targetModuleEnabled,
+    tenantId,
+    moduleRole,
+    tenantRole,
+    accessLevel,
+    features,
+    grantedProductIds,
+    subscriptionStatus,
     raw: payload,
   };
 }

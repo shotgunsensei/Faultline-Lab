@@ -7,6 +7,7 @@ import storageRouter from "./storage";
 import crossPromoRouter from "./crossPromo";
 import accountRouter from "./account";
 import emailPreferencesRouter from "./emailPreferences";
+import operatorOsRouter from "./operatoros";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,7 @@ router.use(storageRouter);
 router.use(crossPromoRouter);
 router.use(accountRouter);
 router.use(emailPreferencesRouter);
+router.use(operatorOsRouter);
 router.use("/stripe", stripeRouter);
 
 export default router;

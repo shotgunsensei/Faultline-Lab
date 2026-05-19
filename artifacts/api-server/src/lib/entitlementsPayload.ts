@@ -23,21 +23,38 @@ const BUNDLE_CONTENTS: Record<string, string[]> = {
   ],
 };
 
+export type EntitlementSource = "operatoros" | "stripe" | "free";
+
 export interface EntitlementsPayload {
   ownedProductIds: string[];
   activeSubscription: string | null;
   isProUser: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  source: EntitlementSource;
+  managedByOperatorOs: boolean;
+  accessLevel?: 'pro' | 'standard' | 'read-only' | 'denied';
+  localRole?: 'admin' | 'standard' | 'read-only' | 'deny';
+  features?: string[];
+  planSlug?: string | null;
+  subscriptionStatus?: string | null;
+  lastSyncAt?: string | null;
+}
+
+function expandBundles(ids: string[]): Set<string> {
+  const out = new Set<string>(ids);
+  for (const id of ids) {
+    const children = BUNDLE_CONTENTS[id];
+    if (children) for (const c of children) out.add(c);
+  }
+  return out;
 }
 
 /**
- * Builds the `/api/entitlements` payload for a given app-user id (NOT a
- * Clerk id). Mirrors the client-side `EntitlementState` shape so the server
- * remains the source of truth for entitlement membership.
- *
- * Bundle expansion happens here so the client doesn't have to know about
- * the catalog topology — owning a bundle implicitly owns each child.
+ * Builds the `/api/entitlements` payload for a given app-user id. When the
+ * user has an OperatorOS-issued entitlement snapshot we treat that as the
+ * authoritative source (parent app owns plans + access). Otherwise we fall
+ * back to the legacy Stripe/local `user_entitlements` table.
  */
 export async function computeEntitlementsPayload(
   userId: string,
@@ -48,6 +65,28 @@ export async function computeEntitlementsPayload(
     .where(eq(usersTable.id, userId))
     .limit(1);
 
+  const snap = user?.entitlementSnapshotJson ?? null;
+  if (user?.operatorIdentityId && snap) {
+    const expanded = expandBundles(snap.grantedProductIds ?? []);
+    if (snap.accessLevel === "pro") expanded.add("pro-subscription");
+    const ownedProductIds = ["base-free", ...Array.from(expanded)];
+    return {
+      ownedProductIds,
+      activeSubscription: snap.accessLevel === "pro" ? "pro-subscription" : null,
+      isProUser: snap.accessLevel === "pro",
+      isAdmin: !!user.isAdmin,
+      isSuperAdmin: !!user.isSuperAdmin,
+      source: "operatoros",
+      managedByOperatorOs: true,
+      accessLevel: snap.accessLevel,
+      localRole: (user.localRole as EntitlementsPayload["localRole"]) ?? "standard",
+      features: snap.features ?? [],
+      planSlug: snap.planSlug ?? null,
+      subscriptionStatus: snap.subscriptionStatus ?? null,
+      lastSyncAt: user.lastEntitlementSyncAt?.toISOString?.() ?? null,
+    };
+  }
+
   const entitlements = await db
     .select()
     .from(userEntitlementsTable)
@@ -55,12 +94,7 @@ export async function computeEntitlementsPayload(
 
   const active = entitlements.filter((e) => e.isActive && !e.revokedAt);
   const directIds = active.map((e) => e.productId);
-
-  const expanded = new Set<string>(directIds);
-  for (const id of directIds) {
-    const children = BUNDLE_CONTENTS[id];
-    if (children) for (const c of children) expanded.add(c);
-  }
+  const expanded = expandBundles(directIds);
 
   const ownedProductIds = ["base-free", ...Array.from(expanded)];
   const activeSubscription =
@@ -74,5 +108,7 @@ export async function computeEntitlementsPayload(
     isProUser,
     isAdmin: !!user?.isAdmin,
     isSuperAdmin: !!user?.isSuperAdmin,
+    source: directIds.length > 0 ? "stripe" : "free",
+    managedByOperatorOs: false,
   };
 }

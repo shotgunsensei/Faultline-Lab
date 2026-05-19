@@ -125,6 +125,12 @@ export const ROUTE_SEO: Record<AppView, RouteSeo> = {
     description:
       'Free-form diagnostic sandbox. Experiment with Faultline Lab tooling outside of scored cases.',
   },
+  'access-denied': {
+    path: '/access-denied',
+    title: 'Access Denied — Faultline Lab',
+    description:
+      'Faultline Lab access is managed by OperatorOS. Update your plan or role in OperatorOS to continue.',
+  },
 };
 
 function setMeta(selector: string, attr: 'name' | 'property', key: string, content: string) {

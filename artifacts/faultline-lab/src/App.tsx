@@ -21,6 +21,7 @@ const AuthScreen = lazy(() => import('@/components/AuthScreen'));
 const AdminPanel = lazy(() => import('@/components/AdminPanel'));
 const DailyChallengeScreen = lazy(() => import('@/components/DailyChallengeScreen'));
 const SandboxScreen = lazy(() => import('@/components/SandboxScreen'));
+const AccessDeniedScreen = lazy(() => import('@/components/AccessDeniedScreen'));
 const CloudSyncProvider = lazy(() =>
   import('@/components/CloudSyncProvider').then(m => ({ default: m.CloudSyncProvider })),
 );
@@ -78,9 +79,16 @@ function renderView(view: string) {
       return <DailyChallengeScreen />;
     case 'sandbox':
       return <SandboxScreen />;
+    case 'access-denied':
+      return <AccessDeniedRoute />;
     default:
       return <BootScreen />;
   }
+}
+
+function AccessDeniedRoute() {
+  const reason = useAppStore((s) => s.accessDeniedReason);
+  return <AccessDeniedScreen reason={reason} />;
 }
 
 const TOASTER_STYLE = {
@@ -156,34 +164,52 @@ function AppContent() {
   const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
   useRouteSeo(view);
 
+  const setAccessDeniedReason = useAppStore(s => s.setAccessDeniedReason);
   useEffect(() => {
     if (!isLoaded) return;
     if (user) {
-      setAuthUser({
-        id: user.id,
-        email: user.primaryEmailAddress?.emailAddress || null,
-        name: user.fullName || user.firstName || null,
-        avatarUrl: user.imageUrl || null,
-      });
+      setAuthUser(
+        {
+          id: user.id,
+          email: user.primaryEmailAddress?.emailAddress || null,
+          name: user.fullName || user.firstName || null,
+          avatarUrl: user.imageUrl || null,
+        },
+        { authSource: 'clerk' },
+      );
       setAuthLoaded(true);
       return;
     }
-    // No Clerk session: check whether the user arrived via OperatorOS SSO
-    // (signed cookie set by the api-server's /sso endpoint). If so, hydrate
-    // signed-in state from /api/me so cloud sync, entitlements, and admin
-    // routes work without Clerk credentials.
     let cancelled = false;
     consumeSsoLandingParams();
     fetchMe()
       .then((me) => {
         if (cancelled) return;
-        if (me) {
-          setAuthUser({
-            id: me.user.id,
-            email: me.user.email,
-            name: me.user.displayName,
-            avatarUrl: me.user.avatarUrl,
-          });
+        if (me.kind === 'denied') {
+          setAuthUser(null);
+          setAccessDeniedReason(me.reason);
+        } else if (me.kind === 'session') {
+          setAuthUser(
+            {
+              id: me.user.id,
+              email: me.user.email,
+              name: me.user.displayName,
+              avatarUrl: me.user.avatarUrl,
+            },
+            {
+              authSource: me.user.authSource,
+              operator: me.user.operator
+                ? {
+                    planSlug: me.user.operator.planSlug,
+                    tenantId: me.user.operator.tenantId,
+                    moduleRole: me.user.operator.moduleRole,
+                    tenantRole: me.user.operator.tenantRole,
+                    accessLevel: me.user.operator.accessLevel,
+                    subscriptionStatus: me.user.operator.subscriptionStatus,
+                  }
+                : null,
+            },
+          );
         } else {
           setAuthUser(null);
         }
@@ -197,7 +223,7 @@ function AppContent() {
     return () => {
       cancelled = true;
     };
-  }, [user, isLoaded, setAuthUser, setAuthLoaded]);
+  }, [user, isLoaded, setAuthUser, setAuthLoaded, setAccessDeniedReason]);
 
   return (
     <Suspense fallback={<ScreenFallback />}>
@@ -221,6 +247,7 @@ function AppContentWithoutClerk() {
   const view = useAppStore(s => s.view);
   const setAuthLoaded = useAppStore(s => s.setAuthLoaded);
   const setAuthUser = useAppStore(s => s.setAuthUser);
+  const setAccessDeniedReason = useAppStore(s => s.setAccessDeniedReason);
   const isSignedIn = useAppStore(s => s.isSignedIn);
   useRouteSeo(view);
 
@@ -230,13 +257,32 @@ function AppContentWithoutClerk() {
     fetchMe()
       .then((me) => {
         if (cancelled) return;
-        if (me) {
-          setAuthUser({
-            id: me.user.id,
-            email: me.user.email,
-            name: me.user.displayName,
-            avatarUrl: me.user.avatarUrl,
-          });
+        if (me.kind === 'denied') {
+          resetEntitlements();
+          setAuthUser(null);
+          setAccessDeniedReason(me.reason);
+        } else if (me.kind === 'session') {
+          setAuthUser(
+            {
+              id: me.user.id,
+              email: me.user.email,
+              name: me.user.displayName,
+              avatarUrl: me.user.avatarUrl,
+            },
+            {
+              authSource: me.user.authSource,
+              operator: me.user.operator
+                ? {
+                    planSlug: me.user.operator.planSlug,
+                    tenantId: me.user.operator.tenantId,
+                    moduleRole: me.user.operator.moduleRole,
+                    tenantRole: me.user.operator.tenantRole,
+                    accessLevel: me.user.operator.accessLevel,
+                    subscriptionStatus: me.user.operator.subscriptionStatus,
+                  }
+                : null,
+            },
+          );
         } else {
           resetEntitlements();
           setAuthUser(null);
@@ -251,7 +297,7 @@ function AppContentWithoutClerk() {
     return () => {
       cancelled = true;
     };
-  }, [setAuthLoaded, setAuthUser]);
+  }, [setAuthLoaded, setAuthUser, setAccessDeniedReason]);
 
   return (
     <Suspense fallback={<ScreenFallback />}>

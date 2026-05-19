@@ -42,6 +42,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://faultlinelab.com/access-denied</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://faultlinelab.com/case/domain-auth-failure/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
